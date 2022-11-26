@@ -1,0 +1,16 @@
+{
+  "version": "0.2.1",
+  "defaults": {},
+  "configurations": [
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "Translate-miku.exe",
+      "name": "Translate-miku.exe",
+      "cwd": "${fileDirname}",
+      "env": {
+        "PATH": "${PATH};${fileDirname}\\Environment\\msvc2019_64\\bin;${fileDirname}\\DLL;"//设置DLL动态文件的路径，QT6的DLL路径
+      }
+    }
+  ]
+}
