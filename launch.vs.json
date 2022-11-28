@@ -9,7 +9,7 @@
       "name": "Translate-miku.exe",
       "cwd": "${fileDirname}",
       "env": {
-        "PATH": "${PATH};${fileDirname}\\Environment\\msvc2019_64\\bin;${fileDirname}\\DLL;"//设置DLL动态文件的路径，QT6的DLL路径
+        "PATH": "${PATH};${fileDirname}\\DLL;"
       }
     }
   ]
