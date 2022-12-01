@@ -2,87 +2,14 @@
 #include "FilePath.h"
 #include "base.h"
 #include "imgui/GUI.h"
-#include <shellapi.h>//有关系统托盘的头文件
-#define WM_HIDE WM_USER+100 
+#include <atlimage.h>
+#include<windows.h>
 
+static bool tex_open = false;
+static bool tex_openpos = false;
+HINSTANCE g_hInst = NULL;
 
-/*     
-ypedef struct _NOTIFYICONDATAA {
-        DWORD cbSize;                    //结构体的大小，以字节为单位。
-        HWND hWnd;						//窗口的句柄。标示的窗口用来接收与托盘图标相关的消息。
-        UINT uID;						//应用程序定义的任务栏图标的标识符。
-        UINT uFlags;					//此成员表明具体哪些其他成员为合法数据（即哪些成员起作用）。
-                                        //此成员可以为以下值的组合：
-                                        //  NIF_ICON 　　hIcon成员起作用。 　
-                                        //　NIF_MESSAGE 　uCallbackMessage成员起作用。 　
-                                        //　NIF_TIP 　　  szTip成员起作用。 　
-                                        //　NIF_STATE 　　dwState和dwStateMask成员起作用。
-                                        //　NIF_INFO 　　 使用气球提示代替普通的工具提示框。szInfo, uTimeout, szInfoTitle和dwInfoFlags成员起作用。 　
-                                        //　NIF_GUID 　　 保留。
-
-        UINT uCallbackMessage;			//应用程序定义的消息标示。当托盘图标区域发生鼠标事件或者使用键盘选择或激活图标时，
-                                        //系统将使用此标示向由hWnd成员标示的窗口发送消息。
-                                        //消息响应函数的wParam参数标示了消息事件发生的任务栏图标，lParam参数根据事件的不同，
-                                        //包含了鼠标或键盘的具体消息，例如当鼠标指针移过托盘图标时，lParam将为WM_MOUSEMOVE。
-        HICON hIcon;					//增加、修改或删除的图标的句柄。
-        CHAR   szTip[64];				//指向一个以\0结束的字符串的指针。字符串的内容为标准工具提示的信息。
-                                        //包含最后的\0字符，szTip最多含有64个字符。
-} NOTIFYICONDATAA                         */
-
-//系统托盘
-void Minimized(HWND hwnd, int flag)
-{
-    NOTIFYICONDATA nid;
-    nid.cbSize = (DWORD)sizeof(NOTIFYICONDATA);
-    nid.hWnd = hwnd;
-    nid.uID = 1;
-    nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
-    nid.uCallbackMessage = WM_HIDE;				//自定义消息
-    HINSTANCE hin = (HINSTANCE)GetWindowLong(hwnd, -6);//获得程序句柄！！！    GWL_HINSTANCE = -6
-    nid.hIcon = LoadIcon(hin, MAKEINTRESOURCE(1));   //增加一个MAKEINTRESOURCE(1)的图标句柄，MAKEINTRESOURCE(1)即：应用程序图标
-    lstrcpy(nid.szTip, TEXT("双击恢复窗口"));             //最小化到托盘，鼠标移到托盘上面显示的信息提示条。
-    switch (flag)
-    {
-    case 0:
-    {//添加托盘图标，隐藏窗口
-        Shell_NotifyIcon(NIM_ADD, &nid);
-        //BOOL Shell_NotifyIcon( DWORD dwMessage,PNOTIFYICONDATA lpdata);
-        //dwMessage为输入参数，传递发送的消息，表明要执行的操作。可选的值如下：
-        //NIM_ADD 向托盘区域添加一个图标。
-        //NIM_DELETE 删除托盘区域的一个图标。
-        //NIM_MODIFY  修改托盘区域的一个图标。
-        //NIM_SETFOCUS 设置焦点。比如当用户操作托盘图标弹出菜单，而有按下ESC键将菜单消除后，程序应该使用此消息来将焦点设置到托盘图标上。 
-        //lpdata 为输入参数，是指向NOTIFYICONDATA结构体的指针，结构体内容用来配合第一个参数wMessage进行图标操作。
-        ShowWindow(hwnd, SW_HIDE);//隐藏窗口
-    }
-    break;
-    case 1:
-    {//删除托盘图标
-        ShowWindow(hwnd, SW_SHOWNORMAL);
-        Shell_NotifyIcon(NIM_DELETE, &nid);
-        SetForegroundWindow(hwnd);				//Foreground 前台
-        //函数原型：BOOL SetForegroundWindow（HWND hWnd）
-        //该函数将创建指定窗口的线程设置到前台，并且激活该窗口。
-        //键盘输入转向该窗口，并为用户改各种可视的记号。系统给创建前台窗口的线程分配的权限稍高于其他线程。 
-    }
-    break;
-    default:
-        break;
-    }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
+#define WM_IAWENTRAY    WM_USER+2  //系统托盘的自定义消息  
 
 static ID3D11Device* g_pd3dDevice = NULL;
 static ID3D11DeviceContext* g_pd3dDeviceContext = NULL;
@@ -97,6 +24,73 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 
 
+void screen(LPCSTR fileName)
+{
+    HWND window = GetDesktopWindow();
+    HDC _dc = GetWindowDC(window);//屏幕DC
+    HDC dc = CreateCompatibleDC(0);//内存DC
+
+    RECT re;
+    GetWindowRect(window, &re);
+    int w = re.right,
+        h = re.bottom;
+    void* buf = new char[w * h * 4];
+
+    HBITMAP bm = CreateCompatibleBitmap(_dc, w, h);//建立和屏幕兼容的bitmap
+    SelectObject(dc, bm);//将memBitmap选入内存DC    
+    StretchBlt(dc, 0, 0, w, h, _dc, 0, 0, w, h, SRCCOPY);//复制屏幕图像到内存DC
+
+    //g_pd3dDevice->CreateTexture2D();
+
+
+    void* f = CreateFile(fileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, 0);
+
+    GetObject(bm, 84, buf);
+
+    tagBITMAPINFO bi;
+    bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
+    bi.bmiHeader.biWidth = w;
+    bi.bmiHeader.biHeight = h;
+    bi.bmiHeader.biPlanes = 1;
+    bi.bmiHeader.biBitCount = 32;
+    bi.bmiHeader.biCompression = 0;
+    bi.bmiHeader.biSizeImage = 0;
+
+    CreateDIBSection(dc, &bi, DIB_RGB_COLORS, &buf, 0, 0);
+    GetDIBits(dc, bm, 0, h, buf, &bi, DIB_RGB_COLORS);
+
+    BITMAPFILEHEADER bif;
+    bif.bfType = MAKEWORD('B', 'M');
+    bif.bfSize = w * h * 4 + 54;
+    bif.bfOffBits = 54;
+
+    BITMAPINFOHEADER bii;
+    bii.biSize = 40;
+    bii.biWidth = w;
+    bii.biHeight = h;
+    bii.biPlanes = 1;
+    bii.biBitCount = 32;
+    bii.biCompression = 0;
+    bii.biSizeImage = w * h * 4;
+
+    DWORD r;
+    WriteFile(f, &bif, sizeof(bif), &r, NULL);
+    WriteFile(f, &bii, sizeof(bii), &r, NULL);
+    WriteFile(f, buf, w * h * 4, &r, NULL);
+
+    CloseHandle(f);
+    DeleteDC(_dc);
+    DeleteDC(dc);
+}
+
+
+
+
+
+
+
+
+
 void Helpmarker(const char* Text, ImVec4 Color)
 {
     ImGui::TextColored(Color, u8"(?)");
@@ -107,14 +101,20 @@ void Helpmarker(const char* Text, ImVec4 Color)
 }
 
 
-int main(int, char**)
+int main(int,char**)
 {
-    WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, _T("ImGui Tool"), NULL };
-    ::RegisterClassEx(&wc);
-    HWND hwnd = ::CreateWindow(wc.lpszClassName, _T("ImGui Tool"), WS_OVERLAPPEDWINDOW, 100, 100, 1, 1, NULL, NULL, wc.hInstance, NULL);
+    screen("1.png");
+    //防止多开
+    if (FindWindow(NULL, _T("ImGui Tool")))
+    {
+        MessageBoxEx(NULL, TEXT("ヽ(*。>Д<)o゜"), TEXT("已经启动啦！"), MB_OK, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
+        return FALSE;
+    }
 
-    //系统托盘
-    Minimized(hwnd,0);
+    WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL , NULL, NULL, _T("ImGui Tool"), NULL };
+    ::RegisterClassEx(&wc);
+    g_hInst = wc.hInstance;   //WS_EX_TOPMOST 窗口置顶    
+    HWND hwnd = ::CreateWindowEx(WS_EX_TOPMOST | WS_EX_TOOLWINDOW, wc.lpszClassName, _T("ImGui Tool"), WS_OVERLAPPEDWINDOW, 100, 100, 1, 1, NULL, NULL, wc.hInstance, NULL);
 
     if (!CreateDeviceD3D(hwnd))
     {
@@ -123,8 +123,33 @@ int main(int, char**)
         return 1;
     }
 
+
+    //系统托盘创建
+    NOTIFYICONDATA nid = { sizeof(nid) };
+    nid.hWnd = hwnd;
+    nid.uID = 1;
+    strncpy_s(nid.szTip, TEXT("自制锁屏软件卖萌中"), sizeof(TEXT("自制锁屏软件卖萌中")));
+    nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_SHOWTIP | NIF_GUID;
+    nid.uCallbackMessage = WM_IAWENTRAY;
+    nid.hIcon = (HICON)LoadImage(NULL, TEXT("favicon.ico"), IMAGE_ICON, 0, 0, LR_LOADFROMFILE);//ico 图片 只支持32x32  ,  16x16
+    Shell_NotifyIcon(NIM_ADD, &nid);
+
     ::ShowWindow(hwnd, SW_HIDE);
     ::UpdateWindow(hwnd);
+
+
+
+
+
+   
+
+
+
+
+
+
+
+
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -132,7 +157,6 @@ int main(int, char**)
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-
 
     ImGui::StyleColorsDark();
 
@@ -150,6 +174,35 @@ int main(int, char**)
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
+
+
+    //ImGui 风格设置
+    ImGuiStyle& Style = ImGui::GetStyle();
+    auto Color = Style.Colors;
+
+    Style.ChildRounding = 8.0f;
+    Style.FrameRounding = 5.0f;
+
+    Color[ImGuiCol_Button] = ImColor(10, 105, 56, 255);
+    Color[ImGuiCol_ButtonHovered] = ImColor(30, 125, 76, 255);
+    Color[ImGuiCol_ButtonActive] = ImColor(0, 95, 46, 255);
+    
+    Color[ImGuiCol_FrameBg] = ImColor(54, 54, 54, 150);
+    Color[ImGuiCol_FrameBgActive] = ImColor(42, 42, 42, 150);
+    Color[ImGuiCol_FrameBgHovered] = ImColor(100, 100, 100, 150);
+    
+    Color[ImGuiCol_CheckMark] = ImColor(10, 105, 56, 255);
+    
+    Color[ImGuiCol_SliderGrab] = ImColor(10, 105, 56, 255);
+    Color[ImGuiCol_SliderGrabActive] = ImColor(0, 95, 46, 255);
+    
+    Color[ImGuiCol_Header] = ImColor(10, 105, 56, 255);
+    Color[ImGuiCol_HeaderHovered] = ImColor(30, 125, 76, 255);
+    Color[ImGuiCol_HeaderActive] = ImColor(0, 95, 46, 255);
+    
+    
+    
+    
     bool done = false;
     while (!done)
     {
@@ -163,80 +216,158 @@ int main(int, char**)
         }
         if (done)
             break;
-
-
+    
+    
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
-
+    
         {
-            ImGuiStyle& Style = ImGui::GetStyle();
-            auto Color = Style.Colors;
-
-            Style.ChildRounding = 8.0f;
-            Style.FrameRounding = 5.0f;
-
-            Color[ImGuiCol_Button] = ImColor(10, 105, 56, 255);
-            Color[ImGuiCol_ButtonHovered] = ImColor(30, 125, 76, 255);
-            Color[ImGuiCol_ButtonActive] = ImColor(0, 95, 46, 255);
-
-            Color[ImGuiCol_FrameBg] = ImColor(54, 54, 54, 150);
-            Color[ImGuiCol_FrameBgActive] = ImColor(42, 42, 42, 150);
-            Color[ImGuiCol_FrameBgHovered] = ImColor(100, 100, 100, 150);
-
-            Color[ImGuiCol_CheckMark] = ImColor(10, 105, 56, 255);
-
-            Color[ImGuiCol_SliderGrab] = ImColor(10, 105, 56, 255);
-            Color[ImGuiCol_SliderGrabActive] = ImColor(0, 95, 46, 255);
-
-            Color[ImGuiCol_Header] = ImColor(10, 105, 56, 255);
-            Color[ImGuiCol_HeaderHovered] = ImColor(30, 125, 76, 255);
-            Color[ImGuiCol_HeaderActive] = ImColor(0, 95, 46, 255);
-
-
-
+    
+    
+    
+    
             static bool WinPos = true;//用于初始化窗口位置
             int Screen_Width{ GetSystemMetrics(SM_CXSCREEN) };//获取显示器的宽
             int Screen_Heigth{ GetSystemMetrics(SM_CYSCREEN) };//获取显示器的高
-
+    
             if (WinPos)//初始化窗口
             {
                 ImGui::SetNextWindowPos({ float(Screen_Width - 600) / 2,float(Screen_Heigth - 400) / 2 });
                 WinPos = false;//初始化完毕
             }
-
+    
+    
+            //翻译界面
             static bool open = true;
             if (open) {
-                ImGui::Begin(u8"窗口 abd 1233", &open, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
-                //创建按键
-                if (ImGui::Button(u8"Close想 Me")) {
-                    open = false;
-                }ImGui::SameLine();//让一个元素并排
-
-                if (ImGui::Button("Close")) {
-                    open = false;
+                ImGui::Begin(u8"翻译结果", &open, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
+    
+                //鼠标在界面上
+                if (ImGui::IsWindowHovered()) {
+                    
                 }
-
-                static int a = 0;
-                if (ImGui::CollapsingHeader("Gong_danxuan")) {
-                    ImGui::RadioButton("anjian0", &a, 0);
-                    ImGui::RadioButton("anjian1", &a, 1);
-                    ImGui::RadioButton("anjian2", &a, 2);
+    
+                ImGui::PushTextWrapPos(300);//限制字体的范围（像素）
+                ImGui::Text("this is a second, it is was used for check the rightable of PushTextWrapPos");
+                ImGui::SameLine();//让下一个元素并排
+                ImGui::SetCursorPosX(305);//设置下一个元素生成的位置
+                if (ImGui::Button(u8" ")) {
+                    
                 }
-
-
-                static bool b = false;
-                ImGui::Checkbox("kai", &b);
-
-                ImGui::Text("Text");
-                ImGui::BulletText("bullet Text");
-
-                static float f = 0.0f;
-                ImGui::SliderFloat("hua_kuai", &f, 0.0f, 1.0f);
-                //ImGui::SliderInt();
-
-                ImGui::TextWrapped("w");
-
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip(u8"复制");
+                }
+    
+                ImGui::Text(u8"问问大安分局那附近安徽佛啊武大吉奥法海哦发哦妇女求佛i我念佛i啊佛南");
+                ImGui::SameLine();//让一个元素并排
+                ImGui::SetCursorPosX(305);//设置下一个元素生成的位置
+                if (ImGui::Button(u8" ")) {
+    
+                }
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip(u8"复制");
+                }
+    
+                ImGui::End();
+            }
+    
+    
+    
+            /*
+            ImTextureID tex_id = io.Fonts->TexID;
+            ImGui::Begin("Hello, world!");
+            ImGui::Image(tex_id, ImVec2(0, 0));
+            ImGui::End();
+            */
+    
+    
+    
+    
+            ImGui::Begin("My shapes", NULL ,ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);
+            ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    
+            // Get the current ImGui cursor position
+            ImVec2 p = ImGui::GetCursorScreenPos();
+    
+            // Draw a red circle
+            draw_list->AddCircleFilled(ImVec2(p.x + 50, p.y + 50), 30.0f, IM_COL32(0,255,0,100), 4);
+    
+            // Draw a 3 pixel thick yellow line
+            draw_list->AddLine(ImVec2(p.x, p.y), ImVec2(p.x +1, p.y +1), IM_COL32(255, 255, 0, 255), 1.0f);
+    
+    
+            // Advance the ImGui cursor to claim space in the window (otherwise the window will appears small and needs to be resized)
+            ImGui::Dummy(ImVec2(300, 300));
+            ImGui::End();
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+            //ImGui::GetForegroundDrawList->AddLine(ImVec2(0, 0), ImVec2(100, 100), ImColor(0, 0, 255), 1.0f);
+    
+            static bool jietuopen = false;
+            static bool tex_jietuopen = false;
+            if (jietuopen) {
+                //鼠标在界面上
+                if (ImGui::IsWindowHovered()) {
+    
+                }
+                if (tex_jietuopen) {
+                    static POINT pt = { 0,0 };
+                    GetCursorPos(&pt);
+                    ImGui::SetNextWindowPos({ 0, 0 });
+                    tex_jietuopen = false;
+                }
+                auto w = ImGui::Begin(u8"截图", &tex_open, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
+    
+                ID3D11Texture2D* pTexture2D = NULL;
+                
+    
+                ImGui::Image(pTexture2D, ImGui::GetContentRegionAvail());
+    
+                ImGui::End();
+            }
+    
+            
+            //系统托盘的右键菜单
+            if (tex_open) {
+                //鼠标在界面上
+                if (ImGui::IsWindowHovered()) {
+    
+                }
+                //设置生成位置在鼠标的右上角
+                if (tex_openpos) {
+                    static POINT pt = { 0,0 };
+                    GetCursorPos(&pt);
+                    ImGui::SetNextWindowPos({ float(pt.x), float(pt.y) - 60 });
+                    tex_openpos = false;
+                }
+                //创建右键菜单
+                auto w = ImGui::Begin(u8"窗口", &tex_open, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
+                if (ImGui::Button(u8"设置")) {
+    
+                }
+                if (ImGui::Button(u8"退出")){
+                    ImGui_ImplDX11_Shutdown();
+                    ImGui_ImplWin32_Shutdown();
+                    ImGui::DestroyContext();
+    
+                    CleanupDeviceD3D();
+                    ::DestroyWindow(hwnd);
+                    ::UnregisterClass(wc.lpszClassName, wc.hInstance);
+    
+                    return 0;
+                }
                 ImGui::End();
             }
 
@@ -335,6 +466,40 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
     switch (msg)
     {
+    case WM_IAWENTRAY:
+        /*
+        MK_LBUTTON　鼠标左键被按下。
+        MK_MBUTTON　鼠标中键被按下。
+        MK_RBUTTON　鼠标右键被按下。
+        */
+        switch (lParam)
+        {
+        case WM_RBUTTONDOWN://右键图标
+        {
+            if (tex_open) {
+                tex_open = false;
+                tex_openpos = false;
+            }
+            else {
+                tex_open = true;
+                tex_openpos = true;
+            }
+        }
+            break;
+        case WM_LBUTTONUP://左键图标
+            break;
+        }
+        break;
+
+
+
+
+
+
+
+
+
+
     case WM_SIZE:
         if (g_pd3dDevice != NULL && wParam != SIZE_MINIMIZED)
         {
