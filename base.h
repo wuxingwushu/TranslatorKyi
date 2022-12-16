@@ -3,3 +3,8 @@
 #include <string.h>
 #include <iostream>
 #include <tchar.h>
+
+/*
+GetKeyState°´¼ü±í
+https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+*/

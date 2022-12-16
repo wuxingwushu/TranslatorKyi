@@ -23,6 +23,57 @@ void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 
+clock_t caidan_time;
+
+
+/*
+clock_t shijian;
+shijian = clock();
+printf("%d", shijian - clock());
+*/
+
+
+
+ID3D11ShaderResourceView* DX11LoadTextureImageFromFile(LPCSTR lpszFilePath)
+{
+
+    ID3D11Texture2D* pTexture2D = NULL;
+    D3D11_TEXTURE2D_DESC dec;
+
+
+    HRESULT result;
+    D3DX11_IMAGE_LOAD_INFO loadInfo;
+    ZeroMemory(&loadInfo, sizeof(D3DX11_IMAGE_LOAD_INFO));
+    loadInfo.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    loadInfo.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    loadInfo.MipLevels = D3DX11_DEFAULT; //这时会产生最大的mipmaps层。 
+    loadInfo.MipFilter = D3DX11_FILTER_LINEAR;
+    result = D3DX11CreateTextureFromFile(g_pd3dDevice, lpszFilePath, &loadInfo, NULL, (ID3D11Resource**)(&pTexture2D), NULL);
+    pTexture2D->GetDesc(&dec);
+
+    if (result != S_OK)
+    {
+        return NULL;
+    }
+
+    ID3D11ShaderResourceView* pFontTextureView = NULL;
+
+    // Create texture view
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+    ZeroMemory(&srvDesc, sizeof(srvDesc));
+    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels = dec.MipLevels;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    g_pd3dDevice->CreateShaderResourceView(pTexture2D, &srvDesc, &pFontTextureView);
+
+
+    return pFontTextureView;
+}
+
+
+
+
 
 void screen(LPCSTR fileName)
 {
@@ -103,7 +154,9 @@ void Helpmarker(const char* Text, ImVec4 Color)
 
 int main(int,char**)
 {
+    
     screen("1.png");
+    
     //防止多开
     if (FindWindow(NULL, _T("ImGui Tool")))
     {
@@ -199,13 +252,30 @@ int main(int,char**)
     Color[ImGuiCol_Header] = ImColor(10, 105, 56, 255);
     Color[ImGuiCol_HeaderHovered] = ImColor(30, 125, 76, 255);
     Color[ImGuiCol_HeaderActive] = ImColor(0, 95, 46, 255);
+
     
     
+
+
+
+    ID3D11ShaderResourceView* m_pImageTextureView1 = DX11LoadTextureImageFromFile("1.png");
+    ImTextureID my_tex_id = m_pImageTextureView1;
+
+
     
     
     bool done = false;
     while (!done)
     {
+        /*
+        VK_CONTROL = Ctrl
+        VK_MENU    = Alt
+        */
+        if ((GetKeyState(VK_MENU) < 0) && (GetKeyState('Q') < 0)) {
+            printf("bei");
+        }
+        
+
         MSG msg;
         while (::PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE))
         {
@@ -224,9 +294,6 @@ int main(int,char**)
     
         {
     
-    
-    
-    
             static bool WinPos = true;//用于初始化窗口位置
             int Screen_Width{ GetSystemMetrics(SM_CXSCREEN) };//获取显示器的宽
             int Screen_Heigth{ GetSystemMetrics(SM_CYSCREEN) };//获取显示器的高
@@ -240,6 +307,7 @@ int main(int,char**)
     
             //翻译界面
             static bool open = true;
+            
             if (open) {
                 ImGui::Begin(u8"翻译结果", &open, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
     
@@ -247,6 +315,10 @@ int main(int,char**)
                 if (ImGui::IsWindowHovered()) {
                     
                 }
+
+                
+                
+                
     
                 ImGui::PushTextWrapPos(300);//限制字体的范围（像素）
                 ImGui::Text("this is a second, it is was used for check the rightable of PushTextWrapPos");
@@ -274,77 +346,89 @@ int main(int,char**)
                 ImGui::End();
             }
     
-    
-    
-            /*
-            ImTextureID tex_id = io.Fonts->TexID;
-            ImGui::Begin("Hello, world!");
-            ImGui::Image(tex_id, ImVec2(0, 0));
-            ImGui::End();
-            */
-    
-    
-    
-    
-            ImGui::Begin("My shapes", NULL ,ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);
-            ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    
-            // Get the current ImGui cursor position
-            ImVec2 p = ImGui::GetCursorScreenPos();
-    
-            // Draw a red circle
-            draw_list->AddCircleFilled(ImVec2(p.x + 50, p.y + 50), 30.0f, IM_COL32(0,255,0,100), 4);
-    
-            // Draw a 3 pixel thick yellow line
-            draw_list->AddLine(ImVec2(p.x, p.y), ImVec2(p.x +1, p.y +1), IM_COL32(255, 255, 0, 255), 1.0f);
-    
-    
-            // Advance the ImGui cursor to claim space in the window (otherwise the window will appears small and needs to be resized)
-            ImGui::Dummy(ImVec2(300, 300));
-            ImGui::End();
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-            //ImGui::GetForegroundDrawList->AddLine(ImVec2(0, 0), ImVec2(100, 100), ImColor(0, 0, 255), 1.0f);
-    
-            static bool jietuopen = false;
-            static bool tex_jietuopen = false;
-            if (jietuopen) {
-                //鼠标在界面上
-                if (ImGui::IsWindowHovered()) {
-    
-                }
-                if (tex_jietuopen) {
-                    static POINT pt = { 0,0 };
-                    GetCursorPos(&pt);
-                    ImGui::SetNextWindowPos({ 0, 0 });
-                    tex_jietuopen = false;
-                }
-                auto w = ImGui::Begin(u8"截图", &tex_open, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
-    
-                ID3D11Texture2D* pTexture2D = NULL;
+            static bool dianji = true;
+            static bool dianji_open = true;
+            static POINT ptdianji_1 = { 0,0 };
+            static POINT ptdianji_2 = { 0,0 };
+            //截图操作界面
+            if (dianji) {
+                ImGui::SetNextWindowPos({ 0, 0 });
+                ImGui::Begin("My shapes", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);
                 
-    
-                ImGui::Image(pTexture2D, ImGui::GetContentRegionAvail());
-    
+                if (dianji_open) {
+                    if (GetKeyState(VK_LBUTTON) < 0) {
+                        GetCursorPos(&ptdianji_1);
+                        //获取鼠标左键点击的第一个位置
+                        dianji_open = false;
+                    }
+                }
+                else {
+                    GetCursorPos(&ptdianji_2);
+                    //更新鼠标移动结束位置
+                    if (GetKeyState(VK_LBUTTON) >= 0) {
+                        //关闭窗口获取
+                        dianji = false;
+                    }
+                }
+
+                ImDrawList* draw_list = ImGui::GetWindowDrawList();
+                ImGui::Image(my_tex_id, ImVec2(1920, 1080));
+                
+                draw_list->AddQuadFilled(
+                    ImVec2(0, 0),
+                    ImVec2(0, ptdianji_1.y),
+                    ImVec2(ptdianji_2.x, ptdianji_1.y),
+                    ImVec2(ptdianji_2.x, 0),
+                    IM_COL32(0, 255, 0, 100));
+
+                draw_list->AddQuadFilled(
+                    ImVec2(ptdianji_2.x, 0),
+                    ImVec2(1920, 0),
+                    ImVec2(1920, ptdianji_2.y),
+                    ImVec2(ptdianji_2.x, ptdianji_2.y),
+                    IM_COL32(0, 255, 0, 100));
+
+                draw_list->AddQuadFilled(
+                    ImVec2(ptdianji_1.x, ptdianji_2.y),
+                    ImVec2(1920, ptdianji_2.y),
+                    ImVec2(1920, 1080),
+                    ImVec2(ptdianji_1.x, 1080),
+                    IM_COL32(0, 255, 0, 100));
+
+                draw_list->AddQuadFilled(
+                    ImVec2(0, ptdianji_1.y),
+                    ImVec2(ptdianji_1.x, ptdianji_1.y),
+                    ImVec2(ptdianji_1.x, 1080),
+                    ImVec2(0, 1080),
+                    IM_COL32(0, 255, 0, 100));
+
+                /*
+                // Get the current ImGui cursor position
+                ImVec2 p = ImGui::GetCursorScreenPos();
+
+                // Draw a red circle
+                
+
+                // Draw a 3 pixel thick yellow line
+                draw_list->AddLine(ImVec2(p.x, p.y), ImVec2(p.x +1, p.y +1), IM_COL32(255, 255, 0, 255), 1.0f);
+
+
+                // Advance the ImGui cursor to claim space in the window (otherwise the window will appears small and needs to be resized)
+                ImGui::Dummy(ImVec2(300, 300));*/
+
+
+                
+
                 ImGui::End();
             }
+            
+    
+    
+
     
             
             //系统托盘的右键菜单
             if (tex_open) {
-                //鼠标在界面上
-                if (ImGui::IsWindowHovered()) {
-    
-                }
                 //设置生成位置在鼠标的右上角
                 if (tex_openpos) {
                     static POINT pt = { 0,0 };
@@ -354,6 +438,18 @@ int main(int,char**)
                 }
                 //创建右键菜单
                 auto w = ImGui::Begin(u8"窗口", &tex_open, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
+                //鼠标在界面上
+                if (ImGui::IsWindowHovered()) {
+                    caidan_time = clock();
+                }
+                if ((clock() - caidan_time) > 3000) {
+                    tex_open = false;
+                }
+
+
+
+
+
                 if (ImGui::Button(u8"设置")) {
     
                 }
@@ -464,6 +560,8 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
         return true;
 
+    
+
     switch (msg)
     {
     case WM_IAWENTRAY:
@@ -476,6 +574,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         {
         case WM_RBUTTONDOWN://右键图标
         {
+            caidan_time = clock();
             if (tex_open) {
                 tex_open = false;
                 tex_openpos = false;
@@ -495,9 +594,15 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 
 
+     
 
 
 
+    case WM_KEYDOWN://对大小写不敏感
+        if (wParam == 'F') {//检测F是否被按下
+            //SetWindowText(hWnd, "off FFFF");//当检测到F被按下是改变标题
+        }
+        break;
 
 
     case WM_SIZE:

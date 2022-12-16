@@ -10,5 +10,7 @@
 #include "Font.h"
 
 #include <d3d11.h>
+#include "d3dx11effect.h"
+#include <D3DX11tex.h>
 #pragma comment(lib,"d3d11.lib")
 #pragma warning( disable : 4996 )
