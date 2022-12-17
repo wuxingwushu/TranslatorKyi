@@ -3,7 +3,16 @@
 #include "base.h"
 #include "imgui/GUI.h"
 #include <atlimage.h>
-#include<windows.h>
+#include <windows.h>
+#include "vld.h"
+
+static bool dianji = true;
+static bool dianji_open = true;
+static bool jie = true;
+
+
+
+
 
 static bool tex_open = false;
 static bool tex_openpos = false;
@@ -26,20 +35,19 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 clock_t caidan_time;
 
 
-/*
-clock_t shijian;
-shijian = clock();
-printf("%d", shijian - clock());
-*/
 
+clock_t shijian;
+/*shijian = clock();
+printf("%d\n", shijian - clock());
+*/
 
 
 ID3D11ShaderResourceView* DX11LoadTextureImageFromFile(LPCSTR lpszFilePath)
 {
-
+    
     ID3D11Texture2D* pTexture2D = NULL;
     D3D11_TEXTURE2D_DESC dec;
-
+    
 
     HRESULT result;
     D3DX11_IMAGE_LOAD_INFO loadInfo;
@@ -47,15 +55,20 @@ ID3D11ShaderResourceView* DX11LoadTextureImageFromFile(LPCSTR lpszFilePath)
     loadInfo.BindFlags = D3D11_BIND_SHADER_RESOURCE;
     loadInfo.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     loadInfo.MipLevels = D3DX11_DEFAULT; //这时会产生最大的mipmaps层。 
-    loadInfo.MipFilter = D3DX11_FILTER_LINEAR;
-    result = D3DX11CreateTextureFromFile(g_pd3dDevice, lpszFilePath, &loadInfo, NULL, (ID3D11Resource**)(&pTexture2D), NULL);
+    loadInfo.MipFilter = D3DX11_FILTER_LINEAR; 
+    D3DX11CreateTextureFromFile(g_pd3dDevice, lpszFilePath, &loadInfo, NULL, (ID3D11Resource**)(&pTexture2D), &result);
     pTexture2D->GetDesc(&dec);
+
+    
+    
+    
 
     if (result != S_OK)
     {
         return NULL;
     }
-
+    
+    
     ID3D11ShaderResourceView* pFontTextureView = NULL;
 
     // Create texture view
@@ -68,6 +81,10 @@ ID3D11ShaderResourceView* DX11LoadTextureImageFromFile(LPCSTR lpszFilePath)
     g_pd3dDevice->CreateShaderResourceView(pTexture2D, &srvDesc, &pFontTextureView);
 
 
+    pTexture2D->Release();
+    pTexture2D = NULL;
+
+    
     return pFontTextureView;
 }
 
@@ -86,17 +103,22 @@ void screen(LPCSTR fileName)
     int w = re.right,
         h = re.bottom;
     void* buf = new char[w * h * 4];
+    void* buff = buf;//备份保存申请内存的地址，因为后面 buf 这个内存地址会丢失导致内存泄露。
 
     HBITMAP bm = CreateCompatibleBitmap(_dc, w, h);//建立和屏幕兼容的bitmap
     SelectObject(dc, bm);//将memBitmap选入内存DC    
     StretchBlt(dc, 0, 0, w, h, _dc, 0, 0, w, h, SRCCOPY);//复制屏幕图像到内存DC
 
+
+    
     //g_pd3dDevice->CreateTexture2D();
 
 
     void* f = CreateFile(fileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, 0);
 
     GetObject(bm, 84, buf);
+
+    
 
     tagBITMAPINFO bi;
     bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
@@ -107,8 +129,14 @@ void screen(LPCSTR fileName)
     bi.bmiHeader.biCompression = 0;
     bi.bmiHeader.biSizeImage = 0;
 
-    CreateDIBSection(dc, &bi, DIB_RGB_COLORS, &buf, 0, 0);
-    GetDIBits(dc, bm, 0, h, buf, &bi, DIB_RGB_COLORS);
+
+    void* kai = CreateDIBSection(dc, &bi, DIB_RGB_COLORS, &buf, NULL, NULL);
+    GetDIBits(dc, bm, 0, h, buf, &bi, DIB_RGB_COLORS); 
+    
+    
+    
+    
+ 
 
     BITMAPFILEHEADER bif;
     bif.bfType = MAKEWORD('B', 'M');
@@ -129,6 +157,11 @@ void screen(LPCSTR fileName)
     WriteFile(f, &bii, sizeof(bii), &r, NULL);
     WriteFile(f, buf, w * h * 4, &r, NULL);
 
+    
+    
+    DeleteObject(kai);
+    DeleteObject(bm);
+    delete[] buff;
     CloseHandle(f);
     DeleteDC(_dc);
     DeleteDC(dc);
@@ -137,26 +170,8 @@ void screen(LPCSTR fileName)
 
 
 
-
-
-
-
-
-void Helpmarker(const char* Text, ImVec4 Color)
-{
-    ImGui::TextColored(Color, u8"(?)");
-    if (ImGui::IsItemHovered())
-    {
-        ImGui::SetTooltip(Text);
-    }
-}
-
-
 int main(int,char**)
 {
-    
-    screen("1.png");
-    
     //防止多开
     if (FindWindow(NULL, _T("ImGui Tool")))
     {
@@ -175,6 +190,7 @@ int main(int,char**)
         ::UnregisterClass(wc.lpszClassName, wc.hInstance);
         return 1;
     }
+
 
 
     //系统托盘创建
@@ -255,24 +271,27 @@ int main(int,char**)
 
     
     
+    
 
+    
 
-
-    ID3D11ShaderResourceView* m_pImageTextureView1 = DX11LoadTextureImageFromFile("1.png");
-    ImTextureID my_tex_id = m_pImageTextureView1;
-
-
+    
     
     
     bool done = false;
     while (!done)
     {
+        Sleep(20);//0.02秒的响应间隔,降低CPU的使用率
         /*
         VK_CONTROL = Ctrl
         VK_MENU    = Alt
         */
         if ((GetKeyState(VK_MENU) < 0) && (GetKeyState('Q') < 0)) {
-            printf("bei");
+            if (!dianji) {
+                jie = true;
+            }
+            dianji = true;
+            dianji_open = true;
         }
         
 
@@ -295,8 +314,8 @@ int main(int,char**)
         {
     
             static bool WinPos = true;//用于初始化窗口位置
-            int Screen_Width{ GetSystemMetrics(SM_CXSCREEN) };//获取显示器的宽
-            int Screen_Heigth{ GetSystemMetrics(SM_CYSCREEN) };//获取显示器的高
+            static int Screen_Width{ GetSystemMetrics(SM_CXSCREEN) };//获取显示器的宽
+            static int Screen_Heigth{ GetSystemMetrics(SM_CYSCREEN) };//获取显示器的高
     
             if (WinPos)//初始化窗口
             {
@@ -346,18 +365,34 @@ int main(int,char**)
                 ImGui::End();
             }
     
-            static bool dianji = true;
-            static bool dianji_open = true;
+            
             static POINT ptdianji_1 = { 0,0 };
             static POINT ptdianji_2 = { 0,0 };
+            ImTextureID my_tex_id;
+            ID3D11ShaderResourceView* m_pImageTextureView1;
             //截图操作界面
             if (dianji) {
-                ImGui::SetNextWindowPos({ 0, 0 });
-                ImGui::Begin("My shapes", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);
+
+                if (jie) {
+                    shijian = clock();
+                    screen("1.png");
+                    printf("%d\n", shijian - clock());
+                    shijian = clock();
+                    m_pImageTextureView1 = DX11LoadTextureImageFromFile("1.png");
+                    my_tex_id = m_pImageTextureView1;
+                    printf("%d\n", shijian - clock());
+                    jie = false;
+                }
+
+
+                ImGui::SetNextWindowPos({ -8, -8 });
+                ImGui::SetNextWindowSize(ImVec2(1936, 1096));
+                ImGui::Begin("My shapes", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_NoScrollbar);
                 
                 if (dianji_open) {
                     if (GetKeyState(VK_LBUTTON) < 0) {
                         GetCursorPos(&ptdianji_1);
+                        GetCursorPos(&ptdianji_2);
                         //获取鼠标左键点击的第一个位置
                         dianji_open = false;
                     }
@@ -367,6 +402,10 @@ int main(int,char**)
                     //更新鼠标移动结束位置
                     if (GetKeyState(VK_LBUTTON) >= 0) {
                         //关闭窗口获取
+                        m_pImageTextureView1->Release();
+                        m_pImageTextureView1 = NULL;
+                        ptdianji_1 = { 0,0 };
+                        ptdianji_2 = { 0,0 };
                         dianji = false;
                     }
                 }
@@ -451,23 +490,21 @@ int main(int,char**)
 
 
                 if (ImGui::Button(u8"设置")) {
-    
+                    
                 }
                 if (ImGui::Button(u8"退出")){
                     ImGui_ImplDX11_Shutdown();
                     ImGui_ImplWin32_Shutdown();
                     ImGui::DestroyContext();
-    
+                    
                     CleanupDeviceD3D();
                     ::DestroyWindow(hwnd);
                     ::UnregisterClass(wc.lpszClassName, wc.hInstance);
-    
+
                     return 0;
                 }
                 ImGui::End();
             }
-
-            
         }
 
         ImGui::Render();

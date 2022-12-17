@@ -9,7 +9,7 @@
       "name": "Translate-miku.exe",
       "cwd": "${fileDirname}",
       "env": {
-        "PATH": "${PATH};${fileDirname}\\DLL;"
+        "PATH": "${PATH};${fileDirname}\\DLL;${PATH};${fileDirname}\\Environment\\Visual_Leak_Detector\\bin\\Win64;"
       }
     }
   ]
