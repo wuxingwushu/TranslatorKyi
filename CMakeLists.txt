@@ -10,6 +10,7 @@ SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/x64-windows/include
 SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/DXSDK/include
 SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/Visual_Leak_Detector/include
 SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/jsoncpp/include
+SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/OpenSSL-Win64/include
 )
 
 link_directories(
@@ -17,6 +18,7 @@ SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/x64-windows/lib
 SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/DXSDK/lib/x64
 SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/Visual_Leak_Detector/lib/Win64
 SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/jsoncpp/lib/Release
+SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/OpenSSL-Win64/lib
 )
 
 # execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/DLL/bz2.dll ${CMAKE_CURRENT_BINARY_DIR}) # 拷贝单个文件
@@ -33,4 +35,4 @@ add_subdirectory(imgui)
 
 #Set_Target_Properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")#关闭控制台
 
-target_link_libraries(Translate-miku FunctionLib imguiLib tesseract52.lib leptonica-1.82.0.lib d3dx11.lib vld.lib jsoncpp.lib libcurl.lib)
+target_link_libraries(Translate-miku FunctionLib imguiLib tesseract52.lib leptonica-1.82.0.lib d3dx11.lib vld.lib jsoncpp.lib libcurl.lib libssl.lib libcrypto.lib)

@@ -165,33 +165,7 @@ void screen(LPCSTR fileName)
 
 int main(int,char**)
 {
-    IniDataInit();
-
-
-
-    getUrl("w.html");
-    postUrl("post.html");
-
-
-    std::string url_post0 = "http://httpbin.org/post";
-    std::string paramsLogin0 = "key1=value1&key2=value2";
-    std::string resPost0;
-    auto res3 = curl_post_req(url_post0, paramsLogin0, resPost0);
-    if (res3 == CURLE_OK)
-    {
-        std::cout << resPost0 << std::endl;
-    }
-
-
-
-
-
-    
-
-
-    
-
-
+    IniDataInit();//初始化软件数据
 
 
 
@@ -253,6 +227,9 @@ int main(int,char**)
 
         //快捷键检测
         if ((GetKeyState(screenshot_key_1) < 0) && (GetKeyState(screenshot_key_2) < 0)) {
+            //关闭其他UI
+            translate_interface = false;
+            SystemTray_interface = false;
             if (!Screenshot_interface) {
                 Screenshot_init = true;
             }
@@ -278,20 +255,17 @@ int main(int,char**)
         
     
         {
-    
-
+         
             
             if (translate_interface) {
-                ImGui::Begin(u8"翻译结果", &translate_interface, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
-    
-                //鼠标在界面上
-                if (ImGui::IsWindowHovered()) {
-                    interface_time = clock();
+                if (translate_click) {
+                    static POINT pt = { 0,0 };
+                    GetCursorPos(&pt);//获取鼠标位置
+                    ImGui::SetNextWindowPos({ float(pt.x + 10), float(pt.y) });//设置窗口生成位置
+                    translate_click = false;
                 }
-                //当鼠标离开界面一定时间后就关闭窗口
-                else if ((clock() - interface_time) > Residence_Time) {
-                    translate_interface = false;
-                }
+
+                bool k = ImGui::Begin(u8"翻译结果", &translate_interface, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_NoScrollbar);//创建窗口
 
                 ImGui::PushTextWrapPos(300);//限制字体的范围（像素）
                 ImGui::Text(translate_English);
@@ -306,7 +280,7 @@ int main(int,char**)
                     ImGui::SetTooltip(u8"复制");//提示内容
                 }
 
-                ImGui::Text(translate_Chinese);
+                ImGui::Text(translate_Chinese.c_str());
                 ImGui::SameLine();//让一个元素并排
                 ImGui::SetCursorPosX(305);//设置下一个元素生成的位置
                 if (ImGui::Button(u8" ")) {
@@ -316,6 +290,17 @@ int main(int,char**)
                 if (ImGui::IsItemHovered())
                 {
                     ImGui::SetTooltip(u8"复制");//提示内容
+                }
+
+                //鼠标在界面上
+                static POINT pt = { 0,0 };
+                GetCursorPos(&pt);//获取鼠标位置
+                if ((pt.x > ImGui::GetWindowPos().x) && (pt.y > ImGui::GetWindowPos().y) && (pt.x < (ImGui::GetWindowPos().x + ImGui::GetWindowWidth())) && (pt.y < (ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
+                    translate_interface_time = clock();
+                    printf("!");
+                }
+                else if ((clock() - translate_interface_time) > Residence_Time) {
+                    translate_interface = false;
                 }
     
                 ImGui::End();
@@ -379,12 +364,20 @@ int main(int,char**)
                         MousePosition_2 = { 0,0 };
                         //关闭窗口
                         Screenshot_interface = false;
-                        translate_English = Tesseract_OCR(x, y, w, h);
+                        translate_English = Tesseract_OCR(x, y, w, h);//要翻译界面关闭了才可以要不然会出BUG
+                        translate_Chinese = Translate_Baidu(translate_English);
+                        translate_interface_time = clock();
+                        translate_interface = true;
+                        translate_click = true;
                     }
                 }
 
                 //创建窗口
                 ImGui::Begin("My shapes", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_NoScrollbar);
+
+                if (ImGui::IsWindowHovered()) {
+                
+                }
 
                 //显示图片
                 ImGui::Image(image_ID, ImVec2(windows_Width, windows_Heigth));
@@ -449,17 +442,12 @@ int main(int,char**)
                 //创建右键菜单
                 auto w = ImGui::Begin(u8"窗口", &SystemTray_interface, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
                 
-                //鼠标在界面上
-                if (ImGui::IsWindowHovered()) {
-                    interface_time = clock();
-                }
-                else if ((clock() - interface_time) > Residence_Time) {
-                    SystemTray_interface = false;
-                }
+                
 
                 //设置按键
                 if (ImGui::Button(u8"设置")) {
-                    
+                    translate_interface = false;
+                    translate_click = false;
                 }
                 if (SystemTray_mode) {
                     if (ImGui::Button(u8"百度")) {
@@ -474,6 +462,19 @@ int main(int,char**)
                 if (ImGui::Button(u8"退出")){
                     done = true;
                 }
+
+
+                //鼠标在界面上
+                static POINT pt = { 0,0 };
+                GetCursorPos(&pt);//获取鼠标位置
+                if ((pt.x > ImGui::GetWindowPos().x) && (pt.y > ImGui::GetWindowPos().y) && (pt.x < (ImGui::GetWindowPos().x + ImGui::GetWindowWidth())) && (pt.y < (ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
+                    SystemTray_interface_time = clock();
+                    printf("!");
+                }
+                else if ((clock() - SystemTray_interface_time) > Residence_Time) {
+                    SystemTray_interface = false;
+                }
+
                 ImGui::End();
             }
         }
@@ -582,7 +583,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         {
         case WM_RBUTTONDOWN://右键图标
         {
-            interface_time = clock();
+            SystemTray_interface_time = clock();
             if (SystemTray_interface) {
                 SystemTray_interface = false;
                 SystemTray_init = false;

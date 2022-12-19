@@ -56,13 +56,14 @@ std::cout <<   << std::endl;
 
 
 
-clock_t interface_time;//鼠标离开界面的时间戳
 
 
 //翻译界面
 static bool translate_interface = false;//界面开关
+static bool translate_click = false;//判断鼠标第一次点击
+static clock_t translate_interface_time;//鼠标离开界面的时间戳
 char* translate_English = "adwafiawbfiuawbfiuawbfiubawifbiauwbifabwifbaiwfbawifbia";
-static char* translate_Chinese = u8"问问大安分局那附近安徽佛啊武大吉奥法海哦发哦妇女求佛i我念佛i啊佛南";
+std::string translate_Chinese = u8"问问大安分局那附近安徽佛啊武大吉奥法海哦发哦妇女求佛i我念佛i啊佛南";
 
 
 
@@ -79,6 +80,7 @@ static ID3D11ShaderResourceView* m_pImageTextureView1;//DX11的图片ID
 static bool SystemTray_interface = false;//界面开关
 static bool SystemTray_init = false;//是否是第一次打开界面
 static bool SystemTray_mode = false;//翻译方式 0：有道   1：百度
+static clock_t SystemTray_interface_time;//鼠标离开界面的时间戳
 
 
 //IMGUI
