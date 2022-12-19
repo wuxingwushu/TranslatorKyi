@@ -1,5 +1,4 @@
 #include <tesseract/baseapi.h>
 #include <leptonica/allheaders.h>
-#include "../FilePath.h"
 
-char* Tesseract_OCR();
+char* Tesseract_OCR(l_int32 x, l_int32 y, l_int32 w, l_int32 h);

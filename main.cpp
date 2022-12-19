@@ -1,225 +1,9 @@
-#include <iostream>
-#include "FilePath.h"
-#include "base.h"
-#include "imgui/GUI.h"
-#include <atlimage.h>
-#include <windows.h>
-#include "vld.h"
+#include "main.h"
 
-static bool dianji = true;
-static bool dianji_open = true;
-static bool jie = true;
 
 
-
-
-
-static bool tex_open = false;
-static bool tex_openpos = false;
-HINSTANCE g_hInst = NULL;
-
-#define WM_IAWENTRAY    WM_USER+2  //系统托盘的自定义消息  
-
-static ID3D11Device* g_pd3dDevice = NULL;
-static ID3D11DeviceContext* g_pd3dDeviceContext = NULL;
-static IDXGISwapChain* g_pSwapChain = NULL;
-static ID3D11RenderTargetView* g_mainRenderTargetView = NULL;
-
-bool CreateDeviceD3D(HWND hWnd);
-void CleanupDeviceD3D();
-void CreateRenderTarget();
-void CleanupRenderTarget();
-LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-
-
-clock_t caidan_time;
-
-
-
-clock_t shijian;
-/*shijian = clock();
-printf("%d\n", shijian - clock());
-*/
-
-
-ID3D11ShaderResourceView* DX11LoadTextureImageFromFile(LPCSTR lpszFilePath)
-{
-    
-    ID3D11Texture2D* pTexture2D = NULL;
-    D3D11_TEXTURE2D_DESC dec;
-    
-
-    HRESULT result;
-    D3DX11_IMAGE_LOAD_INFO loadInfo;
-    ZeroMemory(&loadInfo, sizeof(D3DX11_IMAGE_LOAD_INFO));
-    loadInfo.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-    loadInfo.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    loadInfo.MipLevels = D3DX11_DEFAULT; //这时会产生最大的mipmaps层。 
-    loadInfo.MipFilter = D3DX11_FILTER_LINEAR; 
-    D3DX11CreateTextureFromFile(g_pd3dDevice, lpszFilePath, &loadInfo, NULL, (ID3D11Resource**)(&pTexture2D), &result);
-    pTexture2D->GetDesc(&dec);
-
-    
-    
-    
-
-    if (result != S_OK)
-    {
-        return NULL;
-    }
-    
-    
-    ID3D11ShaderResourceView* pFontTextureView = NULL;
-
-    // Create texture view
-    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
-    ZeroMemory(&srvDesc, sizeof(srvDesc));
-    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MipLevels = dec.MipLevels;
-    srvDesc.Texture2D.MostDetailedMip = 0;
-    g_pd3dDevice->CreateShaderResourceView(pTexture2D, &srvDesc, &pFontTextureView);
-
-
-    pTexture2D->Release();
-    pTexture2D = NULL;
-
-    
-    return pFontTextureView;
-}
-
-
-
-
-
-void screen(LPCSTR fileName)
-{
-    HWND window = GetDesktopWindow();
-    HDC _dc = GetWindowDC(window);//屏幕DC
-    HDC dc = CreateCompatibleDC(0);//内存DC
-
-    RECT re;
-    GetWindowRect(window, &re);
-    int w = re.right,
-        h = re.bottom;
-    void* buf = new char[w * h * 4];
-    void* buff = buf;//备份保存申请内存的地址，因为后面 buf 这个内存地址会丢失导致内存泄露。
-
-    HBITMAP bm = CreateCompatibleBitmap(_dc, w, h);//建立和屏幕兼容的bitmap
-    SelectObject(dc, bm);//将memBitmap选入内存DC    
-    StretchBlt(dc, 0, 0, w, h, _dc, 0, 0, w, h, SRCCOPY);//复制屏幕图像到内存DC
-
-
-    
-    //g_pd3dDevice->CreateTexture2D();
-
-
-    void* f = CreateFile(fileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, 0);
-
-    GetObject(bm, 84, buf);
-
-    
-
-    tagBITMAPINFO bi;
-    bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
-    bi.bmiHeader.biWidth = w;
-    bi.bmiHeader.biHeight = h;
-    bi.bmiHeader.biPlanes = 1;
-    bi.bmiHeader.biBitCount = 32;
-    bi.bmiHeader.biCompression = 0;
-    bi.bmiHeader.biSizeImage = 0;
-
-
-    void* kai = CreateDIBSection(dc, &bi, DIB_RGB_COLORS, &buf, NULL, NULL);
-    GetDIBits(dc, bm, 0, h, buf, &bi, DIB_RGB_COLORS); 
-    
-    
-    
-    
- 
-
-    BITMAPFILEHEADER bif;
-    bif.bfType = MAKEWORD('B', 'M');
-    bif.bfSize = w * h * 4 + 54;
-    bif.bfOffBits = 54;
-
-    BITMAPINFOHEADER bii;
-    bii.biSize = 40;
-    bii.biWidth = w;
-    bii.biHeight = h;
-    bii.biPlanes = 1;
-    bii.biBitCount = 32;
-    bii.biCompression = 0;
-    bii.biSizeImage = w * h * 4;
-
-    DWORD r;
-    WriteFile(f, &bif, sizeof(bif), &r, NULL);
-    WriteFile(f, &bii, sizeof(bii), &r, NULL);
-    WriteFile(f, buf, w * h * 4, &r, NULL);
-
-    
-    
-    DeleteObject(kai);
-    DeleteObject(bm);
-    delete[] buff;
-    CloseHandle(f);
-    DeleteDC(_dc);
-    DeleteDC(dc);
-}
-
-
-
-
-int main(int,char**)
-{
-    //防止多开
-    if (FindWindow(NULL, _T("ImGui Tool")))
-    {
-        MessageBoxEx(NULL, TEXT("ヽ(*。>Д<)o゜"), TEXT("已经启动啦！"), MB_OK, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
-        return FALSE;
-    }
-
-    WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL , NULL, NULL, _T("ImGui Tool"), NULL };
-    ::RegisterClassEx(&wc);
-    g_hInst = wc.hInstance;   //WS_EX_TOPMOST 窗口置顶    
-    HWND hwnd = ::CreateWindowEx(WS_EX_TOPMOST | WS_EX_TOOLWINDOW, wc.lpszClassName, _T("ImGui Tool"), WS_OVERLAPPEDWINDOW, 100, 100, 1, 1, NULL, NULL, wc.hInstance, NULL);
-
-    if (!CreateDeviceD3D(hwnd))
-    {
-        CleanupDeviceD3D();
-        ::UnregisterClass(wc.lpszClassName, wc.hInstance);
-        return 1;
-    }
-
-
-
-    //系统托盘创建
-    NOTIFYICONDATA nid = { sizeof(nid) };
-    nid.hWnd = hwnd;
-    nid.uID = 1;
-    strncpy_s(nid.szTip, TEXT("自制锁屏软件卖萌中"), sizeof(TEXT("自制锁屏软件卖萌中")));
-    nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_SHOWTIP | NIF_GUID;
-    nid.uCallbackMessage = WM_IAWENTRAY;
-    nid.hIcon = (HICON)LoadImage(NULL, TEXT("favicon.ico"), IMAGE_ICON, 0, 0, LR_LOADFROMFILE);//ico 图片 只支持32x32  ,  16x16
-    Shell_NotifyIcon(NIM_ADD, &nid);
-
-    ::ShowWindow(hwnd, SW_HIDE);
-    ::UpdateWindow(hwnd);
-
-
-
-
-
-   
-
-
-
-
-
-
-
-
-
+//IMGUI 初始化
+ImGuiIO& IMGUI_init() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -241,7 +25,7 @@ int main(int,char**)
     ImFont* Font = io.Fonts->AddFontFromMemoryTTF((void*)Font_data, Font_size, 18.0f, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
     ImFont* Font_Big = io.Fonts->AddFontFromMemoryTTF((void*)Font_data, Font_size, 24.0f, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
 
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 
 
@@ -255,22 +39,202 @@ int main(int,char**)
     Color[ImGuiCol_Button] = ImColor(10, 105, 56, 255);
     Color[ImGuiCol_ButtonHovered] = ImColor(30, 125, 76, 255);
     Color[ImGuiCol_ButtonActive] = ImColor(0, 95, 46, 255);
-    
+
     Color[ImGuiCol_FrameBg] = ImColor(54, 54, 54, 150);
     Color[ImGuiCol_FrameBgActive] = ImColor(42, 42, 42, 150);
     Color[ImGuiCol_FrameBgHovered] = ImColor(100, 100, 100, 150);
-    
+
     Color[ImGuiCol_CheckMark] = ImColor(10, 105, 56, 255);
-    
+
     Color[ImGuiCol_SliderGrab] = ImColor(10, 105, 56, 255);
     Color[ImGuiCol_SliderGrabActive] = ImColor(0, 95, 46, 255);
-    
+
     Color[ImGuiCol_Header] = ImColor(10, 105, 56, 255);
     Color[ImGuiCol_HeaderHovered] = ImColor(30, 125, 76, 255);
     Color[ImGuiCol_HeaderActive] = ImColor(0, 95, 46, 255);
 
+    return io;
+}
+
+//加载图片
+ID3D11ShaderResourceView* DX11LoadTextureImageFromFile(LPCSTR lpszFilePath)
+{
+    ID3D11Texture2D* pTexture2D = NULL;
+    D3D11_TEXTURE2D_DESC dec;
+    
+    HRESULT result;
+    D3DX11_IMAGE_LOAD_INFO loadInfo;
+    ZeroMemory(&loadInfo, sizeof(D3DX11_IMAGE_LOAD_INFO));
+    loadInfo.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    loadInfo.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    loadInfo.MipLevels = D3DX11_DEFAULT; //这时会产生最大的mipmaps层。 
+    loadInfo.MipFilter = D3DX11_FILTER_LINEAR; 
+    D3DX11CreateTextureFromFile(g_pd3dDevice, lpszFilePath, &loadInfo, NULL, (ID3D11Resource**)(&pTexture2D), &result);
+    pTexture2D->GetDesc(&dec);
+
+    if (result != S_OK)
+    {
+        return NULL;
+    }
+    
+    ID3D11ShaderResourceView* pFontTextureView = NULL;
+
+    // Create texture view
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+    ZeroMemory(&srvDesc, sizeof(srvDesc));
+    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels = dec.MipLevels;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    g_pd3dDevice->CreateShaderResourceView(pTexture2D, &srvDesc, &pFontTextureView);
+
+    pTexture2D->Release();
+    pTexture2D = NULL;
+
+    return pFontTextureView;
+}
+
+
+
+
+//截图&保存（全屏）
+void screen(LPCSTR fileName)
+{
+    HWND window = GetDesktopWindow();
+    HDC _dc = GetWindowDC(window);//屏幕DC
+    HDC dc = CreateCompatibleDC(0);//内存DC
+
+    RECT re;
+    GetWindowRect(window, &re);
+    int w = re.right,
+        h = re.bottom;
+    void* buf = new char[w * h * 4];
+    void* buff = buf;//备份保存申请内存的地址，因为后面 buf 这个内存地址会丢失导致内存泄露。
+
+    HBITMAP bm = CreateCompatibleBitmap(_dc, w, h);//建立和屏幕兼容的bitmap
+    SelectObject(dc, bm);//将memBitmap选入内存DC    
+    StretchBlt(dc, 0, 0, w, h, _dc, 0, 0, w, h, SRCCOPY);//复制屏幕图像到内存DC
+
+    void* f = CreateFile(fileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, 0);
+
+    GetObject(bm, 84, buf);
+
+    tagBITMAPINFO bi;
+    bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
+    bi.bmiHeader.biWidth = w;
+    bi.bmiHeader.biHeight = h;
+    bi.bmiHeader.biPlanes = 1;
+    bi.bmiHeader.biBitCount = 32;
+    bi.bmiHeader.biCompression = 0;
+    bi.bmiHeader.biSizeImage = 0;
+
+    void* dcf = CreateDIBSection(dc, &bi, DIB_RGB_COLORS, &buf, NULL, NULL);
+    GetDIBits(dc, bm, 0, h, buf, &bi, DIB_RGB_COLORS); 
+    
+    BITMAPFILEHEADER bif;
+    bif.bfType = MAKEWORD('B', 'M');
+    bif.bfSize = w * h * 4 + 54;
+    bif.bfOffBits = 54;
+
+    BITMAPINFOHEADER bii;
+    bii.biSize = 40;
+    bii.biWidth = w;
+    bii.biHeight = h;
+    bii.biPlanes = 1;
+    bii.biBitCount = 32;
+    bii.biCompression = 0;
+    bii.biSizeImage = w * h * 4;
+
+    DWORD r;
+    WriteFile(f, &bif, sizeof(bif), &r, NULL);
+    WriteFile(f, &bii, sizeof(bii), &r, NULL);
+    WriteFile(f, buf, w * h * 4, &r, NULL);
+
     
     
+    DeleteObject(dcf);
+    DeleteObject(bm);
+    delete[] buff;
+    CloseHandle(f);
+    DeleteDC(_dc);
+    DeleteDC(dc);
+}
+
+
+
+
+int main(int,char**)
+{
+    IniDataInit();
+
+
+
+    getUrl("w.html");
+    postUrl("post.html");
+
+
+    std::string url_post0 = "http://httpbin.org/post";
+    std::string paramsLogin0 = "key1=value1&key2=value2";
+    std::string resPost0;
+    auto res3 = curl_post_req(url_post0, paramsLogin0, resPost0);
+    if (res3 == CURLE_OK)
+    {
+        std::cout << resPost0 << std::endl;
+    }
+
+
+
+
+
+    
+
+
+    
+
+
+
+
+
+    //防止软件多开
+    if (FindWindow(NULL, _T("ImGui Tool")))
+    {
+        MessageBoxEx(NULL, TEXT("ヽ(*。>Д<)o゜"), TEXT("已经启动啦！"), MB_OK, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
+        return FALSE;
+    }
+
+    WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL , NULL, NULL, _T("ImGui Tool"), NULL };
+    ::RegisterClassEx(&wc);
+    g_hInst = wc.hInstance;
+    //创建窗口                 //WS_EX_TOPMOST 窗口置顶    
+    hwnd = ::CreateWindowEx(WS_EX_TOPMOST | WS_EX_TOOLWINDOW, wc.lpszClassName, _T("ImGui Tool"), WS_OVERLAPPEDWINDOW, 100, 100, 1, 1, NULL, NULL, wc.hInstance, NULL);
+    //创建DX11设备
+    if (!CreateDeviceD3D(hwnd))
+    {
+        CleanupDeviceD3D();
+        ::UnregisterClass(wc.lpszClassName, wc.hInstance);
+        return 1;
+    }
+
+
+
+    //系统托盘创建
+    NOTIFYICONDATA nid = { sizeof(nid) };
+    nid.hWnd = hwnd;
+    nid.uID = 1;
+    strncpy_s(nid.szTip, TEXT("人家叫翻译姬！"), sizeof(TEXT("人家叫翻译姬！")));//鼠标停止系统托盘上的提示
+    nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_SHOWTIP | NIF_GUID;
+    nid.uCallbackMessage = WM_IAWENTRAY;
+    nid.hIcon = (HICON)LoadImage(NULL, TEXT("favicon.ico"), IMAGE_ICON, 0, 0, LR_LOADFROMFILE);//ico 图片 只支持32x32  ,  16x16
+    Shell_NotifyIcon(NIM_ADD, &nid);
+
+    ::ShowWindow(hwnd, SW_HIDE);
+    ::UpdateWindow(hwnd);
+
+
+    
+
+    
+    ImGuiIO& io = IMGUI_init();
     
 
     
@@ -286,12 +250,14 @@ int main(int,char**)
         VK_CONTROL = Ctrl
         VK_MENU    = Alt
         */
-        if ((GetKeyState(VK_MENU) < 0) && (GetKeyState('Q') < 0)) {
-            if (!dianji) {
-                jie = true;
+
+        //快捷键检测
+        if ((GetKeyState(screenshot_key_1) < 0) && (GetKeyState(screenshot_key_2) < 0)) {
+            if (!Screenshot_interface) {
+                Screenshot_init = true;
             }
-            dianji = true;
-            dianji_open = true;
+            Screenshot_interface = true;
+            Screenshot_click = true;
         }
         
 
@@ -306,157 +272,161 @@ int main(int,char**)
         if (done)
             break;
     
-    
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
+        
     
         {
     
-            static bool WinPos = true;//用于初始化窗口位置
-            static int Screen_Width{ GetSystemMetrics(SM_CXSCREEN) };//获取显示器的宽
-            static int Screen_Heigth{ GetSystemMetrics(SM_CYSCREEN) };//获取显示器的高
-    
-            if (WinPos)//初始化窗口
-            {
-                ImGui::SetNextWindowPos({ float(Screen_Width - 600) / 2,float(Screen_Heigth - 400) / 2 });
-                WinPos = false;//初始化完毕
-            }
-    
-    
-            //翻译界面
-            static bool open = true;
+
             
-            if (open) {
-                ImGui::Begin(u8"翻译结果", &open, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
+            if (translate_interface) {
+                ImGui::Begin(u8"翻译结果", &translate_interface, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
     
                 //鼠标在界面上
                 if (ImGui::IsWindowHovered()) {
-                    
+                    interface_time = clock();
+                }
+                //当鼠标离开界面一定时间后就关闭窗口
+                else if ((clock() - interface_time) > Residence_Time) {
+                    translate_interface = false;
                 }
 
-                
-                
-                
-    
                 ImGui::PushTextWrapPos(300);//限制字体的范围（像素）
-                ImGui::Text("this is a second, it is was used for check the rightable of PushTextWrapPos");
+                ImGui::Text(translate_English);
                 ImGui::SameLine();//让下一个元素并排
                 ImGui::SetCursorPosX(305);//设置下一个元素生成的位置
                 if (ImGui::Button(u8" ")) {
                     
                 }
+                //设置上一个元素的鼠标悬停提示
                 if (ImGui::IsItemHovered())
                 {
-                    ImGui::SetTooltip(u8"复制");
+                    ImGui::SetTooltip(u8"复制");//提示内容
                 }
-    
-                ImGui::Text(u8"问问大安分局那附近安徽佛啊武大吉奥法海哦发哦妇女求佛i我念佛i啊佛南");
+
+                ImGui::Text(translate_Chinese);
                 ImGui::SameLine();//让一个元素并排
                 ImGui::SetCursorPosX(305);//设置下一个元素生成的位置
                 if (ImGui::Button(u8" ")) {
     
                 }
+                //设置上一个元素的鼠标悬停提示
                 if (ImGui::IsItemHovered())
                 {
-                    ImGui::SetTooltip(u8"复制");
+                    ImGui::SetTooltip(u8"复制");//提示内容
                 }
     
                 ImGui::End();
             }
     
             
-            static POINT ptdianji_1 = { 0,0 };
-            static POINT ptdianji_2 = { 0,0 };
-            ImTextureID my_tex_id;
-            ID3D11ShaderResourceView* m_pImageTextureView1;
+            
             //截图操作界面
-            if (dianji) {
-
-                if (jie) {
-                    shijian = clock();
+            if (Screenshot_interface) {
+                //截一次图运行一次
+                if (Screenshot_init) {
+                    //设置生成位置
+                    ImGui::SetNextWindowPos({ -8, -8 });
+                    ImGui::SetNextWindowSize(ImVec2(windows_Width + 16, windows_Heigth + 16));
+                    //截取图片
                     screen("1.png");
-                    printf("%d\n", shijian - clock());
-                    shijian = clock();
                     m_pImageTextureView1 = DX11LoadTextureImageFromFile("1.png");
-                    my_tex_id = m_pImageTextureView1;
-                    printf("%d\n", shijian - clock());
-                    jie = false;
+                    image_ID = m_pImageTextureView1;
+                    Screenshot_init = false;
                 }
-
-
-                ImGui::SetNextWindowPos({ -8, -8 });
-                ImGui::SetNextWindowSize(ImVec2(1936, 1096));
-                ImGui::Begin("My shapes", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_NoScrollbar);
-                
-                if (dianji_open) {
+ 
+                if (Screenshot_click) {
+                    //左键点击事件
                     if (GetKeyState(VK_LBUTTON) < 0) {
-                        GetCursorPos(&ptdianji_1);
-                        GetCursorPos(&ptdianji_2);
-                        //获取鼠标左键点击的第一个位置
-                        dianji_open = false;
+                        //获取左键位置
+                        GetCursorPos(&MousePosition_1);
+                        GetCursorPos(&MousePosition_2);
+                        //获取鼠标左键点击的第一个位置，然后就关掉这个事件
+                        Screenshot_click = false;
                     }
                 }
                 else {
-                    GetCursorPos(&ptdianji_2);
                     //更新鼠标移动结束位置
+                    GetCursorPos(&MousePosition_2);
+
+                    l_int32 x, y, w, h;
+
+                    if (MousePosition_1.x < MousePosition_2.x) {
+                        x = MousePosition_1.x;
+                        w = MousePosition_2.x - MousePosition_1.x;
+                    }
+                    else {
+                        x = MousePosition_2.x;
+                        w = MousePosition_1.x - MousePosition_2.x;
+                    }
+                    if (MousePosition_1.y < MousePosition_2.y) {
+                        y = MousePosition_1.y;
+                        h = MousePosition_2.y - MousePosition_1.y;
+                    }
+                    else {
+                        y = MousePosition_2.y;
+                        h = MousePosition_1.y - MousePosition_2.y;
+                    }
+
+                    //鼠标左键松开事件
                     if (GetKeyState(VK_LBUTTON) >= 0) {
-                        //关闭窗口获取
+                        //释放图片纹理内存
                         m_pImageTextureView1->Release();
                         m_pImageTextureView1 = NULL;
-                        ptdianji_1 = { 0,0 };
-                        ptdianji_2 = { 0,0 };
-                        dianji = false;
+                        MousePosition_1 = { 0,0 };
+                        MousePosition_2 = { 0,0 };
+                        //关闭窗口
+                        Screenshot_interface = false;
+                        translate_English = Tesseract_OCR(x, y, w, h);
                     }
                 }
 
+                //创建窗口
+                ImGui::Begin("My shapes", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_NoScrollbar);
+
+                //显示图片
+                ImGui::Image(image_ID, ImVec2(windows_Width, windows_Heigth));
+                
+                //创建画布,用于把框选之外的画面变暗。
                 ImDrawList* draw_list = ImGui::GetWindowDrawList();
-                ImGui::Image(my_tex_id, ImVec2(1920, 1080));
-                
+
                 draw_list->AddQuadFilled(
+                    //矩形框的四个点（顺时针）
                     ImVec2(0, 0),
-                    ImVec2(0, ptdianji_1.y),
-                    ImVec2(ptdianji_2.x, ptdianji_1.y),
-                    ImVec2(ptdianji_2.x, 0),
-                    IM_COL32(0, 255, 0, 100));
+                    ImVec2(0, MousePosition_1.y),
+                    ImVec2(MousePosition_2.x, MousePosition_1.y),
+                    ImVec2(MousePosition_2.x, 0),
+                    //颜色
+                    IM_COL32(0, 0, 0, 100));
 
                 draw_list->AddQuadFilled(
-                    ImVec2(ptdianji_2.x, 0),
-                    ImVec2(1920, 0),
-                    ImVec2(1920, ptdianji_2.y),
-                    ImVec2(ptdianji_2.x, ptdianji_2.y),
-                    IM_COL32(0, 255, 0, 100));
+                    //矩形框的四个点（顺时针）
+                    ImVec2(MousePosition_2.x, 0),
+                    ImVec2(windows_Width, 0),
+                    ImVec2(windows_Width, MousePosition_2.y),
+                    ImVec2(MousePosition_2.x, MousePosition_2.y),
+                    //颜色
+                    IM_COL32(0, 0, 0, 100));
 
                 draw_list->AddQuadFilled(
-                    ImVec2(ptdianji_1.x, ptdianji_2.y),
-                    ImVec2(1920, ptdianji_2.y),
-                    ImVec2(1920, 1080),
-                    ImVec2(ptdianji_1.x, 1080),
-                    IM_COL32(0, 255, 0, 100));
+                    //矩形框的四个点（顺时针）
+                    ImVec2(MousePosition_1.x, MousePosition_2.y),
+                    ImVec2(windows_Width, MousePosition_2.y),
+                    ImVec2(windows_Width, windows_Heigth),
+                    ImVec2(MousePosition_1.x, windows_Heigth),
+                    //颜色
+                    IM_COL32(0, 0, 0, 100));
 
                 draw_list->AddQuadFilled(
-                    ImVec2(0, ptdianji_1.y),
-                    ImVec2(ptdianji_1.x, ptdianji_1.y),
-                    ImVec2(ptdianji_1.x, 1080),
-                    ImVec2(0, 1080),
-                    IM_COL32(0, 255, 0, 100));
-
-                /*
-                // Get the current ImGui cursor position
-                ImVec2 p = ImGui::GetCursorScreenPos();
-
-                // Draw a red circle
-                
-
-                // Draw a 3 pixel thick yellow line
-                draw_list->AddLine(ImVec2(p.x, p.y), ImVec2(p.x +1, p.y +1), IM_COL32(255, 255, 0, 255), 1.0f);
-
-
-                // Advance the ImGui cursor to claim space in the window (otherwise the window will appears small and needs to be resized)
-                ImGui::Dummy(ImVec2(300, 300));*/
-
-
-                
+                    //矩形框的四个点（顺时针）
+                    ImVec2(0, MousePosition_1.y),
+                    ImVec2(MousePosition_1.x, MousePosition_1.y),
+                    ImVec2(MousePosition_1.x, windows_Heigth),
+                    ImVec2(0, windows_Heigth),
+                    //颜色
+                    IM_COL32(0, 0, 0, 100));
 
                 ImGui::End();
             }
@@ -467,41 +437,42 @@ int main(int,char**)
     
             
             //系统托盘的右键菜单
-            if (tex_open) {
+            if (SystemTray_interface) {
                 //设置生成位置在鼠标的右上角
-                if (tex_openpos) {
+                if (SystemTray_init) {
                     static POINT pt = { 0,0 };
-                    GetCursorPos(&pt);
-                    ImGui::SetNextWindowPos({ float(pt.x), float(pt.y) - 60 });
-                    tex_openpos = false;
+                    GetCursorPos(&pt);//获取鼠标位置
+                    ImGui::SetNextWindowPos({ float(pt.x), float(pt.y) - 90 });//设置窗口生成位置
+                    SystemTray_init = false;
                 }
+                
                 //创建右键菜单
-                auto w = ImGui::Begin(u8"窗口", &tex_open, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
+                auto w = ImGui::Begin(u8"窗口", &SystemTray_interface, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
+                
                 //鼠标在界面上
                 if (ImGui::IsWindowHovered()) {
-                    caidan_time = clock();
+                    interface_time = clock();
                 }
-                if ((clock() - caidan_time) > 3000) {
-                    tex_open = false;
+                else if ((clock() - interface_time) > Residence_Time) {
+                    SystemTray_interface = false;
                 }
 
-
-
-
-
+                //设置按键
                 if (ImGui::Button(u8"设置")) {
                     
                 }
+                if (SystemTray_mode) {
+                    if (ImGui::Button(u8"百度")) {
+                        SystemTray_mode = false;
+                    }
+                }
+                else {
+                    if (ImGui::Button(u8"有道")) {
+                        SystemTray_mode = true;
+                    }
+                }
                 if (ImGui::Button(u8"退出")){
-                    ImGui_ImplDX11_Shutdown();
-                    ImGui_ImplWin32_Shutdown();
-                    ImGui::DestroyContext();
-                    
-                    CleanupDeviceD3D();
-                    ::DestroyWindow(hwnd);
-                    ::UnregisterClass(wc.lpszClassName, wc.hInstance);
-
-                    return 0;
+                    done = true;
                 }
                 ImGui::End();
             }
@@ -611,14 +582,14 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         {
         case WM_RBUTTONDOWN://右键图标
         {
-            caidan_time = clock();
-            if (tex_open) {
-                tex_open = false;
-                tex_openpos = false;
+            interface_time = clock();
+            if (SystemTray_interface) {
+                SystemTray_interface = false;
+                SystemTray_init = false;
             }
             else {
-                tex_open = true;
-                tex_openpos = true;
+                SystemTray_interface = true;
+                SystemTray_init = true;
             }
         }
             break;
