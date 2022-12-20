@@ -27,7 +27,7 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/launch.vs
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/favicon.ico ${CMAKE_CURRENT_BINARY_DIR})
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/Data.ini ${CMAKE_CURRENT_BINARY_DIR})
 execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/tessdata ${CMAKE_CURRENT_BINARY_DIR}/tessdata)# 把 tesseract 的模型拷进去
-add_executable(Translate-miku  ${DIRSRCS})
+add_executable(Translate-miku  ${DIRSRCS} "Tool.h")
 
 add_subdirectory(Function) # 对子文件夹进行CMake
 add_subdirectory(imgui)

@@ -1,5 +1,9 @@
 #include "Translate.h"
 
+
+
+
+
 unsigned char ToHex(unsigned char x)
 {
     return  x > 9 ? x + 55 : x + 48;
@@ -64,26 +68,35 @@ std::string UrlDecode(const std::string& str)
 
 
 //（ 详细详细查看百度翻译API文档：https ://fanyi-api.baidu.com/product/113 ）
-std::string Translate_Baidu(const char* appid, const char* secret_key, char* English) {
+std::string Translate_Baidu(const char* appid, const char* secret_key, std::string English, char* from, char* to) {
+    //appid             //replace myAppid with your own appid
+    //secret_key        //replace mySecretKey with your own mySecretKey
+    //English           //replace apple with your own text to be translate, ensure that the input text is encoded with UTF-8!
+    //from;             //replace en with your own language type of input text
+    //to;               //replace zh with your own language type of output text
+
+    //不存在单词取消翻译
+    if (strlen(English.c_str()) <= 1) {
+        return std::string(u8"不存在单词");
+    }
+
+
+
     CURL* curl;
     CURLcode res;
     FILE* fp;
-    fp = fopen("kao.txt", "w+");
+    fp = fopen("TemporaryData", "w+");
 
     curl = curl_easy_init();
     if (curl) {
         char myurl[1000] = "http://api.fanyi.baidu.com/api/trans/vip/translate?";
-        //char* appid = "20210925000956550";    //replace myAppid with your own appid
-        //char* q = English;                  //replace apple with your own text to be translate, ensure that the input text is encoded with UTF-8!
-        char* from = "en";                    //replace en with your own language type of input text
-        char* to = "zh";                      //replace zh with your own language type of output text
+        
         char salt[60];
         int a = rand();
         sprintf(salt, "%d", a);
-        //char* secret_key = "os4RtAbGDCDhvgWvGSPu";   //replace mySecretKey with your own mySecretKey
         char sign[120] = "";
         strcat(sign, appid);
-        strcat(sign, English);//获取加密MD5时 English 不要进行 Url_Encode 处理  （ 详细详细查看百度翻译API文档：https://fanyi-api.baidu.com/product/113 ）
+        strcat(sign, English.c_str());//获取加密MD5时 English 不要进行 Url_Encode 处理  （ 详细详细查看百度翻译API文档：https://fanyi-api.baidu.com/product/113 ）
         strcat(sign, salt);
         strcat(sign, secret_key);
         unsigned char md[16];
@@ -126,7 +139,6 @@ std::string Translate_Baidu(const char* appid, const char* secret_key, char* Eng
         fclose(fp);
 
 
-
         Json::Value value;
         Json::Reader reader;
         if (!reader.parse(kaox, value)) {
@@ -134,7 +146,7 @@ std::string Translate_Baidu(const char* appid, const char* secret_key, char* Eng
             delete[] kaox;
             return 0;
         }
-        std::string Chinese = value["trans_result"][0]["dst"].asString().c_str();
+        std::string Chinese = value["trans_result"][0]["dst"].asString();
         delete[] kaox;
 
         return Chinese;

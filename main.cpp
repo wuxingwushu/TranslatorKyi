@@ -1,9 +1,4 @@
 #include "main.h"
-
-
-
-
-
 /*
 _______________#########_______________________
 ______________############_____________________
@@ -34,6 +29,57 @@ ________##_______####________####______________
 
 
 
+
+
+
+//获得剪贴板的内容
+std::string ClipboardTochar() {
+    OpenClipboard(NULL);//打开剪贴板
+    hmem = GetClipboardData(CF_TEXT);//获取剪切板内容块
+    std::string CharS = (char*)GlobalLock(hmem);//获取内容块的地址
+    CloseClipboard();//关闭剪贴板
+    return CharS;
+}
+
+
+
+//将内容复制到剪贴板
+void CopyToClipboard(std::string str) {
+    str = Utf8ToUnicode(str.c_str());// utf8 转到 Unicode 要不然粘贴出来是乱吗
+    OpenClipboard(NULL);
+    if (!EmptyClipboard())       // 清空剪切板，写入之前，必须先清空剪切板
+    {
+        puts("清空剪切板失败\n");
+        CloseClipboard();
+    }
+
+    HGLOBAL hMemory;
+    if ((hMemory = GlobalAlloc(GMEM_MOVEABLE, strlen(str.c_str()) + 1)) == NULL)    // 对剪切板分配内存
+    {
+        puts("内存赋值错误!!!\n");
+        CloseClipboard();
+    }
+
+    LPTSTR lpMemory;
+    if ((lpMemory = (LPTSTR)GlobalLock(hMemory)) == NULL)             // 将内存区域锁定
+    {
+        puts("锁定内存错误!!!\n");
+        CloseClipboard();
+    }
+
+    memcpy_s(lpMemory, strlen(str.c_str()) + 1, str.c_str(), strlen(str.c_str()) + 1);   // 将数据复制进入内存区域
+
+    GlobalUnlock(hMemory);                   // 解除内存锁定
+
+    if (SetClipboardData(CF_TEXT, hMemory) == NULL)
+    {
+        puts("设置剪切板数据失败!!!\n");
+        CloseClipboard();
+    }
+
+
+    CloseClipboard();//关闭剪贴板
+}
 
 
 //IMGUI 初始化
@@ -202,7 +248,6 @@ int main(int,char**)
     IniDataInit();//初始化软件数据
 
 
-
     //防止软件多开
     if (FindWindow(NULL, _T("ImGui Tool")))
     {
@@ -270,6 +315,86 @@ int main(int,char**)
             Screenshot_interface = true;
             Screenshot_click = true;
         }
+
+
+        if ((GetKeyState(choice_key_1) < 0) && (GetKeyState(choice_key_2) < 0)) {
+            
+            //等待键盘松开（避免模拟按键 ctrl + c 时有其他按键，导致无法获取选择内容）
+            while ((GetKeyState(choice_key_1) < 0) || (GetKeyState(choice_key_2) < 0)){
+                //关闭其他UI
+                SystemTray_interface = false;
+                Screenshot_interface = false;
+                //打开翻译界面
+                translate_interface_time = clock();
+                translate_interface = true;
+                translate_click = true;
+            }
+
+            std::string strS = ClipboardTochar();//读取当前剪切板的内容，保存起来
+
+            Sleep(5);//内容拷贝，避免指针丢失报错
+
+            //获取当前选择的内容 ctrl + c
+            keybd_event(17, 0, 0, 0);//按下 ctrl
+            keybd_event(67, 0, 0, 0);//按下 c
+            keybd_event(17, 0, KEYEVENTF_KEYUP, 0);//松开 ctrl
+            keybd_event(67, 0, KEYEVENTF_KEYUP, 0);//松开 c
+
+
+            Sleep(5);//等待上面的内容复制到剪切板上
+
+            translate_English = ClipboardTochar();//从剪切板上读取出来
+
+            if (strlen(translate_English.c_str()) <= 1) {
+                translate_Chinese =  u8"不存在单词";
+            }
+            else {
+                translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), translate_English, English, Chinese);//翻译内容
+            }
+
+            CopyToClipboard(strS);//还原原来剪切板的内容
+        }
+
+       
+        if ((GetKeyState(replace_key_1) < 0) && (GetKeyState(replace_key_2) < 0)) {
+            //等待键盘松开（避免模拟按键 ctrl + c 时有其他按键，导致无法获取选择内容）
+            while ((GetKeyState(replace_key_1) < 0) || (GetKeyState(replace_key_2) < 0)) {
+                //关闭其他UI
+                SystemTray_interface = false;
+                Screenshot_interface = false;
+                translate_interface = false;
+            }
+            std::string strS = ClipboardTochar();//读取当前剪切板的内容，保存起来
+
+            Sleep(5);//内容拷贝，避免指针丢失报错
+
+            //获取当前选择的内容 ctrl + c
+            keybd_event(17, 0, 0, 0);//按下 ctrl
+            keybd_event(67, 0, 0, 0);//按下 c
+            keybd_event(17, 0, KEYEVENTF_KEYUP, 0);//松开 ctrl
+            keybd_event(67, 0, KEYEVENTF_KEYUP, 0);//松开 c
+
+            Sleep(5);//等待上面的内容复制到剪切板上
+
+            translate_English = ClipboardTochar();//从剪切板上读取出来
+
+            if (strlen(translate_English.c_str()) > 0) {
+                translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), UnicodeToUtf8(translate_English), English, ChineseReplace);//翻译内容
+            }
+
+            CopyToClipboard(translate_Chinese);//把翻译的内容复制到剪切板上
+
+            //粘贴出去 ctrl + v
+            keybd_event(17, 0, 0, 0);//按下 ctrl
+            keybd_event(86, 0, 0, 0);//按下 v
+            keybd_event(17, 0, KEYEVENTF_KEYUP, 0);//松开 ctrl
+            keybd_event(86, 0, KEYEVENTF_KEYUP, 0);//松开 v
+
+            Sleep(5);//等待上面的内容粘贴出去
+
+            CopyToClipboard(strS);//还原原来剪切板的内容
+        }
+
         
 
         MSG msg;
@@ -302,11 +427,11 @@ int main(int,char**)
                 bool k = ImGui::Begin(u8"翻译结果", &translate_interface, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_NoScrollbar);//创建窗口
 
                 ImGui::PushTextWrapPos(300);//限制字体的范围（像素）
-                ImGui::Text(translate_English);
+                ImGui::Text(translate_English.c_str());
                 ImGui::SameLine();//让下一个元素并排
                 ImGui::SetCursorPosX(305);//设置下一个元素生成的位置
-                if (ImGui::Button(u8" ")) {
-                    
+                if (ImGui::Button(u8"c")) {
+                    CopyToClipboard(translate_English.c_str());
                 }
                 //设置上一个元素的鼠标悬停提示
                 if (ImGui::IsItemHovered())
@@ -318,7 +443,7 @@ int main(int,char**)
                 ImGui::SameLine();//让一个元素并排
                 ImGui::SetCursorPosX(305);//设置下一个元素生成的位置
                 if (ImGui::Button(u8" ")) {
-    
+                    CopyToClipboard(translate_Chinese.c_str());
                 }
                 //设置上一个元素的鼠标悬停提示
                 if (ImGui::IsItemHovered())
@@ -331,7 +456,6 @@ int main(int,char**)
                 GetCursorPos(&pt);//获取鼠标位置
                 if ((pt.x > ImGui::GetWindowPos().x) && (pt.y > ImGui::GetWindowPos().y) && (pt.x < (ImGui::GetWindowPos().x + ImGui::GetWindowWidth())) && (pt.y < (ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
                     translate_interface_time = clock();
-                    printf("!");
                 }
                 else if ((clock() - translate_interface_time) > Residence_Time) {
                     translate_interface = false;
@@ -350,8 +474,8 @@ int main(int,char**)
                     ImGui::SetNextWindowPos({ -8, -8 });
                     ImGui::SetNextWindowSize(ImVec2(windows_Width + 16, windows_Heigth + 16));
                     //截取图片
-                    screen("1.png");
-                    m_pImageTextureView1 = DX11LoadTextureImageFromFile("1.png");
+                    screen("TemporaryData");
+                    m_pImageTextureView1 = DX11LoadTextureImageFromFile("TemporaryData");
                     image_ID = m_pImageTextureView1;
                     Screenshot_init = false;
                 }
@@ -396,22 +520,30 @@ int main(int,char**)
                         m_pImageTextureView1 = NULL;
                         MousePosition_1 = { 0,0 };
                         MousePosition_2 = { 0,0 };
+
                         //关闭窗口
                         Screenshot_interface = false;
-                        translate_English = Tesseract_OCR(x, y, w, h);//要翻译界面关闭了才可以要不然会出BUG
-                        translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), translate_English);
-                        translate_interface_time = clock();
-                        translate_interface = true;
-                        translate_click = true;
+
+                        //画面过小，取消识别
+                        if (w > 10 && h > 10) {
+                            translate_English = Tesseract_OCR(x, y, w, h);//要翻译界面关闭了才可以要不然会出BUG
+
+                            if (strlen(translate_English.c_str()) > 0) {
+                                translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), translate_English, English, Chinese);//翻译内容
+                            }
+                            else {
+                                translate_Chinese = u8"内容不存在！";
+                            }
+
+                            translate_interface_time = clock();
+                            translate_interface = true;
+                            translate_click = true;
+                        } 
                     }
                 }
 
                 //创建窗口
                 ImGui::Begin("My shapes", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_NoScrollbar);
-
-                if (ImGui::IsWindowHovered()) {
-                
-                }
 
                 //显示图片
                 ImGui::Image(image_ID, ImVec2(windows_Width, windows_Heigth));
@@ -503,7 +635,6 @@ int main(int,char**)
                 GetCursorPos(&pt);//获取鼠标位置
                 if ((pt.x > ImGui::GetWindowPos().x) && (pt.y > ImGui::GetWindowPos().y) && (pt.x < (ImGui::GetWindowPos().x + ImGui::GetWindowWidth())) && (pt.y < (ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
                     SystemTray_interface_time = clock();
-                    printf("!");
                 }
                 else if ((clock() - SystemTray_interface_time) > Residence_Time) {
                     SystemTray_interface = false;

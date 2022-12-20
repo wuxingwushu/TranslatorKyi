@@ -6,4 +6,4 @@
 #include <assert.h>
 
 
-std::string Translate_Baidu(const char* appid, const char* secret_key, char* English);
+std::string Translate_Baidu(const char* appid, const char* secret_key, std::string English, char* from, char* to);
