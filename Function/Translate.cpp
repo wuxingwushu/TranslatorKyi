@@ -68,7 +68,7 @@ std::string UrlDecode(const std::string& str)
 
 
 //（ 详细详细查看百度翻译API文档：https ://fanyi-api.baidu.com/product/113 ）
-std::string Translate_Baidu(const char* appid, const char* secret_key, std::string English, char* from, char* to) {
+std::string Translate_Baidu(const char* appid, const char* secret_key, std::string English, const char* from, const char* to) {
     //appid             //replace myAppid with your own appid
     //secret_key        //replace mySecretKey with your own mySecretKey
     //English           //replace apple with your own text to be translate, ensure that the input text is encoded with UTF-8!

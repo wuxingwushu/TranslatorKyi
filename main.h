@@ -1,5 +1,5 @@
 #include "base.h"
-#include <windows.h>//WIN API
+#include "Tool.h"//数据格式转换
 #include "imgui/GUI.h"//显示界面
 #include "Function/tesseract.h"//图片识别文字
 #include "Function/Translate.h"//翻译文字
@@ -30,13 +30,14 @@ using namespace inih;//启用 ini 读取
 */
 
 
+//翻译目标语言设置
+std::string English;//检测目标语言
+std::string Chinese;//翻译目标语言
+std::string ChineseReplace;//替换的目标语言
 
 //翻译API 的 ID 和 Key
 std::string Baidu_ID;
 std::string Baidu_Key;
-
-
-
 
 //按键
 static int  screenshot_key_1;//截图按键 screenshot_key_1 && screenshot_key_2
@@ -51,9 +52,7 @@ static char replace_key_2;
 //软件设置
 static int Residence_Time;//鼠标离开界面时的显示时间
 
-char* English = "auto";
-char* Chinese = "zh";
-char* ChineseReplace = "en";
+
 
 void IniDataInit() {
 /*
@@ -64,6 +63,10 @@ std::cout <<   << std::endl;
 */
 
 	INIReader iniData{ "./Data.ini" };
+
+	English = iniData.Get<std::string>("language", "English");
+	Chinese = iniData.Get<std::string>("language", "Chinese");
+	ChineseReplace = iniData.Get<std::string>("language", "ChineseReplace");
 
 	Baidu_ID = iniData.Get<std::string>("API", "Baidu_ID");
 	Baidu_Key = iniData.Get<std::string>("API", "Baidu_Key");
@@ -119,8 +122,7 @@ static clock_t SystemTray_interface_time;//鼠标离开界面的时间戳
 
 //IMGUI
 static ImVec4 clear_color;
-//IMGUI 初始化
-ImGuiIO& IMGUI_init();
+
 
 
 static int windows_Width{ GetSystemMetrics(SM_CXSCREEN) };//获取显示器的宽
@@ -128,10 +130,7 @@ static int windows_Heigth{ GetSystemMetrics(SM_CYSCREEN) };//获取显示器的高
 
 
 
-//加载图片
-ID3D11ShaderResourceView* DX11LoadTextureImageFromFile(LPCSTR lpszFilePath);
-//截图&保存（全屏）
-void screen(LPCSTR fileName);
+
 
 
 
@@ -146,86 +145,22 @@ static ID3D11DeviceContext* g_pd3dDeviceContext = NULL;
 static IDXGISwapChain* g_pSwapChain = NULL;
 static ID3D11RenderTargetView* g_mainRenderTargetView = NULL;
 
+
+
+//IMGUI 初始化
+ImGuiIO& IMGUI_init();
+//获得剪贴板的内容
+std::string ClipboardTochar();
+//将内容复制到剪贴板
+void CopyToClipboard(std::string str);
+//加载图片
+ID3D11ShaderResourceView* DX11LoadTextureImageFromFile(LPCSTR lpszFilePath);
+//截图&保存（全屏）
+void screen(LPCSTR fileName);
+
 bool CreateDeviceD3D(HWND hWnd);
 void CleanupDeviceD3D();
 void CreateRenderTarget();
 void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//string 转 wstring
-std::string ws2s(const std::wstring& ws)
-{
-    size_t i;
-    std::string curLocale = setlocale(LC_ALL, NULL);
-    setlocale(LC_ALL, "chs");
-    const wchar_t* _source = ws.c_str();
-    size_t _dsize = 2 * ws.size() + 1;
-    char* _dest = new char[_dsize];
-    memset(_dest, 0x0, _dsize);
-    wcstombs_s(&i, _dest, _dsize, _source, _dsize);
-    std::string result = _dest;
-    delete[] _dest;
-    setlocale(LC_ALL, curLocale.c_str());
-    return result;
-}
-
-//wstring 转 string
-std::wstring s2ws(const std::string& s)
-{
-    size_t i;
-    std::string curLocale = setlocale(LC_ALL, NULL);
-    setlocale(LC_ALL, "chs");
-    const char* _source = s.c_str();
-    size_t _dsize = s.size() + 1;
-    wchar_t* _dest = new wchar_t[_dsize];
-    wmemset(_dest, 0x0, _dsize);
-    mbstowcs_s(&i, _dest, _dsize, _source, _dsize);
-    std::wstring result = _dest;
-    delete[] _dest;
-    setlocale(LC_ALL, curLocale.c_str());
-    return result;
-}
-
-//Unicode 转到 utf8
-std::string  UnicodeToUtf8(const std::string& Unicode)
-{
-    std::wstring wstr = s2ws(Unicode);
-
-    int ansiiLen = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, nullptr, 0, nullptr, nullptr);
-    char* pAssii = (char*)malloc(sizeof(char) * ansiiLen);
-    WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, pAssii, ansiiLen, nullptr, nullptr);
-    std::string ret_str = pAssii;
-    free(pAssii);
-    return ret_str;
-}
-
-
-
-//utf8 转到 Unicode
-char* Utf8ToUnicode(const char* szU8)
-{
-    int wcsLen = MultiByteToWideChar(CP_UTF8, NULL, szU8, (int)strlen(szU8), NULL, 0);
-    wchar_t* wszString = new wchar_t[wcsLen + 1];
-    MultiByteToWideChar(CP_UTF8, NULL, szU8, (int)strlen(szU8), wszString, wcsLen);
-    wszString[wcsLen] = '\0';
-    int len = WideCharToMultiByte(CP_ACP, 0, wszString, (int)wcslen(wszString), NULL, 0, NULL, NULL);
-    char* c = new char[len + 1];
-    WideCharToMultiByte(CP_ACP, 0, wszString, (int)wcslen(wszString), c, len, NULL, NULL);
-    c[len] = '\0';
-    delete[] wszString;
-    return c;
-}

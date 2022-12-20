@@ -29,220 +29,6 @@ ________##_______####________####______________
 
 
 
-
-
-
-//获得剪贴板的内容
-std::string ClipboardTochar() {
-    OpenClipboard(NULL);//打开剪贴板
-    hmem = GetClipboardData(CF_TEXT);//获取剪切板内容块
-    std::string CharS = (char*)GlobalLock(hmem);//获取内容块的地址
-    CloseClipboard();//关闭剪贴板
-    return CharS;
-}
-
-
-
-//将内容复制到剪贴板
-void CopyToClipboard(std::string str) {
-    str = Utf8ToUnicode(str.c_str());// utf8 转到 Unicode 要不然粘贴出来是乱吗
-    OpenClipboard(NULL);
-    if (!EmptyClipboard())       // 清空剪切板，写入之前，必须先清空剪切板
-    {
-        puts("清空剪切板失败\n");
-        CloseClipboard();
-    }
-
-    HGLOBAL hMemory;
-    if ((hMemory = GlobalAlloc(GMEM_MOVEABLE, strlen(str.c_str()) + 1)) == NULL)    // 对剪切板分配内存
-    {
-        puts("内存赋值错误!!!\n");
-        CloseClipboard();
-    }
-
-    LPTSTR lpMemory;
-    if ((lpMemory = (LPTSTR)GlobalLock(hMemory)) == NULL)             // 将内存区域锁定
-    {
-        puts("锁定内存错误!!!\n");
-        CloseClipboard();
-    }
-
-    memcpy_s(lpMemory, strlen(str.c_str()) + 1, str.c_str(), strlen(str.c_str()) + 1);   // 将数据复制进入内存区域
-
-    GlobalUnlock(hMemory);                   // 解除内存锁定
-
-    if (SetClipboardData(CF_TEXT, hMemory) == NULL)
-    {
-        puts("设置剪切板数据失败!!!\n");
-        CloseClipboard();
-    }
-
-
-    CloseClipboard();//关闭剪贴板
-}
-
-
-//IMGUI 初始化
-ImGuiIO& IMGUI_init() {
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-
-    ImGui::StyleColorsDark();
-
-
-    ImGui_ImplWin32_Init(hwnd);
-    ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
-
-    io.IniFilename = nullptr;
-    ImFontConfig Font_cfg;
-    Font_cfg.FontDataOwnedByAtlas = false;
-
-    //ImFont* Font = io.Fonts->AddFontFromFileTTF("..\\ImGui Tool\\Font.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesChineseFull());
-    ImFont* Font = io.Fonts->AddFontFromMemoryTTF((void*)Font_data, Font_size, 18.0f, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
-    ImFont* Font_Big = io.Fonts->AddFontFromMemoryTTF((void*)Font_data, Font_size, 24.0f, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
-
-    clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
-
-
-    //ImGui 风格设置
-    ImGuiStyle& Style = ImGui::GetStyle();
-    auto Color = Style.Colors;
-
-    Style.ChildRounding = 8.0f;
-    Style.FrameRounding = 5.0f;
-
-    Color[ImGuiCol_Button] = ImColor(10, 105, 56, 255);
-    Color[ImGuiCol_ButtonHovered] = ImColor(30, 125, 76, 255);
-    Color[ImGuiCol_ButtonActive] = ImColor(0, 95, 46, 255);
-
-    Color[ImGuiCol_FrameBg] = ImColor(54, 54, 54, 150);
-    Color[ImGuiCol_FrameBgActive] = ImColor(42, 42, 42, 150);
-    Color[ImGuiCol_FrameBgHovered] = ImColor(100, 100, 100, 150);
-
-    Color[ImGuiCol_CheckMark] = ImColor(10, 105, 56, 255);
-
-    Color[ImGuiCol_SliderGrab] = ImColor(10, 105, 56, 255);
-    Color[ImGuiCol_SliderGrabActive] = ImColor(0, 95, 46, 255);
-
-    Color[ImGuiCol_Header] = ImColor(10, 105, 56, 255);
-    Color[ImGuiCol_HeaderHovered] = ImColor(30, 125, 76, 255);
-    Color[ImGuiCol_HeaderActive] = ImColor(0, 95, 46, 255);
-
-    return io;
-}
-
-//加载图片
-ID3D11ShaderResourceView* DX11LoadTextureImageFromFile(LPCSTR lpszFilePath)
-{
-    ID3D11Texture2D* pTexture2D = NULL;
-    D3D11_TEXTURE2D_DESC dec;
-    
-    HRESULT result;
-    D3DX11_IMAGE_LOAD_INFO loadInfo;
-    ZeroMemory(&loadInfo, sizeof(D3DX11_IMAGE_LOAD_INFO));
-    loadInfo.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-    loadInfo.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    loadInfo.MipLevels = D3DX11_DEFAULT; //这时会产生最大的mipmaps层。 
-    loadInfo.MipFilter = D3DX11_FILTER_LINEAR; 
-    D3DX11CreateTextureFromFile(g_pd3dDevice, lpszFilePath, &loadInfo, NULL, (ID3D11Resource**)(&pTexture2D), &result);
-    pTexture2D->GetDesc(&dec);
-
-    if (result != S_OK)
-    {
-        return NULL;
-    }
-    
-    ID3D11ShaderResourceView* pFontTextureView = NULL;
-
-    // Create texture view
-    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
-    ZeroMemory(&srvDesc, sizeof(srvDesc));
-    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MipLevels = dec.MipLevels;
-    srvDesc.Texture2D.MostDetailedMip = 0;
-    g_pd3dDevice->CreateShaderResourceView(pTexture2D, &srvDesc, &pFontTextureView);
-
-    pTexture2D->Release();
-    pTexture2D = NULL;
-
-    return pFontTextureView;
-}
-
-
-
-
-//截图&保存（全屏）
-void screen(LPCSTR fileName)
-{
-    HWND window = GetDesktopWindow();
-    HDC _dc = GetWindowDC(window);//屏幕DC
-    HDC dc = CreateCompatibleDC(0);//内存DC
-
-    RECT re;
-    GetWindowRect(window, &re);
-    int w = re.right,
-        h = re.bottom;
-    void* buf = new char[w * h * 4];
-    void* buff = buf;//备份保存申请内存的地址，因为后面 buf 这个内存地址会丢失导致内存泄露。
-
-    HBITMAP bm = CreateCompatibleBitmap(_dc, w, h);//建立和屏幕兼容的bitmap
-    SelectObject(dc, bm);//将memBitmap选入内存DC    
-    StretchBlt(dc, 0, 0, w, h, _dc, 0, 0, w, h, SRCCOPY);//复制屏幕图像到内存DC
-
-    void* f = CreateFile(fileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, 0);
-
-    GetObject(bm, 84, buf);
-
-    tagBITMAPINFO bi;
-    bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
-    bi.bmiHeader.biWidth = w;
-    bi.bmiHeader.biHeight = h;
-    bi.bmiHeader.biPlanes = 1;
-    bi.bmiHeader.biBitCount = 32;
-    bi.bmiHeader.biCompression = 0;
-    bi.bmiHeader.biSizeImage = 0;
-
-    void* dcf = CreateDIBSection(dc, &bi, DIB_RGB_COLORS, &buf, NULL, NULL);
-    GetDIBits(dc, bm, 0, h, buf, &bi, DIB_RGB_COLORS); 
-    
-    BITMAPFILEHEADER bif;
-    bif.bfType = MAKEWORD('B', 'M');
-    bif.bfSize = w * h * 4 + 54;
-    bif.bfOffBits = 54;
-
-    BITMAPINFOHEADER bii;
-    bii.biSize = 40;
-    bii.biWidth = w;
-    bii.biHeight = h;
-    bii.biPlanes = 1;
-    bii.biBitCount = 32;
-    bii.biCompression = 0;
-    bii.biSizeImage = w * h * 4;
-
-    DWORD r;
-    WriteFile(f, &bif, sizeof(bif), &r, NULL);
-    WriteFile(f, &bii, sizeof(bii), &r, NULL);
-    WriteFile(f, buf, w * h * 4, &r, NULL);
-
-    
-    
-    DeleteObject(dcf);
-    DeleteObject(bm);
-    delete[] buff;
-    CloseHandle(f);
-    DeleteDC(_dc);
-    DeleteDC(dc);
-}
-
-
-
-
 int main(int,char**)
 {
     IniDataInit();//初始化软件数据
@@ -349,7 +135,7 @@ int main(int,char**)
                 translate_Chinese =  u8"不存在单词";
             }
             else {
-                translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), translate_English, English, Chinese);//翻译内容
+                translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), UnicodeToUtf8(translate_English), English.c_str(), Chinese.c_str());//翻译内容
             }
 
             CopyToClipboard(strS);//还原原来剪切板的内容
@@ -379,7 +165,7 @@ int main(int,char**)
             translate_English = ClipboardTochar();//从剪切板上读取出来
 
             if (strlen(translate_English.c_str()) > 0) {
-                translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), UnicodeToUtf8(translate_English), English, ChineseReplace);//翻译内容
+                translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), UnicodeToUtf8(translate_English), English.c_str(), ChineseReplace.c_str());//翻译内容
             }
 
             CopyToClipboard(translate_Chinese);//把翻译的内容复制到剪切板上
@@ -430,7 +216,7 @@ int main(int,char**)
                 ImGui::Text(translate_English.c_str());
                 ImGui::SameLine();//让下一个元素并排
                 ImGui::SetCursorPosX(305);//设置下一个元素生成的位置
-                if (ImGui::Button(u8"c")) {
+                if (ImGui::Button("<")) {
                     CopyToClipboard(translate_English.c_str());
                 }
                 //设置上一个元素的鼠标悬停提示
@@ -442,7 +228,7 @@ int main(int,char**)
                 ImGui::Text(translate_Chinese.c_str());
                 ImGui::SameLine();//让一个元素并排
                 ImGui::SetCursorPosX(305);//设置下一个元素生成的位置
-                if (ImGui::Button(u8" ")) {
+                if (ImGui::Button(">")) {
                     CopyToClipboard(translate_Chinese.c_str());
                 }
                 //设置上一个元素的鼠标悬停提示
@@ -529,7 +315,7 @@ int main(int,char**)
                             translate_English = Tesseract_OCR(x, y, w, h);//要翻译界面关闭了才可以要不然会出BUG
 
                             if (strlen(translate_English.c_str()) > 0) {
-                                translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), translate_English, English, Chinese);//翻译内容
+                                translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), translate_English, English.c_str(), Chinese.c_str());//翻译内容
                             }
                             else {
                                 translate_Chinese = u8"内容不存在！";
@@ -672,6 +458,93 @@ int main(int,char**)
 }
 
 
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0 // From Windows SDK 8.1+ headers
+#endif
+
+
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+
+LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+        return true;
+
+
+
+    switch (msg)
+    {
+    case WM_IAWENTRAY:
+        /*
+        MK_LBUTTON　鼠标左键被按下。
+        MK_MBUTTON　鼠标中键被按下。
+        MK_RBUTTON　鼠标右键被按下。
+        */
+        switch (lParam)
+        {
+        case WM_RBUTTONDOWN://右键图标
+        {
+            SystemTray_interface_time = clock();
+            if (SystemTray_interface) {
+                SystemTray_interface = false;
+                SystemTray_init = false;
+            }
+            else {
+                SystemTray_interface = true;
+                SystemTray_init = true;
+            }
+        }
+        break;
+        case WM_LBUTTONUP://左键图标
+            break;
+        }
+        break;
+
+
+
+
+
+
+
+
+
+    case WM_KEYDOWN://对大小写不敏感
+        if (wParam == 'F') {//检测F是否被按下
+            //SetWindowText(hWnd, "off FFFF");//当检测到F被按下是改变标题
+        }
+        break;
+
+
+    case WM_SIZE:
+        if (g_pd3dDevice != NULL && wParam != SIZE_MINIMIZED)
+        {
+            CleanupRenderTarget();
+            g_pSwapChain->ResizeBuffers(0, (UINT)LOWORD(lParam), (UINT)HIWORD(lParam), DXGI_FORMAT_UNKNOWN, 0);
+            CreateRenderTarget();
+        }
+        return 0;
+    case WM_SYSCOMMAND:
+        if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
+            return 0;
+        break;
+    case WM_DESTROY:
+        ::PostQuitMessage(0);
+        return 0;
+    case WM_DPICHANGED:
+        if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DpiEnableScaleViewports)
+        {
+            const RECT* suggested_rect = (RECT*)lParam;
+            ::SetWindowPos(hWnd, NULL, suggested_rect->left, suggested_rect->top, suggested_rect->right - suggested_rect->left, suggested_rect->bottom - suggested_rect->top, SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+        break;
+    }
+    return ::DefWindowProc(hWnd, msg, wParam, lParam);
+}
+
+
+
+
 bool CreateDeviceD3D(HWND hWnd)
 {
     DXGI_SWAP_CHAIN_DESC sd;
@@ -721,86 +594,219 @@ void CleanupRenderTarget()
     if (g_mainRenderTargetView) { g_mainRenderTargetView->Release(); g_mainRenderTargetView = NULL; }
 }
 
-#ifndef WM_DPICHANGED
-#define WM_DPICHANGED 0x02E0 // From Windows SDK 8.1+ headers
-#endif
 
 
-extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 
-LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
-{
-    if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
-        return true;
 
-    
 
-    switch (msg)
+
+
+
+//获得剪贴板的内容
+std::string ClipboardTochar() {
+    OpenClipboard(NULL);//打开剪贴板
+    hmem = GetClipboardData(CF_TEXT);//获取剪切板内容块
+    std::string CharS = (char*)GlobalLock(hmem);//获取内容块的地址
+    CloseClipboard();//关闭剪贴板
+    return CharS;
+}
+
+
+
+//将内容复制到剪贴板
+void CopyToClipboard(std::string str) {
+    str = Utf8ToUnicode(str.c_str());// utf8 转到 Unicode 要不然粘贴出来是乱吗
+    OpenClipboard(NULL);
+    if (!EmptyClipboard())       // 清空剪切板，写入之前，必须先清空剪切板
     {
-    case WM_IAWENTRAY:
-        /*
-        MK_LBUTTON　鼠标左键被按下。
-        MK_MBUTTON　鼠标中键被按下。
-        MK_RBUTTON　鼠标右键被按下。
-        */
-        switch (lParam)
-        {
-        case WM_RBUTTONDOWN://右键图标
-        {
-            SystemTray_interface_time = clock();
-            if (SystemTray_interface) {
-                SystemTray_interface = false;
-                SystemTray_init = false;
-            }
-            else {
-                SystemTray_interface = true;
-                SystemTray_init = true;
-            }
-        }
-            break;
-        case WM_LBUTTONUP://左键图标
-            break;
-        }
-        break;
-
-
-
-
-
-     
-
-
-
-    case WM_KEYDOWN://对大小写不敏感
-        if (wParam == 'F') {//检测F是否被按下
-            //SetWindowText(hWnd, "off FFFF");//当检测到F被按下是改变标题
-        }
-        break;
-
-
-    case WM_SIZE:
-        if (g_pd3dDevice != NULL && wParam != SIZE_MINIMIZED)
-        {
-            CleanupRenderTarget();
-            g_pSwapChain->ResizeBuffers(0, (UINT)LOWORD(lParam), (UINT)HIWORD(lParam), DXGI_FORMAT_UNKNOWN, 0);
-            CreateRenderTarget();
-        }
-        return 0;
-    case WM_SYSCOMMAND:
-        if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
-            return 0;
-        break;
-    case WM_DESTROY:
-        ::PostQuitMessage(0);
-        return 0;
-    case WM_DPICHANGED:
-        if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DpiEnableScaleViewports)
-        {
-            const RECT* suggested_rect = (RECT*)lParam;
-            ::SetWindowPos(hWnd, NULL, suggested_rect->left, suggested_rect->top, suggested_rect->right - suggested_rect->left, suggested_rect->bottom - suggested_rect->top, SWP_NOZORDER | SWP_NOACTIVATE);
-        }
-        break;
+        puts("清空剪切板失败\n");
+        CloseClipboard();
     }
-    return ::DefWindowProc(hWnd, msg, wParam, lParam);
+
+    HGLOBAL hMemory;
+    if ((hMemory = GlobalAlloc(GMEM_MOVEABLE, strlen(str.c_str()) + 1)) == NULL)    // 对剪切板分配内存
+    {
+        puts("内存赋值错误!!!\n");
+        CloseClipboard();
+    }
+
+    LPTSTR lpMemory;
+    if ((lpMemory = (LPTSTR)GlobalLock(hMemory)) == NULL)             // 将内存区域锁定
+    {
+        puts("锁定内存错误!!!\n");
+        CloseClipboard();
+    }
+
+    memcpy_s(lpMemory, strlen(str.c_str()) + 1, str.c_str(), strlen(str.c_str()) + 1);   // 将数据复制进入内存区域
+
+    GlobalUnlock(hMemory);                   // 解除内存锁定
+
+    if (SetClipboardData(CF_TEXT, hMemory) == NULL)
+    {
+        puts("设置剪切板数据失败!!!\n");
+        CloseClipboard();
+    }
+
+
+    CloseClipboard();//关闭剪贴板
+}
+
+
+//IMGUI 初始化
+ImGuiIO& IMGUI_init() {
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+
+    ImGui::StyleColorsDark();
+
+
+    ImGui_ImplWin32_Init(hwnd);
+    ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
+
+    io.IniFilename = nullptr;
+    ImFontConfig Font_cfg;
+    Font_cfg.FontDataOwnedByAtlas = false;
+
+    //ImFont* Font = io.Fonts->AddFontFromFileTTF("..\\ImGui Tool\\Font.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesChineseFull());
+    ImFont* Font = io.Fonts->AddFontFromMemoryTTF((void*)Font_data, Font_size, 18.0f, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
+    ImFont* Font_Big = io.Fonts->AddFontFromMemoryTTF((void*)Font_data, Font_size, 24.0f, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
+
+    clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+
+
+    //ImGui 风格设置
+    ImGuiStyle& Style = ImGui::GetStyle();
+    auto Color = Style.Colors;
+
+    Style.ChildRounding = 8.0f;
+    Style.FrameRounding = 5.0f;
+
+    Color[ImGuiCol_Button] = ImColor(10, 105, 56, 255);
+    Color[ImGuiCol_ButtonHovered] = ImColor(30, 125, 76, 255);
+    Color[ImGuiCol_ButtonActive] = ImColor(0, 95, 46, 255);
+
+    Color[ImGuiCol_FrameBg] = ImColor(54, 54, 54, 150);
+    Color[ImGuiCol_FrameBgActive] = ImColor(42, 42, 42, 150);
+    Color[ImGuiCol_FrameBgHovered] = ImColor(100, 100, 100, 150);
+
+    Color[ImGuiCol_CheckMark] = ImColor(10, 105, 56, 255);
+
+    Color[ImGuiCol_SliderGrab] = ImColor(10, 105, 56, 255);
+    Color[ImGuiCol_SliderGrabActive] = ImColor(0, 95, 46, 255);
+
+    Color[ImGuiCol_Header] = ImColor(10, 105, 56, 255);
+    Color[ImGuiCol_HeaderHovered] = ImColor(30, 125, 76, 255);
+    Color[ImGuiCol_HeaderActive] = ImColor(0, 95, 46, 255);
+
+    return io;
+}
+
+//加载图片
+ID3D11ShaderResourceView* DX11LoadTextureImageFromFile(LPCSTR lpszFilePath)
+{
+    ID3D11Texture2D* pTexture2D = NULL;
+    D3D11_TEXTURE2D_DESC dec;
+
+    HRESULT result;
+    D3DX11_IMAGE_LOAD_INFO loadInfo;
+    ZeroMemory(&loadInfo, sizeof(D3DX11_IMAGE_LOAD_INFO));
+    loadInfo.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    loadInfo.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    loadInfo.MipLevels = D3DX11_DEFAULT; //这时会产生最大的mipmaps层。 
+    loadInfo.MipFilter = D3DX11_FILTER_LINEAR;
+    D3DX11CreateTextureFromFile(g_pd3dDevice, lpszFilePath, &loadInfo, NULL, (ID3D11Resource**)(&pTexture2D), &result);
+    pTexture2D->GetDesc(&dec);
+
+    if (result != S_OK)
+    {
+        return NULL;
+    }
+
+    ID3D11ShaderResourceView* pFontTextureView = NULL;
+
+    // Create texture view
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+    ZeroMemory(&srvDesc, sizeof(srvDesc));
+    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels = dec.MipLevels;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    g_pd3dDevice->CreateShaderResourceView(pTexture2D, &srvDesc, &pFontTextureView);
+
+    pTexture2D->Release();
+    pTexture2D = NULL;
+
+    return pFontTextureView;
+}
+
+
+
+
+//截图&保存（全屏）
+void screen(LPCSTR fileName)
+{
+    HWND window = GetDesktopWindow();
+    HDC _dc = GetWindowDC(window);//屏幕DC
+    HDC dc = CreateCompatibleDC(0);//内存DC
+
+    RECT re;
+    GetWindowRect(window, &re);
+    int w = re.right,
+        h = re.bottom;
+    void* buf = new char[w * h * 4];
+    void* buff = buf;//备份保存申请内存的地址，因为后面 buf 这个内存地址会丢失导致内存泄露。
+
+    HBITMAP bm = CreateCompatibleBitmap(_dc, w, h);//建立和屏幕兼容的bitmap
+    SelectObject(dc, bm);//将memBitmap选入内存DC    
+    StretchBlt(dc, 0, 0, w, h, _dc, 0, 0, w, h, SRCCOPY);//复制屏幕图像到内存DC
+
+    void* f = CreateFile(fileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, 0);
+
+    GetObject(bm, 84, buf);
+
+    tagBITMAPINFO bi;
+    bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
+    bi.bmiHeader.biWidth = w;
+    bi.bmiHeader.biHeight = h;
+    bi.bmiHeader.biPlanes = 1;
+    bi.bmiHeader.biBitCount = 32;
+    bi.bmiHeader.biCompression = 0;
+    bi.bmiHeader.biSizeImage = 0;
+
+    void* dcf = CreateDIBSection(dc, &bi, DIB_RGB_COLORS, &buf, NULL, NULL);
+    GetDIBits(dc, bm, 0, h, buf, &bi, DIB_RGB_COLORS);
+
+    BITMAPFILEHEADER bif;
+    bif.bfType = MAKEWORD('B', 'M');
+    bif.bfSize = w * h * 4 + 54;
+    bif.bfOffBits = 54;
+
+    BITMAPINFOHEADER bii;
+    bii.biSize = 40;
+    bii.biWidth = w;
+    bii.biHeight = h;
+    bii.biPlanes = 1;
+    bii.biBitCount = 32;
+    bii.biCompression = 0;
+    bii.biSizeImage = w * h * 4;
+
+    DWORD r;
+    WriteFile(f, &bif, sizeof(bif), &r, NULL);
+    WriteFile(f, &bii, sizeof(bii), &r, NULL);
+    WriteFile(f, buf, w * h * 4, &r, NULL);
+
+
+
+    DeleteObject(dcf);
+    DeleteObject(bm);
+    delete[] buff;
+    CloseHandle(f);
+    DeleteDC(_dc);
+    DeleteDC(dc);
 }

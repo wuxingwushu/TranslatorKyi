@@ -3,6 +3,7 @@
 #include <string.h>
 #include <iostream>
 #include <tchar.h>
+#include <windows.h>//WIN API
 #include "vld.h"//内存泄露检测库 （Debug 时才会启动）
 
 
