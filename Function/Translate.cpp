@@ -1,46 +1,91 @@
 #include "Translate.h"
 
+unsigned char ToHex(unsigned char x)
+{
+    return  x > 9 ? x + 55 : x + 48;
+}
 
-std::string Translate_Baidu(char* English) {
+unsigned char FromHex(unsigned char x)
+{
+    unsigned char y;
+    if (x >= 'A' && x <= 'Z') y = x - 'A' + 10;
+    else if (x >= 'a' && x <= 'z') y = x - 'a' + 10;
+    else if (x >= '0' && x <= '9') y = x - '0';
+    else assert(0);
+    return y;
+}
+
+
+
+std::string UrlEncode(const std::string& str)
+{
+    std::string strTemp = "";
+    size_t length = str.length();
+    for (size_t i = 0; i < length; i++)
+    {
+        if (isalnum((unsigned char)str[i]) ||
+            (str[i] == '-') ||
+            (str[i] == '_') ||
+            (str[i] == '.') ||
+            (str[i] == '~'))
+            strTemp += str[i];
+        else if (str[i] == ' ')
+            strTemp += "+";
+        else
+        {
+            strTemp += '%';
+            strTemp += ToHex((unsigned char)str[i] >> 4);
+            strTemp += ToHex((unsigned char)str[i] % 16);
+        }
+    }
+    return strTemp;
+}
+
+
+std::string UrlDecode(const std::string& str)
+{
+    std::string strTemp = "";
+    size_t length = str.length();
+    for (size_t i = 0; i < length; i++)
+    {
+        if (str[i] == '+') strTemp += ' ';
+        else if (str[i] == '%')
+        {
+            assert(i + 2 < length);
+            unsigned char high = FromHex((unsigned char)str[++i]);
+            unsigned char low = FromHex((unsigned char)str[++i]);
+            strTemp += high * 16 + low;
+        }
+        else strTemp += str[i];
+    }
+    return strTemp;
+}
+
+
+
+//（ 详细详细查看百度翻译API文档：https ://fanyi-api.baidu.com/product/113 ）
+std::string Translate_Baidu(const char* appid, const char* secret_key, char* English) {
     CURL* curl;
     CURLcode res;
     FILE* fp;
     fp = fopen("kao.txt", "w+");
 
-
-    //English = "English English";
-
-    // char 的 ASCII 表上的一些特殊符号 或导致翻译错误。就是格式错误。
-    char* q = new char[strlen(English)];
-    for (int xi = 0; xi < strlen(English); xi++) {
-        if (((English[xi] < 91) && (English[xi] > 64)) || ((English[xi] < 123) && (English[xi] > 96))) {
-        //if(English[xi] > 32){
-            q[xi] = English[xi];
-        }
-        else {
-            printf("%d\n", English[xi]);
-            q[xi] = '-';
-        }
-    }
-
-
     curl = curl_easy_init();
     if (curl) {
         char myurl[1000] = "http://api.fanyi.baidu.com/api/trans/vip/translate?";
-        char* appid = "20210925000956550";    //replace myAppid with your own appid
+        //char* appid = "20210925000956550";    //replace myAppid with your own appid
         //char* q = English;                  //replace apple with your own text to be translate, ensure that the input text is encoded with UTF-8!
         char* from = "en";                    //replace en with your own language type of input text
         char* to = "zh";                      //replace zh with your own language type of output text
         char salt[60];
         int a = rand();
         sprintf(salt, "%d", a);
-        char* secret_key = "os4RtAbGDCDhvgWvGSPu";   //replace mySecretKey with your own mySecretKey
+        //char* secret_key = "os4RtAbGDCDhvgWvGSPu";   //replace mySecretKey with your own mySecretKey
         char sign[120] = "";
         strcat(sign, appid);
-        strcat(sign, q);
+        strcat(sign, English);//获取加密MD5时 English 不要进行 Url_Encode 处理  （ 详细详细查看百度翻译API文档：https://fanyi-api.baidu.com/product/113 ）
         strcat(sign, salt);
         strcat(sign, secret_key);
-        //printf("%s\n", sign);
         unsigned char md[16];
         int i;
         char tmp[3] = { '\0' }, buf[33] = { '\0' };
@@ -53,7 +98,7 @@ std::string Translate_Baidu(char* English) {
         strcat(myurl, "appid=");
         strcat(myurl, appid);
         strcat(myurl, "&q=");
-        strcat(myurl, q);
+        strcat(myurl, UrlEncode(English).c_str());//生成网页链接时 English 才要进行 Url_Encode 处理   （ 详细详细查看百度翻译API文档：https://fanyi-api.baidu.com/product/113 ）
         strcat(myurl, "&from=");
         strcat(myurl, from);
         strcat(myurl, "&to=");
@@ -64,7 +109,7 @@ std::string Translate_Baidu(char* English) {
         strcat(myurl, buf);
         //printf("%s\n", myurl);
         //设置访问的地址
-        curl_easy_setopt(curl, CURLOPT_URL, myurl);
+        curl_easy_setopt(curl, CURLOPT_URL, &myurl);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
         res = curl_easy_perform(curl);
         /* Check for errors */
@@ -80,24 +125,6 @@ std::string Translate_Baidu(char* English) {
         fread(kaox, 1, lsize, fp);//将pfile中内容读入pread指向内存中
         fclose(fp);
 
-        /*
-        int chang=-1;
-        for (int i = strlen(q) + 56; i < lsize; i++)
-        {
-            chang++;
-            if (kaox[i] == '"') {
-                break;
-            }
-        }
-
-        unsigned char* Czi = new unsigned char[chang];
-        for (int i = 0; i < chang; i++)
-        {
-            Czi[i] = kaox[strlen(q) + 56 + i];
-        }
-
-        std::cout << Czi << std::endl;
-        */
 
 
         Json::Value value;
@@ -105,15 +132,12 @@ std::string Translate_Baidu(char* English) {
         if (!reader.parse(kaox, value)) {
             printf("parse json error!");
             delete[] kaox;
-            //delete[] q;
             return 0;
         }
         std::string Chinese = value["trans_result"][0]["dst"].asString().c_str();
         delete[] kaox;
-        //delete[] q;
 
         return Chinese;
     }
-    //delete[] q;
     return 0;
 }

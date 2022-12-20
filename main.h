@@ -12,6 +12,30 @@ using namespace inih;//启用 ini 读取
 
 
 
+/*
+ ┌───┐   ┌───┬───┬───┬───┐ ┌───┬───┬───┬───┐ ┌───┬───┬───┬───┐ ┌───┬───┬───┐
+ │Esc   │   │  F1  │  F2  │  F3  │  F4  │ │  F5  │  F6  │  F7  │  F8  │ │  F9  │  F10 │  F11 │  F12 │ │  P/S │  S L │  P/B │           ┌┐    ┌┐    ┌┐
+ └───┘   └───┴───┴───┴───┘ └───┴───┴───┴───┘ └───┴───┴───┴───┘ └───┴───┴───┘           └┘    └┘    └┘
+ ┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───────┐ ┌───┬───┬───┐ ┌───┬───┬───┬───┐
+ │  ~ ` │ ! 1  │ @ 2  │  # 3 │ $ 4  │ % 5  │ ^ 6  │ & 7  │ * 8  │ ( 9  │  ) 0 │ _ -  │ + =  │     BacSp    │ │ Ins  │ Hom  │  PUp │ │ N L  │   /  │   *  │   -  │
+ ├───┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─────┤ ├───┼───┼───┤ ├───┼───┼───┼───┤
+ │   Tab    │   Q  │   W  │   E  │   R  │   T  │   Y  │   U  │   I  │   O  │   P  │  { [ │  } ] │   | \    │ │  Del │  End │  PDn │ │   7  │   8  │   9  │      │
+ ├─────┴┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴┬──┴─────┤ └───┴───┴───┘ ├───┼───┼───┤   +  │
+ │    Caps    │   A  │   S  │   D  │   F  │   G  │   H  │   J  │   K  │   L  │  : ; │  " ' │      Enter     │                            │   4  │   5  │   6  │      │
+ ├──────┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴─┬─┴────────┤         ┌───┐         ├───┼───┼───┼───┤
+ │     Shift      │   Z  │   X  │   C  │   V  │   B  │   N  │   M  │  < , │  > . │  ? / │        Shift       │         │  ↑  │         │   1  │   2  │   3  │      │
+ ├─────┬──┴─┬─┴──┬┴───┴───┴───┴───┴───┴──┬┴───┼───┴┬────┬────┤ ┌───┼───┼───┐ ├───┴───┼───┤   E││
+ │   Ctrl   │        │   Alt  │                    Space                     │  Alt   │        │        │   Ctrl │ │  ←  │  ↓  │  →  │ │   0          │  .   │←─┘│
+ └─────┴────┴────┴───────────────────────┴────┴────┴────┴────┘ └───┴───┴───┘ └───────┴───┴───┘
+*/
+
+
+
+//翻译API 的 ID 和 Key
+std::string Baidu_ID;
+std::string Baidu_Key;
+
+
 //按键
 static int  screenshot_key_1;//截图按键 screenshot_key_1 && screenshot_key_2
 static char screenshot_key_2;
@@ -34,6 +58,10 @@ std::cout <<   << std::endl;
 */
 
 	INIReader iniData{ "./Data.ini" };
+
+	Baidu_ID = iniData.Get<std::string>("API", "Baidu_ID");
+	Baidu_Key = iniData.Get<std::string>("API", "Baidu_Key");
+
 	screenshot_key_1 = iniData.Get<int>("Key", "screenshot_key_1");
 	screenshot_key_2 = iniData.Get<char>("Key", "screenshot_key_2");
 	choice_key_1 = iniData.Get<int>("Key", "choice_key_1");
