@@ -6,16 +6,14 @@
 
 > 引用的技术
 
-+ [Tesseract-OCR](https://tesseract-ocr.github.io/tessdoc/Home.html)
-+ [QT](https://www.qt.io/zh-cn/)
-+ 爬虫
++ 图片识别：[Tesseract-OCR](https://tesseract-ocr.github.io/tessdoc/Home.html)
++ UI界面：[ImGui](https://github.com/ocornut/imgui)
++ 网络请求：[Curl](https://github.com/curl/curl)
++ 解析数据：[JsonCpp](https://github.com/open-source-parsers/jsoncpp)
++ 数据加密：[OpenSSL](https://github.com/openssl/openssl)
++ 内存泄露检测：[Visual](https://github.com/KindDragon/vld)
 
 > 环境构建：
-
-+ QT6安装:
-
-	> [QT6](https://download.qt.io/official_releases/online_installers/)
-	> [Toos](https://download.qt.io/archive/vsaddin/)
 
 + Tesseract-OCR
 	> [vcpkg](https://github.com/microsoft/vcpkg)

@@ -63,7 +63,7 @@ int main(int,char**)
     strncpy_s(nid.szTip, TEXT("人家叫翻译姬！"), sizeof(TEXT("人家叫翻译姬！")));//鼠标停止系统托盘上的提示
     nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_SHOWTIP | NIF_GUID;
     nid.uCallbackMessage = WM_IAWENTRAY;
-    nid.hIcon = (HICON)LoadImage(NULL, TEXT("favicon.ico"), IMAGE_ICON, 0, 0, LR_LOADFROMFILE);//ico 图片 只支持32x32  ,  16x16
+    nid.hIcon = (HICON)LoadImage(NULL, TEXT("product.ico"), IMAGE_ICON, 0, 0, LR_LOADFROMFILE);//ico 图片 只支持32x32  ,  16x16
     Shell_NotifyIcon(NIM_ADD, &nid);
 
     ::ShowWindow(hwnd, SW_HIDE);//开启win显示
