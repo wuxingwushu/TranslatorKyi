@@ -152,7 +152,7 @@ void IniDataPreservation() {
 }
 
 
-static HGLOBAL hmem;
+
 
 
 
@@ -172,8 +172,8 @@ static bool Set_init = false;//是否是第一次打开界面
 static bool translate_interface = false;//界面开关
 static bool translate_click = false;//判断鼠标第一次点击
 static clock_t translate_interface_time;//鼠标离开界面的时间戳
-std::string translate_English;
-std::string translate_Chinese;
+std::string translate_English = "Error";
+std::string translate_Chinese = u8"空";
 
 
 

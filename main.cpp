@@ -117,8 +117,8 @@ int main(int,char**)
                 translate_interface = true;
                 translate_click = true;
             }
-
-            static std::string strS = ClipboardTochar();//读取当前剪切板的内容，保存起来
+            Sleep(5);
+            std::string strS = ClipboardTochar();//读取当前剪切板的内容，保存起来
 
             Sleep(5);//内容拷贝，避免指针丢失报错
 
@@ -153,7 +153,8 @@ int main(int,char**)
                 translate_interface = false;
                 Set_interface = false;
             }
-            static std::string strS = ClipboardTochar();//读取当前剪切板的内容，保存起来
+            Sleep(5);
+            std::string strS = ClipboardTochar();//读取当前剪切板的内容，保存起来
 
             Sleep(5);//内容拷贝，避免指针丢失报错
 
@@ -171,7 +172,7 @@ int main(int,char**)
                 translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), UnicodeToUtf8(translate_English), English.c_str(), ChineseReplace.c_str());//翻译内容
             }
 
-            CopyToClipboard(translate_Chinese);//把翻译的内容复制到剪切板上
+            CopyToClipboard(Utf8ToUnicode(translate_Chinese.c_str()));//把翻译的内容复制到剪切板上
 
             //粘贴出去 ctrl + v
             keybd_event(17, 0, 0, 0);//按下 ctrl
@@ -232,7 +233,7 @@ int main(int,char**)
                 ImGui::SameLine();//让一个元素并排
                 ImGui::SetCursorPosX(WindowWidth - 30);//设置下一个元素生成的位置
                 if (ImGui::Button(">")) {
-                    CopyToClipboard(translate_Chinese.c_str());
+                    CopyToClipboard(Utf8ToUnicode(translate_Chinese.c_str()));
                 }
                 //设置上一个元素的鼠标悬停提示
                 if (ImGui::IsItemHovered())
@@ -691,23 +692,44 @@ void CleanupRenderTarget()
 
 //获得剪贴板的内容
 std::string ClipboardTochar() {
-    OpenClipboard(NULL);//打开剪贴板
-    hmem = GetClipboardData(CF_TEXT);//获取剪切板内容块
-    std::string CharS = (char*)GlobalLock(hmem);//获取内容块的地址
-    CloseClipboard();//关闭剪贴板
-    return CharS;
+    if (OpenClipboard(NULL))//打开剪贴板
+    { 
+        HGLOBAL hmem = GetClipboardData(CF_TEXT);//获取剪切板内容块
+        if (hmem == NULL)    // 对剪切板分配内存
+        {
+            puts("内存赋值错误!!!\n");
+            CloseClipboard();
+            return "Error";
+        }
+        else {
+            std::string CharS = (char*)GlobalLock(hmem);//获取内容块的地址
+            CloseClipboard();//关闭剪贴板
+            return CharS;
+        } 
+    }
+    else {
+        CloseClipboard();//关闭剪贴板
+        return "Error";
+    }
 }
 
 
 
 //将内容复制到剪贴板
 void CopyToClipboard(std::string str) {
-    str = Utf8ToUnicode(str.c_str());// utf8 转到 Unicode 要不然粘贴出来是乱吗
-    OpenClipboard(NULL);
+    // utf8 转到 Unicode 要不然粘贴出来是乱吗
+    if (!OpenClipboard(NULL))//打开剪贴板
+    {
+        puts("打开剪贴板失败\n");
+        CloseClipboard();
+        return;
+    }
+
     if (!EmptyClipboard())       // 清空剪切板，写入之前，必须先清空剪切板
     {
         puts("清空剪切板失败\n");
         CloseClipboard();
+        return;
     }
 
     HGLOBAL hMemory;
@@ -715,6 +737,7 @@ void CopyToClipboard(std::string str) {
     {
         puts("内存赋值错误!!!\n");
         CloseClipboard();
+        return;
     }
 
     LPTSTR lpMemory;
@@ -722,6 +745,7 @@ void CopyToClipboard(std::string str) {
     {
         puts("锁定内存错误!!!\n");
         CloseClipboard();
+        return;
     }
 
     memcpy_s(lpMemory, strlen(str.c_str()) + 1, str.c_str(), strlen(str.c_str()) + 1);   // 将数据复制进入内存区域
@@ -732,6 +756,7 @@ void CopyToClipboard(std::string str) {
     {
         puts("设置剪切板数据失败!!!\n");
         CloseClipboard();
+        return;
     }
 
 
