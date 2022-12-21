@@ -1,4 +1,6 @@
+#pragma once//·ÀÖ¹¶ş´Î±àÒë
 #include "base.h"
+
 
 
 //string ×ª wstring

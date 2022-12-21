@@ -90,8 +90,8 @@ int main(int,char**)
         VK_MENU    = Alt
         */
 
-        //快捷键检测
-        if ((GetKeyState(screenshot_key_1) < 0) && (GetKeyState(screenshot_key_2) < 0)) {
+        //截图翻译快捷键
+        if ((GetKeyState(screenshot_key_1 + 16) < 0) && (GetKeyState(screenshot_key_2[0]) < 0)) {
             //关闭其他UI
             translate_interface = false;
             SystemTray_interface = false;
@@ -102,11 +102,11 @@ int main(int,char**)
             Screenshot_click = true;
         }
 
-
-        if ((GetKeyState(choice_key_1) < 0) && (GetKeyState(choice_key_2) < 0)) {
+        //选择翻译快捷键
+        if ((GetKeyState(screenshot_key_1 + 16) < 0) && (GetKeyState(choice_key_2[0]) < 0)) {
             
             //等待键盘松开（避免模拟按键 ctrl + c 时有其他按键，导致无法获取选择内容）
-            while ((GetKeyState(choice_key_1) < 0) || (GetKeyState(choice_key_2) < 0)){
+            while ((GetKeyState(screenshot_key_1 + 16) < 0) || (GetKeyState(choice_key_2[0]) < 0)) {
                 //关闭其他UI
                 SystemTray_interface = false;
                 Screenshot_interface = false;
@@ -141,10 +141,10 @@ int main(int,char**)
             CopyToClipboard(strS);//还原原来剪切板的内容
         }
 
-       
-        if ((GetKeyState(replace_key_1) < 0) && (GetKeyState(replace_key_2) < 0)) {
+        //替换翻译快捷键
+        if ((GetKeyState(screenshot_key_1 + 16) < 0) && (GetKeyState(replace_key_2[0]) < 0)) {
             //等待键盘松开（避免模拟按键 ctrl + c 时有其他按键，导致无法获取选择内容）
-            while ((GetKeyState(replace_key_1) < 0) || (GetKeyState(replace_key_2) < 0)) {
+            while ((GetKeyState(screenshot_key_1 + 16) < 0) || (GetKeyState(replace_key_2[0]) < 0)) {
                 //关闭其他UI
                 SystemTray_interface = false;
                 Screenshot_interface = false;
@@ -200,8 +200,8 @@ int main(int,char**)
         
     
         {
-         
-            
+
+            //翻译内容显示界面
             if (translate_interface) {
                 if (translate_click) {
                     static POINT pt = { 0,0 };
@@ -210,12 +210,12 @@ int main(int,char**)
                     translate_click = false;
                 }
 
-                bool k = ImGui::Begin(u8"翻译结果", &translate_interface, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_NoScrollbar);//创建窗口
+                ImGui::Begin(u8"翻译结果", &translate_interface, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//创建窗口
 
-                ImGui::PushTextWrapPos(300);//限制字体的范围（像素）
+                ImGui::PushTextWrapPos(WindowWidth - 30);//限制字体的范围（像素）
                 ImGui::Text(translate_English.c_str());
                 ImGui::SameLine();//让下一个元素并排
-                ImGui::SetCursorPosX(305);//设置下一个元素生成的位置
+                ImGui::SetCursorPosX(WindowWidth - 30);//设置下一个元素生成的位置
                 if (ImGui::Button("<")) {
                     CopyToClipboard(translate_English.c_str());
                 }
@@ -227,7 +227,7 @@ int main(int,char**)
 
                 ImGui::Text(translate_Chinese.c_str());
                 ImGui::SameLine();//让一个元素并排
-                ImGui::SetCursorPosX(305);//设置下一个元素生成的位置
+                ImGui::SetCursorPosX(WindowWidth - 30);//设置下一个元素生成的位置
                 if (ImGui::Button(">")) {
                     CopyToClipboard(translate_Chinese.c_str());
                 }
@@ -246,12 +246,13 @@ int main(int,char**)
                 else if ((clock() - translate_interface_time) > Residence_Time) {
                     translate_interface = false;
                 }
-    
+
+                WindowWidth = ImGui::GetWindowWidth();
+                //WindowHeight = ImGui::GetWindowHeight();
+                
                 ImGui::End();
             }
     
-            
-            
             //截图操作界面
             if (Screenshot_interface) {
                 //截一次图运行一次
@@ -265,6 +266,14 @@ int main(int,char**)
                     image_ID = m_pImageTextureView1;
                     Screenshot_init = false;
                 }
+
+
+                //右键点击事件
+                if (GetKeyState(VK_RBUTTON) < 0) {
+                    //获取鼠标右键点击事件，取消截图
+                    Screenshot_interface = false;
+                }
+
  
                 if (Screenshot_click) {
                     //左键点击事件
@@ -279,8 +288,6 @@ int main(int,char**)
                 else {
                     //更新鼠标移动结束位置
                     GetCursorPos(&MousePosition_2);
-
-                    l_int32 x, y, w, h;
 
                     if (MousePosition_1.x < MousePosition_2.x) {
                         x = MousePosition_1.x;
@@ -307,24 +314,12 @@ int main(int,char**)
                         MousePosition_1 = { 0,0 };
                         MousePosition_2 = { 0,0 };
 
+                        //开启翻译
+                        Screenshot_translate = true;
+                        Screenshot_translate_shu = 2;
+
                         //关闭窗口
                         Screenshot_interface = false;
-
-                        //画面过小，取消识别
-                        if (w > 10 && h > 10) {
-                            translate_English = Tesseract_OCR(x, y, w, h);//要翻译界面关闭了才可以要不然会出BUG
-
-                            if (strlen(translate_English.c_str()) > 0) {
-                                translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), translate_English, English.c_str(), Chinese.c_str());//翻译内容
-                            }
-                            else {
-                                translate_Chinese = u8"内容不存在！";
-                            }
-
-                            translate_interface_time = clock();
-                            translate_interface = true;
-                            translate_click = true;
-                        } 
                     }
                 }
 
@@ -375,12 +370,7 @@ int main(int,char**)
 
                 ImGui::End();
             }
-            
-    
-    
-
-    
-            
+             
             //系统托盘的右键菜单
             if (SystemTray_interface) {
                 //设置生成位置在鼠标的右上角
@@ -392,14 +382,14 @@ int main(int,char**)
                 }
                 
                 //创建右键菜单
-                auto w = ImGui::Begin(u8"窗口", &SystemTray_interface, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
+                ImGui::Begin(u8"窗口", &SystemTray_interface, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
                 
                 
 
                 //设置按键
                 if (ImGui::Button(u8"设置")) {
-                    translate_interface = false;
-                    translate_click = false;
+                    Set_interface = true;
+                    Set_init = true;
                 }
                 if (SystemTray_mode) {
                     if (ImGui::Button(u8"百度")) {
@@ -425,6 +415,94 @@ int main(int,char**)
                 else if ((clock() - SystemTray_interface_time) > Residence_Time) {
                     SystemTray_interface = false;
                 }
+
+                ImGui::End();
+            }
+
+            //截图内容识别和翻译，区分开来（防止截图BUG不关闭界面）
+            if (Screenshot_translate) {
+                if (Screenshot_translate_shu <= 0) {
+                    Screenshot_translate = false;
+                    //画面过小，取消识别
+                    if (w > 10 && h > 10) {
+                        translate_English = Tesseract_OCR(x, y, w, h, TesseractModel.c_str());//要翻译界面关闭了才可以要不然会出BUG
+
+                        if (strlen(translate_English.c_str()) > 0) {
+                            translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), translate_English, English.c_str(), Chinese.c_str());//翻译内容
+                        }
+                        else {
+                            translate_Chinese = u8"内容不存在！";
+                        }
+
+                        translate_interface_time = clock();
+                        translate_interface = true;
+                        translate_click = true;
+                    }
+                }
+                else {
+                    Screenshot_translate_shu--;
+                }
+            }
+
+            //设置界面
+            if (Set_interface) {
+
+                if (Set_init) {
+                    ImGui::SetNextWindowSize(ImVec2(550, 520));
+                    Set_init = false;
+                    set_Residence_Time = Residence_Time / 1000;
+                }
+                ImGui::Begin(u8"设置", &Set_interface, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//创建窗口
+                ImGui::InputText(u8"翻译语种", set_English, 5);
+                ImGui::InputText(u8"目标语种", set_Chinese, 5);
+                ImGui::InputText(u8"替换语种", set_ChineseReplace, 5);
+                ImGui::InputText(u8"百度翻译ID", set_Baidu_ID, 30);
+                ImGui::InputText(u8"百度翻译API", set_Baidu_Key, 30);
+                ImGui::InputText(u8"ORC模型", set_TesseractModel, 10);
+
+                ImGui::SliderInt(u8"翻译显示时间", &set_Residence_Time, 0, 50);
+                Residence_Time = set_Residence_Time * 1000;
+                ImGui::SliderInt(u8"翻译界面初始宽度", &WindowWidth, 0, 1000);
+                ImGui::SliderFloat(u8"字体大小", &FontSize, 0, 100); FontSize = int(FontSize);
+                ImGui::SliderFloat(u8"按键圆润度", &ButtonRounding, 0, 20);
+                
+                ImGui::ColorEdit4(u8"按键颜色", set_ButtonColor);
+                PreservationSetColor(set_ButtonColor, ButtonColor);
+                ImGui::ColorEdit4(u8"悬停颜色", set_ButtonHoveredColor);
+                PreservationSetColor(set_ButtonHoveredColor, ButtonHoveredColor);
+                ImGui::ColorEdit4(u8"点击颜色", set_ButtonActiveColor); 
+                PreservationSetColor(set_ButtonActiveColor, ButtonActiveColor);
+
+                ImGui::Combo(u8"组合键", &screenshot_key_1, items, IM_ARRAYSIZE(items));
+                ImGui::InputText(u8"截图按键", screenshot_key_2, 2);
+                ImGui::InputText(u8"选择按键", choice_key_2, 2);
+                ImGui::InputText(u8"替换按键", replace_key_2, 2);
+
+                ImGui::SetCursorPosX(150);//设置下一个元素生成的位置
+
+                if (ImGui::Button(u8"保存")) {
+                    IniDataPreservation();
+                    Set_interface = false;
+                }
+                //设置上一个元素的鼠标悬停提示
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip(u8"保存就是保存啊！");//提示内容
+                }
+
+                ImGui::SameLine();//让下一个元素并排
+                ImGui::SetCursorPosX(400);//设置下一个元素生成的位置
+
+                if (ImGui::Button(u8"关闭")) {
+                    IniDataInit();
+                    Set_interface = false;
+                }
+                //设置上一个元素的鼠标悬停提示
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip(u8"关闭就是关闭啊！");//提示内容
+                }
+
 
                 ImGui::End();
             }
@@ -653,6 +731,8 @@ void CopyToClipboard(std::string str) {
 }
 
 
+
+
 //IMGUI 初始化
 ImGuiIO& IMGUI_init() {
     IMGUI_CHECKVERSION();
@@ -672,9 +752,9 @@ ImGuiIO& IMGUI_init() {
     ImFontConfig Font_cfg;
     Font_cfg.FontDataOwnedByAtlas = false;
 
-    //ImFont* Font = io.Fonts->AddFontFromFileTTF("..\\ImGui Tool\\Font.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesChineseFull());
-    ImFont* Font = io.Fonts->AddFontFromMemoryTTF((void*)Font_data, Font_size, 18.0f, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
-    ImFont* Font_Big = io.Fonts->AddFontFromMemoryTTF((void*)Font_data, Font_size, 24.0f, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
+
+    ImFont* Font = io.Fonts->AddFontFromMemoryTTF((void*)Font_data, Font_size, FontSize, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
+
 
     clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
@@ -684,12 +764,14 @@ ImGuiIO& IMGUI_init() {
     ImGuiStyle& Style = ImGui::GetStyle();
     auto Color = Style.Colors;
 
-    Style.ChildRounding = 8.0f;
-    Style.FrameRounding = 5.0f;
+    
+    Style.ChildRounding = 0.0f;
+    //是否圆润按键
+    Style.FrameRounding = ButtonRounding;
 
-    Color[ImGuiCol_Button] = ImColor(10, 105, 56, 255);
-    Color[ImGuiCol_ButtonHovered] = ImColor(30, 125, 76, 255);
-    Color[ImGuiCol_ButtonActive] = ImColor(0, 95, 46, 255);
+    Color[ImGuiCol_Button] = ImColor(ButtonColor[0], ButtonColor[1], ButtonColor[2], ButtonColor[3]);//按键颜色
+    Color[ImGuiCol_ButtonHovered] = ImColor(ButtonHoveredColor[0], ButtonHoveredColor[1], ButtonHoveredColor[2], ButtonHoveredColor[3]);//鼠标悬停颜色
+    Color[ImGuiCol_ButtonActive] = ImColor(ButtonActiveColor[0], ButtonActiveColor[1], ButtonActiveColor[2], ButtonActiveColor[3]);//鼠标点击颜色
 
     Color[ImGuiCol_FrameBg] = ImColor(54, 54, 54, 150);
     Color[ImGuiCol_FrameBgActive] = ImColor(42, 42, 42, 150);
@@ -809,4 +891,39 @@ void screen(LPCSTR fileName)
     CloseHandle(f);
     DeleteDC(_dc);
     DeleteDC(dc);
+}
+
+
+//ostringstream对象用来进行格式化的输出，常用于将各种类型转换为string类型
+//ostringstream只支持<<操作符
+template<typename T>std::string toString(const T& t)
+{
+    std::ostringstream oss;  //创建一个格式化输出流
+    oss << t;             //把值传递如流中
+    return oss.str();
+}
+
+std::string ColorArraytoString(int* color)
+{
+    return toString(color[0]) + ' ' + toString(color[1]) + ' ' + toString(color[2]) + ' ' + toString(color[3]);
+}
+
+void GetColor(std::vector<int> colordata, int* color, float* set_color)
+{
+    color[0] = colordata[0];
+    color[1] = colordata[1];
+    color[2] = colordata[2];
+    color[3] = colordata[3];
+    set_color[0] = float(colordata[0])/255.0f;
+    set_color[1] = float(colordata[1])/255.0f;
+    set_color[2] = float(colordata[2])/255.0f;
+    set_color[3] = float(colordata[3])/255.0f;
+}
+
+void PreservationSetColor(float* setcolor, int* color)
+{
+    color[0] = int(setcolor[0] * 255);
+    color[1] = int(setcolor[1] * 255);
+    color[2] = int(setcolor[2] * 255);
+    color[3] = int(setcolor[3] * 255);
 }

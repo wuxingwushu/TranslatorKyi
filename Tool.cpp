@@ -1,5 +1,10 @@
 #include "Tool.h"
 
+
+
+
+
+
 //string ת wstring
 std::string ws2s(const std::wstring& ws)
 {

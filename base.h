@@ -3,8 +3,9 @@
 #include <string.h>
 #include <iostream>
 #include <tchar.h>
+#include <sstream>
 #include <windows.h>//WIN API
-#include "vld.h"//内存泄露检测库 （Debug 时才会启动）
+//#include "vld.h"//内存泄露检测库 （Debug 时才会启动）
 
 
 static clock_t shijian;//测试耗时
