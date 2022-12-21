@@ -137,9 +137,9 @@ void IniDataPreservation() {
 	WritePrivateProfileString("API", "Baidu_Key", set_Baidu_Key, lpPath);
 
 	WritePrivateProfileString("Key", "screenshot_key_1", toString(screenshot_key_1).c_str(), lpPath);
-	WritePrivateProfileString("Key", "screenshot_key_2", toString(screenshot_key_2).c_str(), lpPath);
-	WritePrivateProfileString("Key", "choice_key_2", toString(choice_key_2).c_str(), lpPath);
-	WritePrivateProfileString("Key", "replace_key_2", toString(replace_key_2).c_str(), lpPath);
+	WritePrivateProfileString("Key", "screenshot_key_2", toString(screenshot_key_2[0]).c_str(), lpPath);
+	WritePrivateProfileString("Key", "choice_key_2", toString(choice_key_2[0]).c_str(), lpPath);
+	WritePrivateProfileString("Key", "replace_key_2", toString(replace_key_2[0]).c_str(), lpPath);
 
 	WritePrivateProfileString("Set", "Residence_Time", toString(set_Residence_Time).c_str(), lpPath);
 	WritePrivateProfileString("Set", "WindowWidth", toString(WindowWidth).c_str(), lpPath);

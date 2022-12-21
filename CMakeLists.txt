@@ -40,6 +40,6 @@ add_subdirectory(Function) # 对子文件夹进行CMake
 add_subdirectory(imgui)
 
 
-#Set_Target_Properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")#关闭控制台
+Set_Target_Properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")#关闭控制台
 
 target_link_libraries(Translate-miku FunctionLib imguiLib tesseract52.lib leptonica-1.82.0.lib d3dx11.lib vld.lib jsoncpp.lib libcurl.lib libssl.lib libcrypto.lib)

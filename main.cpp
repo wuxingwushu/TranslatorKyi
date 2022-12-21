@@ -93,8 +93,9 @@ int main(int,char**)
         //截图翻译快捷键
         if ((GetKeyState(screenshot_key_1 + 16) < 0) && (GetKeyState(screenshot_key_2[0]) < 0)) {
             //关闭其他UI
-            translate_interface = false;
             SystemTray_interface = false;
+            translate_interface = false;
+            Set_interface = false;
             if (!Screenshot_interface) {
                 Screenshot_init = true;
             }
@@ -110,13 +111,14 @@ int main(int,char**)
                 //关闭其他UI
                 SystemTray_interface = false;
                 Screenshot_interface = false;
+                Set_interface = false;
                 //打开翻译界面
                 translate_interface_time = clock();
                 translate_interface = true;
                 translate_click = true;
             }
 
-            std::string strS = ClipboardTochar();//读取当前剪切板的内容，保存起来
+            static std::string strS = ClipboardTochar();//读取当前剪切板的内容，保存起来
 
             Sleep(5);//内容拷贝，避免指针丢失报错
 
@@ -149,8 +151,9 @@ int main(int,char**)
                 SystemTray_interface = false;
                 Screenshot_interface = false;
                 translate_interface = false;
+                Set_interface = false;
             }
-            std::string strS = ClipboardTochar();//读取当前剪切板的内容，保存起来
+            static std::string strS = ClipboardTochar();//读取当前剪切板的内容，保存起来
 
             Sleep(5);//内容拷贝，避免指针丢失报错
 
@@ -210,7 +213,7 @@ int main(int,char**)
                     translate_click = false;
                 }
 
-                ImGui::Begin(u8"翻译结果", &translate_interface, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//创建窗口
+                ImGui::Begin(u8"翻译结果UI", &translate_interface, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//创建窗口
 
                 ImGui::PushTextWrapPos(WindowWidth - 30);//限制字体的范围（像素）
                 ImGui::Text(translate_English.c_str());
@@ -324,7 +327,7 @@ int main(int,char**)
                 }
 
                 //创建窗口
-                ImGui::Begin("My shapes", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_NoScrollbar);
+                ImGui::Begin("截图界面UI", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_NoScrollbar);
 
                 //显示图片
                 ImGui::Image(image_ID, ImVec2(windows_Width, windows_Heigth));
@@ -377,20 +380,24 @@ int main(int,char**)
                 if (SystemTray_init) {
                     static POINT pt = { 0,0 };
                     GetCursorPos(&pt);//获取鼠标位置
-                    ImGui::SetNextWindowPos({ float(pt.x), float(pt.y) - 90 });//设置窗口生成位置
+                    ImGui::SetNextWindowPos({ float(pt.x), float(pt.y) - 60 });//设置窗口生成位置
                     SystemTray_init = false;
                 }
                 
                 //创建右键菜单
-                ImGui::Begin(u8"窗口", &SystemTray_interface, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
+                ImGui::Begin(u8"菜单UI", &SystemTray_interface, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
                 
                 
 
                 //设置按键
                 if (ImGui::Button(u8"设置")) {
+                    SystemTray_interface = false;
+                    Screenshot_interface = false;
+                    translate_interface = false;
                     Set_interface = true;
                     Set_init = true;
                 }
+                /*
                 if (SystemTray_mode) {
                     if (ImGui::Button(u8"百度")) {
                         SystemTray_mode = false;
@@ -401,6 +408,7 @@ int main(int,char**)
                         SystemTray_mode = true;
                     }
                 }
+                */
                 if (ImGui::Button(u8"退出")){
                     done = true;
                 }
@@ -452,7 +460,7 @@ int main(int,char**)
                     Set_init = false;
                     set_Residence_Time = Residence_Time / 1000;
                 }
-                ImGui::Begin(u8"设置", &Set_interface, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//创建窗口
+                ImGui::Begin(u8"设置UI", &Set_interface, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//创建窗口
                 ImGui::InputText(u8"翻译语种", set_English, 5);
                 ImGui::InputText(u8"目标语种", set_Chinese, 5);
                 ImGui::InputText(u8"替换语种", set_ChineseReplace, 5);
