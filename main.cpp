@@ -345,35 +345,35 @@ int main(int,char**)
                 draw_list->AddQuadFilled(
                     //矩形框的四个点（顺时针）
                     ImVec2(0, 0),
-                    ImVec2(0, MousePosition_1.y),
-                    ImVec2(MousePosition_2.x, MousePosition_1.y),
-                    ImVec2(MousePosition_2.x, 0),
+                    ImVec2(0, y),
+                    ImVec2(x + w, y),
+                    ImVec2(x + w, 0),
                     //颜色
                     IM_COL32(0, 0, 0, 100));
 
                 draw_list->AddQuadFilled(
                     //矩形框的四个点（顺时针）
-                    ImVec2(MousePosition_2.x, 0),
+                    ImVec2(x + w, 0),
                     ImVec2(windows_Width, 0),
-                    ImVec2(windows_Width, MousePosition_2.y),
-                    ImVec2(MousePosition_2.x, MousePosition_2.y),
+                    ImVec2(windows_Width, y + h),
+                    ImVec2(x + w, y + h),
                     //颜色
                     IM_COL32(0, 0, 0, 100));
 
                 draw_list->AddQuadFilled(
                     //矩形框的四个点（顺时针）
-                    ImVec2(MousePosition_1.x, MousePosition_2.y),
-                    ImVec2(windows_Width, MousePosition_2.y),
+                    ImVec2(x, y + h),
+                    ImVec2(windows_Width, y + h),
                     ImVec2(windows_Width, windows_Heigth),
-                    ImVec2(MousePosition_1.x, windows_Heigth),
+                    ImVec2(x, windows_Heigth),
                     //颜色
                     IM_COL32(0, 0, 0, 100));
 
                 draw_list->AddQuadFilled(
                     //矩形框的四个点（顺时针）
-                    ImVec2(0, MousePosition_1.y),
-                    ImVec2(MousePosition_1.x, MousePosition_1.y),
-                    ImVec2(MousePosition_1.x, windows_Heigth),
+                    ImVec2(0, y),
+                    ImVec2(x, y),
+                    ImVec2(x, windows_Heigth),
                     ImVec2(0, windows_Heigth),
                     //颜色
                     IM_COL32(0, 0, 0, 100));

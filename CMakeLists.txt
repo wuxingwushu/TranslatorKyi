@@ -29,7 +29,7 @@ SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/tesseract-5.2.0-x64-windows/lib
 
 # execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/DLL/bz2.dll ${CMAKE_CURRENT_BINARY_DIR}) # 拷贝单个文件
 
-#execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/DLL ${CMAKE_CURRENT_BINARY_DIR}) # 拷贝文件夹
+execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/DLL ${CMAKE_CURRENT_BINARY_DIR}) # 拷贝文件夹
 #execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/DLLD ${CMAKE_CURRENT_BINARY_DIR}) # 拷贝文件夹
 
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/launch.vs.json ${PROJECT_SOURCE_DIR}/.vs)# 设置的DLL文件路径
