@@ -144,12 +144,11 @@ std::string Translate_Baidu(const char* appid, const char* secret_key, std::stri
         if (!reader.parse(kaox, value)) {
             printf("parse json error!");
             delete[] kaox;
-            return 0;
+            return "´íÎó";
         }
         std::string Chinese = value["trans_result"][0]["dst"].asString();
         delete[] kaox;
-
         return Chinese;
     }
-    return 0;
+    return "´íÎó";
 }

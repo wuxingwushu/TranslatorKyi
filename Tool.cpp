@@ -55,7 +55,7 @@ std::string  UnicodeToUtf8(const std::string& Unicode)
 
 
 //utf8 ×ªµ½ Unicode
-char* Utf8ToUnicode(const char* szU8)
+std::string Utf8ToUnicode(const char* szU8)
 {
     int wcsLen = MultiByteToWideChar(CP_UTF8, NULL, szU8, (int)strlen(szU8), NULL, 0);
     wchar_t* wszString = new wchar_t[wcsLen + 1];
@@ -65,6 +65,8 @@ char* Utf8ToUnicode(const char* szU8)
     char* c = new char[len + 1];
     WideCharToMultiByte(CP_ACP, 0, wszString, (int)wcslen(wszString), c, len, NULL, NULL);
     c[len] = '\0';
+    std::string str = c;
     delete[] wszString;
-    return c;
+    delete[] c;
+    return str;
 }

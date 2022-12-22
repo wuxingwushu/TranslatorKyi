@@ -1,6 +1,6 @@
 #include "tesseract.h"
 
-char* Tesseract_OCR(l_int32 x, l_int32 y, l_int32 w, l_int32 h, const char* Model)
+std::string Tesseract_OCR(l_int32 x, l_int32 y, l_int32 w, l_int32 h, const char* Model)
 {
     //printf("%d - %d - %d - %d", x, y, w, h);
 
@@ -20,13 +20,15 @@ char* Tesseract_OCR(l_int32 x, l_int32 y, l_int32 w, l_int32 h, const char* Mode
     api->SetImage(imgCrop);
     // Get OCR result
     outText = api->GetUTF8Text();
+    std::string Text = outText;
     //printf("OCR output:\n%s", outText);
 
     // Destroy used object and release memory
     api->End();
     delete api;
+    delete[] outText;
     pixDestroy(&image);
     pixDestroy(&imgCrop);
 
-    return outText;
+    return Text;
 }

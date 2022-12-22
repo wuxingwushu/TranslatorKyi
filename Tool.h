@@ -13,4 +13,4 @@ std::wstring s2ws(const std::string& s);
 std::string  UnicodeToUtf8(const std::string& Unicode);
 
 //utf8 ×ªµ½ Unicode
-char* Utf8ToUnicode(const char* szU8);
+std::string Utf8ToUnicode(const char* szU8);

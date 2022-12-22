@@ -16,15 +16,22 @@ SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/OpenSSL-Win64/include
 )
 
 link_directories(
-SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/tesseract-5.2.0-x64-windows/lib
 SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/DXSDK/lib/x64
 SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/Visual_Leak_Detector/lib/Win64
-SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/jsoncpp/lib/Release
 SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/OpenSSL-Win64/lib
+
+#SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/jsoncpp/lib/Debug
+#SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/tesseract-5.2.0-x64-windows/libD
+
+SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/jsoncpp/lib/Release
+SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/tesseract-5.2.0-x64-windows/lib
 )
 
 # execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/DLL/bz2.dll ${CMAKE_CURRENT_BINARY_DIR}) # 拷贝单个文件
-execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/DLL ${CMAKE_CURRENT_BINARY_DIR}) # 拷贝文件夹
+
+#execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/DLL ${CMAKE_CURRENT_BINARY_DIR}) # 拷贝文件夹
+#execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/DLLD ${CMAKE_CURRENT_BINARY_DIR}) # 拷贝文件夹
+
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/launch.vs.json ${PROJECT_SOURCE_DIR}/.vs)# 设置的DLL文件路径
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/product.ico ${CMAKE_CURRENT_BINARY_DIR})
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/Data.ini ${CMAKE_CURRENT_BINARY_DIR})
@@ -42,4 +49,5 @@ add_subdirectory(imgui)
 
 Set_Target_Properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")#关闭控制台
 
+#target_link_libraries(Translate-miku FunctionLib imguiLib tesseract52d.lib leptonica-1.82.0d.lib d3dx11.lib vld.lib jsoncpp.lib libcurl-d.lib libssl.lib libcrypto.lib)
 target_link_libraries(Translate-miku FunctionLib imguiLib tesseract52.lib leptonica-1.82.0.lib d3dx11.lib vld.lib jsoncpp.lib libcurl.lib libssl.lib libcrypto.lib)

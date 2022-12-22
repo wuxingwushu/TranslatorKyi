@@ -117,10 +117,8 @@ int main(int,char**)
                 translate_interface = true;
                 translate_click = true;
             }
-            Sleep(5);
-            std::string strS = ClipboardTochar();//读取当前剪切板的内容，保存起来
 
-            Sleep(5);//内容拷贝，避免指针丢失报错
+            std::string strS = ClipboardTochar();//读取当前剪切板的内容，保存起来
 
             //获取当前选择的内容 ctrl + c
             keybd_event(17, 0, 0, 0);//按下 ctrl
@@ -153,10 +151,8 @@ int main(int,char**)
                 translate_interface = false;
                 Set_interface = false;
             }
-            Sleep(5);
-            std::string strS = ClipboardTochar();//读取当前剪切板的内容，保存起来
 
-            Sleep(5);//内容拷贝，避免指针丢失报错
+            std::string strS = ClipboardTochar();//读取当前剪切板的内容，保存起来
 
             //获取当前选择的内容 ctrl + c
             keybd_event(17, 0, 0, 0);//按下 ctrl
@@ -576,6 +572,24 @@ int main(int,char**)
     CleanupDeviceD3D();
     ::DestroyWindow(hwnd);
     ::UnregisterClass(wc.lpszClassName, wc.hInstance);
+
+    {
+        delete[] lpPath;
+
+        delete[] set_English;
+        delete[] set_Chinese;
+        delete[] set_ChineseReplace;
+
+        delete[] set_Baidu_ID;
+        delete[] set_Baidu_Key;
+
+        delete[] set_TesseractModel;
+        delete[] set_Font_path;
+
+        delete[] screenshot_key_2;
+        delete[] choice_key_2;
+        delete[] replace_key_2;
+    }
 
     return 0;
 }
