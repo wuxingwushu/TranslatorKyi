@@ -7,3 +7,4 @@
 
 
 std::string Translate_Baidu(const char* appid, const char* secret_key, std::string English, const char* from, const char* to);
+std::string Translate_Youdao(const char* appid, const char* secret_key, std::string English, const char* from, const char* to);

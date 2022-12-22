@@ -69,12 +69,17 @@ static LPTSTR lpPath = new char[MAX_PATH];
 
 //设置UI用的变量
 //****************************************************************************************************
-static char* set_English = new char[5] {};
-static char* set_Chinese = new char[5] {};
-static char* set_ChineseReplace = new char[5] {};
-
+static char* set_Baidu_English = new char[5] {};
+static char* set_Baidu_Chinese = new char[5] {};
+static char* set_Baidu_ChineseReplace = new char[5] {};
 static char* set_Baidu_ID = new char[30] {};
 static char* set_Baidu_Key = new char[30] {};
+
+static char* set_Youdao_English = new char[10] {};
+static char* set_Youdao_Chinese = new char[10] {};
+static char* set_Youdao_ChineseReplace = new char[10] {};
+static char* set_Youdao_ID = new char[50] {};
+static char* set_Youdao_Key = new char[50] {};
 
 static char* set_TesseractModel = new char[10] {};
 static char* set_Font_path = new char[500] {};
@@ -88,13 +93,22 @@ const char* items[] = { "Shift", "Ctrl", "Alt" };
 //****************************************************************************************************
 
 //翻译目标语言设置
-std::string English;//检测目标语言
-std::string Chinese;//翻译目标语言
-std::string ChineseReplace;//替换的目标语言
-
+std::string Baidu_English;//检测目标语言
+std::string Baidu_Chinese;//翻译目标语言
+std::string Baidu_ChineseReplace;//替换的目标语言
 //翻译API 的 ID 和 Key
 std::string Baidu_ID;
 std::string Baidu_Key;
+
+
+//翻译目标语言设置
+std::string Youdao_English;//检测目标语言
+std::string Youdao_Chinese;//翻译目标语言
+std::string Youdao_ChineseReplace;//替换的目标语言
+//翻译API 的 ID 和 Key
+std::string Youdao_ID;
+std::string Youdao_Key;
+
 
 //按键
 static int  screenshot_key_1;//截图按键 screenshot_key_1 && screenshot_key_2
@@ -123,13 +137,23 @@ void IniDataInit() {
 	strcpy(lpPath, "./Data.ini");
 	INIReader iniData{ lpPath };
 
-	English = iniData.Get<std::string>("language", "English");
-	strcpy(set_English, English.c_str());
-	Chinese = iniData.Get<std::string>("language", "Chinese");
-	strcpy(set_Chinese, Chinese.c_str());
-	ChineseReplace = iniData.Get<std::string>("language", "ChineseReplace");
-	strcpy(set_ChineseReplace, ChineseReplace.c_str());
+	Youdao_English = iniData.Get<std::string>("language", "Youdao_English");
+	strcpy(set_Youdao_English, Youdao_English.c_str());
+	Youdao_Chinese = iniData.Get<std::string>("language", "Youdao_Chinese");
+	strcpy(set_Youdao_Chinese, Youdao_Chinese.c_str());
+	Youdao_ChineseReplace = iniData.Get<std::string>("language", "Youdao_ChineseReplace");
+	strcpy(set_Youdao_ChineseReplace, Youdao_ChineseReplace.c_str());
+	Youdao_ID = iniData.Get<std::string>("API", "Youdao_ID");
+	strcpy(set_Youdao_ID, Youdao_ID.c_str());
+	Youdao_Key = iniData.Get<std::string>("API", "Youdao_Key");
+	strcpy(set_Youdao_Key, Youdao_Key.c_str());
 
+	Baidu_English = iniData.Get<std::string>("language", "Baidu_English");
+	strcpy(set_Baidu_English, Baidu_English.c_str());
+	Baidu_Chinese = iniData.Get<std::string>("language", "Baidu_Chinese");
+	strcpy(set_Baidu_Chinese, Baidu_Chinese.c_str());
+	Baidu_ChineseReplace = iniData.Get<std::string>("language", "Baidu_ChineseReplace");
+	strcpy(set_Baidu_ChineseReplace, Baidu_ChineseReplace.c_str());
 	Baidu_ID = iniData.Get<std::string>("API", "Baidu_ID");
 	strcpy(set_Baidu_ID, Baidu_ID.c_str());
 	Baidu_Key = iniData.Get<std::string>("API", "Baidu_Key");
@@ -158,9 +182,15 @@ void IniDataInit() {
 
 //保存INI数据
 void IniDataPreservation() {
-	WritePrivateProfileString("language", "English", set_English, lpPath);
-	WritePrivateProfileString("language", "Chinese", set_Chinese, lpPath);
-	WritePrivateProfileString("language", "ChineseReplace", set_ChineseReplace, lpPath);
+	WritePrivateProfileString("language", "Youdao_English", set_Youdao_English, lpPath);
+	WritePrivateProfileString("language", "Youdao_Chinese", set_Youdao_Chinese, lpPath);
+	WritePrivateProfileString("language", "Youdao_ChineseReplace", set_Youdao_ChineseReplace, lpPath);
+	WritePrivateProfileString("API", "Youdao_ID", set_Youdao_ID, lpPath);
+	WritePrivateProfileString("API", "Youdao_Key", set_Youdao_Key, lpPath);
+
+	WritePrivateProfileString("language", "Baidu_English", set_Baidu_English, lpPath);
+	WritePrivateProfileString("language", "Baidu_Chinese", set_Baidu_Chinese, lpPath);
+	WritePrivateProfileString("language", "Baidu_ChineseReplace", set_Baidu_ChineseReplace, lpPath);
 	WritePrivateProfileString("API", "Baidu_ID", set_Baidu_ID, lpPath);
 	WritePrivateProfileString("API", "Baidu_Key", set_Baidu_Key, lpPath);
 
@@ -223,7 +253,7 @@ static l_int32 x, y, w, h;
 //系统托盘菜单
 static bool SystemTray_interface = false;//界面开关
 static bool SystemTray_init = false;//是否是第一次打开界面
-static bool SystemTray_mode = false;//翻译方式 0：有道   1：百度
+static bool SystemTray_mode = false;//翻译方式 1：有道   0：百度
 static clock_t SystemTray_interface_time;//鼠标离开界面的时间戳
 
 

@@ -135,7 +135,12 @@ int main(int,char**)
                 translate_Chinese =  u8"不存在单词";
             }
             else {
-                translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), UnicodeToUtf8(translate_English), English.c_str(), Chinese.c_str());//翻译内容
+                if (SystemTray_mode) {
+                    translate_Chinese = Translate_Youdao(Youdao_ID.c_str(), Youdao_Key.c_str(), UnicodeToUtf8(translate_English), Youdao_English.c_str(), Youdao_Chinese.c_str());//翻译内容
+                }
+                else {
+                    translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), UnicodeToUtf8(translate_English), Baidu_English.c_str(), Baidu_Chinese.c_str());//翻译内容
+                }
             }
 
             CopyToClipboard(strS);//还原原来剪切板的内容
@@ -165,7 +170,12 @@ int main(int,char**)
             translate_English = ClipboardTochar();//从剪切板上读取出来
 
             if (strlen(translate_English.c_str()) > 0) {
-                translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), UnicodeToUtf8(translate_English), English.c_str(), ChineseReplace.c_str());//翻译内容
+                if (SystemTray_mode) {
+                    translate_Chinese = Translate_Youdao(Youdao_ID.c_str(), Youdao_Key.c_str(), UnicodeToUtf8(translate_English), Youdao_English.c_str(), Youdao_ChineseReplace.c_str());//翻译内容
+                }
+                else {
+                    translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), UnicodeToUtf8(translate_English), Baidu_English.c_str(), Baidu_ChineseReplace.c_str());//翻译内容
+                }
             }
 
             CopyToClipboard(Utf8ToUnicode(translate_Chinese.c_str()));//把翻译的内容复制到剪切板上
@@ -404,7 +414,7 @@ int main(int,char**)
                 if (SystemTray_init) {
                     static POINT pt = { 0,0 };
                     GetCursorPos(&pt);//获取鼠标位置
-                    ImGui::SetNextWindowPos({ float(pt.x), float(pt.y) - 60 });//设置窗口生成位置
+                    ImGui::SetNextWindowPos({ float(pt.x), float(pt.y) - 90 });//设置窗口生成位置
                     SystemTray_init = false;
                 }
                 
@@ -421,7 +431,7 @@ int main(int,char**)
                     Set_interface = true;
                     Set_init = true;
                 }
-                /*
+
                 if (SystemTray_mode) {
                     if (ImGui::Button(u8"百度")) {
                         SystemTray_mode = false;
@@ -432,7 +442,7 @@ int main(int,char**)
                         SystemTray_mode = true;
                     }
                 }
-                */
+                
                 if (ImGui::Button(u8"退出")){
                     done = true;
                 }
@@ -460,7 +470,12 @@ int main(int,char**)
                         translate_English = Tesseract_OCR(x, y, w, h, TesseractModel.c_str());//要翻译界面关闭了才可以要不然会出BUG
 
                         if (strlen(translate_English.c_str()) > 0) {
-                            translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), translate_English, English.c_str(), Chinese.c_str());//翻译内容
+                            if (SystemTray_mode) {
+                                translate_Chinese = Translate_Youdao(Youdao_ID.c_str(), Youdao_Key.c_str(), UnicodeToUtf8(translate_English), Youdao_English.c_str(), Youdao_Chinese.c_str());//翻译内容
+                            }
+                            else {
+                                translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), UnicodeToUtf8(translate_English), Baidu_English.c_str(), Baidu_Chinese.c_str());//翻译内容
+                            }
                         }
                         else {
                             translate_Chinese = u8"内容不存在！";
@@ -484,17 +499,28 @@ int main(int,char**)
                     set_Residence_Time = Residence_Time / 1000;
                 }
                 ImGui::Begin(u8"设置UI", &Set_interface, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//创建窗口
-                ImGui::InputText(u8"翻译语种", set_English, 5);
+                ImGui::Text(u8"有道翻译");
+                ImGui::InputText(u8"有道翻译语种", set_Youdao_English, 10);
                 TipsUI("(?)", u8"你要翻译的内容语种。\n默认（auto）自动检测。");
-                ImGui::InputText(u8"目标语种", set_Chinese, 5);
+                ImGui::InputText(u8"有道目标语种", set_Youdao_Chinese, 10);
                 TipsUI("(?)", u8"你希望翻译成什么语言。");
-                ImGui::InputText(u8"替换语种", set_ChineseReplace, 5);
+                ImGui::InputText(u8"有道替换语种", set_Youdao_ChineseReplace, 10);
+                TipsUI("(?)", u8"将被选中的语言替换成什么语言。");
+                ImGui::InputText(u8"有道翻译ID", set_Youdao_ID, 50);
+                ImGui::InputText(u8"有道翻译API", set_Youdao_Key, 50);
+
+                ImGui::Text(u8"百度翻译");
+                ImGui::InputText(u8"百度翻译语种", set_Baidu_English, 5);
+                TipsUI("(?)", u8"你要翻译的内容语种。\n默认（auto）自动检测。");
+                ImGui::InputText(u8"百度目标语种", set_Baidu_Chinese, 5);
+                TipsUI("(?)", u8"你希望翻译成什么语言。");
+                ImGui::InputText(u8"百度替换语种", set_Baidu_ChineseReplace, 5);
                 TipsUI("(?)", u8"将被选中的语言替换成什么语言。");
                 ImGui::InputText(u8"百度翻译ID", set_Baidu_ID, 30);
                 ImGui::InputText(u8"百度翻译API", set_Baidu_Key, 30);
+                ImGui::Text(u8"设置");
                 ImGui::InputText(u8"OCR模型", set_TesseractModel, 10);
                 TipsUI("(?)", u8"截图识别文字的模型。\n更多查看Tesseract-OCR文档。");
-
                 ImGui::SliderInt(u8"翻译显示时间", &set_Residence_Time, 0, 60);
                 TipsUI("(?)", u8"翻译的结果显示多久（秒）！（鼠标离开的时间）");
                 ImGui::SliderInt(u8"翻译界面初始宽度", &WindowWidth, 0, 1000);
@@ -576,10 +602,15 @@ int main(int,char**)
     {
         delete[] lpPath;
 
-        delete[] set_English;
-        delete[] set_Chinese;
-        delete[] set_ChineseReplace;
+        delete[] set_Youdao_English;
+        delete[] set_Youdao_Chinese;
+        delete[] set_Youdao_ChineseReplace;
+        delete[] set_Youdao_ID;
+        delete[] set_Youdao_Key;
 
+        delete[] set_Baidu_English;
+        delete[] set_Baidu_Chinese;
+        delete[] set_Baidu_ChineseReplace;
         delete[] set_Baidu_ID;
         delete[] set_Baidu_Key;
 
