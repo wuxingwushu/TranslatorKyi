@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD 17)
 aux_source_directory(. DIRSRCS)
 
 include_directories(
-SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/x64-windows/include
+SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/tesseract-5.2.0-x64-windows/include
 SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/DXSDK/include
 SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/Visual_Leak_Detector/include
 SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/jsoncpp/include
@@ -16,7 +16,7 @@ SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/OpenSSL-Win64/include
 )
 
 link_directories(
-SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/x64-windows/lib
+SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/tesseract-5.2.0-x64-windows/lib
 SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/DXSDK/lib/x64
 SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/Visual_Leak_Detector/lib/Win64
 SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/jsoncpp/lib/Release

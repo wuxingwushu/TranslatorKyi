@@ -233,7 +233,7 @@ int main(int,char**)
                 ImGui::SameLine();//让一个元素并排
                 ImGui::SetCursorPosX(WindowWidth - 30);//设置下一个元素生成的位置
                 if (ImGui::Button(">")) {
-                    CopyToClipboard(Utf8ToUnicode(translate_Chinese.c_str()));
+                    CopyToClipboard(Utf8ToUnicode(translate_Chinese.c_str()));//复制中文要转格式才可以要不然粘贴出来的是乱码
                 }
                 //设置上一个元素的鼠标悬停提示
                 if (ImGui::IsItemHovered())
@@ -372,6 +372,33 @@ int main(int,char**)
                     //颜色
                     IM_COL32(0, 0, 0, 100));
 
+
+                static POINT pt = { 0,0 };
+                GetCursorPos(&pt);//获取鼠标位置
+                ImGui::SetCursorPosX(pt.x + 9);
+                ImGui::SetCursorPosY(pt.y - 56);
+                //显示放大位置
+                ImGui::Image(image_ID, ImVec2(64, 64),
+                    ImVec2(float(pt.x - 16) / float(windows_Width), float(pt.y - 16) / float(windows_Heigth)),
+                    ImVec2(float(pt.x + 16) / float(windows_Width), float(pt.y + 16) / float(windows_Heigth)));
+                //画十字准心
+                draw_list->AddQuadFilled(
+                    //矩形框的四个点（顺时针）
+                    ImVec2(pt.x + 1, pt.y - 33),
+                    ImVec2(pt.x + 65, pt.y - 33),
+                    ImVec2(pt.x + 65, pt.y - 32),
+                    ImVec2(pt.x + 1, pt.y - 32),
+                    //颜色
+                    IM_COL32(255, 0, 0, 100));
+
+                draw_list->AddQuadFilled(
+                    //矩形框的四个点（顺时针）
+                    ImVec2(pt.x + 32, pt.y - 64),
+                    ImVec2(pt.x + 33, pt.y - 64),
+                    ImVec2(pt.x + 33, pt.y - 0),
+                    ImVec2(pt.x + 32, pt.y - 0),
+                    //颜色
+                    IM_COL32(255, 0, 0, 100));
                 ImGui::End();
             }
              
@@ -455,24 +482,31 @@ int main(int,char**)
 
             //设置界面
             if (Set_interface) {
-
                 if (Set_init) {
-                    ImGui::SetNextWindowSize(ImVec2(550, 520));
+                    ImGui::SetNextWindowSize(ImVec2(900, 600));
                     Set_init = false;
                     set_Residence_Time = Residence_Time / 1000;
                 }
                 ImGui::Begin(u8"设置UI", &Set_interface, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//创建窗口
                 ImGui::InputText(u8"翻译语种", set_English, 5);
+                TipsUI("(?)", u8"你要翻译的内容语种。\n默认（auto）自动检测。");
                 ImGui::InputText(u8"目标语种", set_Chinese, 5);
+                TipsUI("(?)", u8"你希望翻译成什么语言。");
                 ImGui::InputText(u8"替换语种", set_ChineseReplace, 5);
+                TipsUI("(?)", u8"将被选中的语言替换成什么语言。");
                 ImGui::InputText(u8"百度翻译ID", set_Baidu_ID, 30);
                 ImGui::InputText(u8"百度翻译API", set_Baidu_Key, 30);
-                ImGui::InputText(u8"ORC模型", set_TesseractModel, 10);
+                ImGui::InputText(u8"OCR模型", set_TesseractModel, 10);
+                TipsUI("(?)", u8"截图识别文字的模型。\n更多查看Tesseract-OCR文档。");
 
-                ImGui::SliderInt(u8"翻译显示时间", &set_Residence_Time, 0, 50);
-                Residence_Time = set_Residence_Time * 1000;
+                ImGui::SliderInt(u8"翻译显示时间", &set_Residence_Time, 0, 60);
+                TipsUI("(?)", u8"翻译的结果显示多久（秒）！（鼠标离开的时间）");
                 ImGui::SliderInt(u8"翻译界面初始宽度", &WindowWidth, 0, 1000);
-                ImGui::SliderFloat(u8"字体大小", &FontSize, 0, 100); FontSize = int(FontSize);
+                ImGui::Checkbox(u8"是否更改字体样式", &Fontbool);
+                TipsUI("(?)", u8"如果更改字体样式，字体样式的路径必须保证没问题！\n如果因为更改字体样式出错导致无法打开软件!\n可以尝试把Data.ini的Fontbool修改为0");
+                ImGui::InputText(u8"字体样式", set_Font_path, 500);
+                TipsUI("(?)", u8"绝对路径例：C:\\Users\\SmileySans-Oblique.ttf\n相对路径例：.\\tessdata\\SmileySans-Oblique.ttf");
+                ImGui::SliderFloat(u8"字体大小", &FontSize, 0, 100);
                 ImGui::SliderFloat(u8"按键圆润度", &ButtonRounding, 0, 20);
                 
                 ImGui::ColorEdit4(u8"按键颜色", set_ButtonColor);
@@ -483,6 +517,7 @@ int main(int,char**)
                 PreservationSetColor(set_ButtonActiveColor, ButtonActiveColor);
 
                 ImGui::Combo(u8"组合键", &screenshot_key_1, items, IM_ARRAYSIZE(items));
+                TipsUI("(?)", u8"和下面的按键组合！");
                 ImGui::InputText(u8"截图按键", screenshot_key_2, 2);
                 ImGui::InputText(u8"选择按键", choice_key_2, 2);
                 ImGui::InputText(u8"替换按键", replace_key_2, 2);
@@ -492,11 +527,12 @@ int main(int,char**)
                 if (ImGui::Button(u8"保存")) {
                     IniDataPreservation();
                     Set_interface = false;
+                    IniDataInit();
                 }
                 //设置上一个元素的鼠标悬停提示
                 if (ImGui::IsItemHovered())
                 {
-                    ImGui::SetTooltip(u8"保存就是保存啊！");//提示内容
+                    ImGui::SetTooltip(u8"部分内容要关闭软件重新打开才生效");//提示内容
                 }
 
                 ImGui::SameLine();//让下一个元素并排
@@ -509,7 +545,7 @@ int main(int,char**)
                 //设置上一个元素的鼠标悬停提示
                 if (ImGui::IsItemHovered())
                 {
-                    ImGui::SetTooltip(u8"关闭就是关闭啊！");//提示内容
+                    ImGui::SetTooltip(u8"放弃更改。");//提示内容
                 }
 
 
@@ -585,20 +621,6 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         break;
         case WM_LBUTTONUP://左键图标
             break;
-        }
-        break;
-
-
-
-
-
-
-
-
-
-    case WM_KEYDOWN://对大小写不敏感
-        if (wParam == 'F') {//检测F是否被按下
-            //SetWindowText(hWnd, "off FFFF");//当检测到F被按下是改变标题
         }
         break;
 
@@ -785,8 +807,13 @@ ImGuiIO& IMGUI_init() {
     ImFontConfig Font_cfg;
     Font_cfg.FontDataOwnedByAtlas = false;
 
-
-    ImFont* Font = io.Fonts->AddFontFromMemoryTTF((void*)Font_data, Font_size, FontSize, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
+    if (Fontbool) {
+        ImFont* Font = io.Fonts->AddFontFromFileTTF(Font_path.c_str(), FontSize, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
+    }
+    else {
+        ImFont* Font = io.Fonts->AddFontFromMemoryTTF((void*)Font_data, Font_size, FontSize, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
+    }
+    
 
 
     clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -820,6 +847,17 @@ ImGuiIO& IMGUI_init() {
     Color[ImGuiCol_HeaderActive] = ImColor(0, 95, 46, 255);
 
     return io;
+}
+
+//加提示
+void TipsUI(const char* label, const char* Tips) {
+    ImGui::SameLine();//让一个元素并排
+    ImGui::Text(label);
+    //设置上一个元素的鼠标悬停提示
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetTooltip(Tips);//提示内容
+    }
 }
 
 //加载图片
@@ -878,7 +916,7 @@ void screen(LPCSTR fileName)
     void* buff = buf;//备份保存申请内存的地址，因为后面 buf 这个内存地址会丢失导致内存泄露。
 
     HBITMAP bm = CreateCompatibleBitmap(_dc, w, h);//建立和屏幕兼容的bitmap
-    SelectObject(dc, bm);//将memBitmap选入内存DC    
+    SelectObject(dc, bm);//将memBitmap选入内存DC
     StretchBlt(dc, 0, 0, w, h, _dc, 0, 0, w, h, SRCCOPY);//复制屏幕图像到内存DC
 
     void* f = CreateFile(fileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, 0);

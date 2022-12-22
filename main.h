@@ -10,10 +10,39 @@ using namespace inih;//启用 ini 读取
 
 //模板 转 字符串
 template<typename T>std::string toString(const T& t);
+
+//ini文件处理工具函数
 std::string ColorArraytoString(int* color);
 void GetColor(std::vector<int> colordata, int* color, float* set_color);
 void PreservationSetColor(float* setcolor, int* color);
+
+//读取INI数据
+void IniDataInit();
+//保存INI数据
 void IniDataPreservation();
+
+
+//IMGUI 初始化
+ImGuiIO& IMGUI_init();
+//加提示
+void TipsUI(const char* label, const char* Tips);
+
+//获得剪贴板的内容
+std::string ClipboardTochar();
+//将内容复制到剪贴板
+void CopyToClipboard(std::string str);
+
+//加载图片
+ID3D11ShaderResourceView* DX11LoadTextureImageFromFile(LPCSTR lpszFilePath);
+//截图&保存（全屏）
+void screen(LPCSTR fileName);
+
+//DX11
+bool CreateDeviceD3D(HWND hWnd);
+void CleanupDeviceD3D();
+void CreateRenderTarget();
+void CleanupRenderTarget();
+LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 
 
@@ -38,14 +67,17 @@ void IniDataPreservation();
 
 static LPTSTR lpPath = new char[MAX_PATH];
 
+//设置UI用的变量
 //****************************************************************************************************
-static char* set_English = new char[5];
-static char* set_Chinese = new char[5];
-static char* set_ChineseReplace = new char[5];
+static char* set_English = new char[5] {};
+static char* set_Chinese = new char[5] {};
+static char* set_ChineseReplace = new char[5] {};
 
-static char* set_Baidu_ID = new char[30];
-static char* set_Baidu_Key = new char[30];
-static char* set_TesseractModel = new char[10];
+static char* set_Baidu_ID = new char[30] {};
+static char* set_Baidu_Key = new char[30] {};
+
+static char* set_TesseractModel = new char[10] {};
+static char* set_Font_path = new char[500] {};
 static int set_Residence_Time;
 
 static float set_ButtonColor[4];
@@ -66,17 +98,19 @@ std::string Baidu_Key;
 
 //按键
 static int  screenshot_key_1;//截图按键 screenshot_key_1 && screenshot_key_2
-static char* screenshot_key_2 = new char[1];
+static char* screenshot_key_2 = new char[2] {};
 
 //static int  choice_key_1;//选择按键 choice_key_1 && choice_key_2
-static char* choice_key_2 = new char[1];
+static char* choice_key_2 = new char[2] {};
 
 //static int  replace_key_1;//替换按键 replace_key_1 && replace_key_2
-static char* replace_key_2 = new char[1];
+static char* replace_key_2 = new char[2] {};
 
 //软件设置
 static int Residence_Time;//鼠标离开界面时的显示时间
 static int WindowWidth;//翻译界面 宽度 初始大小
+static bool Fontbool;//是否选用字体样式
+std::string Font_path;//字体样式
 static float FontSize;//字体大小
 static float ButtonRounding;//按键圆润度
 std::string TesseractModel;//Tesseract-ORC 模型
@@ -84,14 +118,8 @@ static int ButtonColor[4];//按键颜色
 static int ButtonHoveredColor[4];//鼠标悬停颜色
 static int ButtonActiveColor[4];//鼠标点击颜色
 
-
+//读取INI数据
 void IniDataInit() {
-/*
-INIReader r{ "./Data.ini" };
-r.Get<int>("data", "int1");//获取单个变量
-r.GetVector<int>("data", "intixx")//获取变量数组
-std::cout <<   << std::endl;
-*/
 	strcpy(lpPath, "./Data.ini");
 	INIReader iniData{ lpPath };
 
@@ -116,6 +144,9 @@ std::cout <<   << std::endl;
 
 	Residence_Time = int(iniData.Get<float>("Set", "Residence_Time") * 1000);
 	WindowWidth = iniData.Get<int>("Set", "WindowWidth");
+	Fontbool = iniData.Get<bool>("Set", "Fontbool");
+	Font_path = iniData.Get<std::string>("Set", "Font_path");
+	strcpy(set_Font_path, Font_path.c_str());
 	FontSize = iniData.Get<float>("Set", "FontSize");
 	ButtonRounding = iniData.Get<float>("Set", "ButtonRounding");
 	TesseractModel = iniData.Get<std::string>("Set", "TesseractModel");
@@ -123,12 +154,9 @@ std::cout <<   << std::endl;
 	GetColor(iniData.GetVector<int>("Set", "ButtonColor"), ButtonColor, set_ButtonColor);
 	GetColor(iniData.GetVector<int>("Set", "ButtonHoveredColor"), ButtonHoveredColor, set_ButtonHoveredColor);
 	GetColor(iniData.GetVector<int>("Set", "ButtonActiveColor"), ButtonActiveColor, set_ButtonActiveColor);
-
-
-	//修改数值
-	//WritePrivateProfileString("Set", "Residence_Time", ColorArraytoString(pxd).c_str(), lpPath);
 }
 
+//保存INI数据
 void IniDataPreservation() {
 	WritePrivateProfileString("language", "English", set_English, lpPath);
 	WritePrivateProfileString("language", "Chinese", set_Chinese, lpPath);
@@ -143,6 +171,8 @@ void IniDataPreservation() {
 
 	WritePrivateProfileString("Set", "Residence_Time", toString(set_Residence_Time).c_str(), lpPath);
 	WritePrivateProfileString("Set", "WindowWidth", toString(WindowWidth).c_str(), lpPath);
+	WritePrivateProfileString("Set", "Fontbool", toString(Fontbool).c_str(), lpPath);
+	WritePrivateProfileString("Set", "Font_path", toString(set_Font_path).c_str(), lpPath);
 	WritePrivateProfileString("Set", "FontSize", toString(FontSize).c_str(), lpPath);
 	WritePrivateProfileString("Set", "ButtonRounding", toString(ButtonRounding).c_str(), lpPath);
 	WritePrivateProfileString("Set", "TesseractModel", set_TesseractModel, lpPath);
@@ -224,20 +254,5 @@ static ID3D11RenderTargetView* g_mainRenderTargetView = NULL;
 
 
 
-//IMGUI 初始化
-ImGuiIO& IMGUI_init();
-//获得剪贴板的内容
-std::string ClipboardTochar();
-//将内容复制到剪贴板
-void CopyToClipboard(std::string str);
-//加载图片
-ID3D11ShaderResourceView* DX11LoadTextureImageFromFile(LPCSTR lpszFilePath);
-//截图&保存（全屏）
-void screen(LPCSTR fileName);
 
-bool CreateDeviceD3D(HWND hWnd);
-void CleanupDeviceD3D();
-void CreateRenderTarget();
-void CleanupRenderTarget();
-LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 

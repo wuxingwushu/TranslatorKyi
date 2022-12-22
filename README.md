@@ -13,6 +13,27 @@
 + 数据加密：[OpenSSL](https://github.com/openssl/openssl)
 + 内存泄露检测：[Visual](https://github.com/KindDragon/vld)
 
+> 文件结构
+
+```
+Translate-miku
+    └ Environment ┐
+    │             DX11SDK
+    │             jsoncpp
+    │             OpenSSL-Win64
+    │             Visual_Leak_Detector
+    │             tesseract-5.2.0-x64-windows
+    └ DLL ┐
+    │     ...
+    └ tessdata ┐
+    │          ...
+    └ imgui ┐
+    │       ...
+    └ Function ┐
+    │          ...
+    └   ...
+```
+
 > 环境构建：
 
 + Tesseract-OCR
