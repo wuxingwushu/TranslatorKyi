@@ -36,6 +36,8 @@ Translate-miku
 
 > 环境构建：
 
+> 我的使用的Environment文件下载： [百度网盘](https://pan.baidu.com/s/1HptIclC_ttfMcjlLj7RawA?pwd=trrt)
+
 + Tesseract-OCR
 	> [vcpkg](https://github.com/microsoft/vcpkg)
 	> [tesseract-ocr](https://github.com/tesseract-ocr/tesseract/tree/5.2.0)
