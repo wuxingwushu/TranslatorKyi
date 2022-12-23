@@ -130,16 +130,17 @@ int main(int,char**)
             Sleep(5);//等待上面的内容复制到剪切板上
 
             translate_English = ClipboardTochar();//从剪切板上读取出来
+            translate_English = UnicodeToUtf8(translate_English);
 
             if (strlen(translate_English.c_str()) <= 1) {
                 translate_Chinese =  u8"不存在单词";
             }
             else {
                 if (SystemTray_mode) {
-                    translate_Chinese = Translate_Youdao(Youdao_ID.c_str(), Youdao_Key.c_str(), UnicodeToUtf8(translate_English), Youdao_English.c_str(), Youdao_Chinese.c_str());//翻译内容
+                    translate_Chinese = Translate_Youdao(Youdao_ID.c_str(), Youdao_Key.c_str(), translate_English, Youdao_English.c_str(), Youdao_Chinese.c_str());//翻译内容
                 }
                 else {
-                    translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), UnicodeToUtf8(translate_English), Baidu_English.c_str(), Baidu_Chinese.c_str());//翻译内容
+                    translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), translate_English, Baidu_English.c_str(), Baidu_Chinese.c_str());//翻译内容
                 }
             }
 
@@ -168,13 +169,14 @@ int main(int,char**)
             Sleep(5);//等待上面的内容复制到剪切板上
 
             translate_English = ClipboardTochar();//从剪切板上读取出来
+            translate_English = UnicodeToUtf8(translate_English);
 
             if (strlen(translate_English.c_str()) > 0) {
                 if (SystemTray_mode) {
-                    translate_Chinese = Translate_Youdao(Youdao_ID.c_str(), Youdao_Key.c_str(), UnicodeToUtf8(translate_English), Youdao_English.c_str(), Youdao_ChineseReplace.c_str());//翻译内容
+                    translate_Chinese = Translate_Youdao(Youdao_ID.c_str(), Youdao_Key.c_str(), translate_English, Youdao_English.c_str(), Youdao_ChineseReplace.c_str());//翻译内容
                 }
                 else {
-                    translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), UnicodeToUtf8(translate_English), Baidu_English.c_str(), Baidu_ChineseReplace.c_str());//翻译内容
+                    translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), translate_English, Baidu_English.c_str(), Baidu_ChineseReplace.c_str());//翻译内容
                 }
             }
 
@@ -227,7 +229,7 @@ int main(int,char**)
                 ImGui::SameLine();//让下一个元素并排
                 ImGui::SetCursorPosX(WindowWidth - 30);//设置下一个元素生成的位置
                 if (ImGui::Button("<")) {
-                    CopyToClipboard(translate_English.c_str());
+                    CopyToClipboard(Utf8ToUnicode(translate_English.c_str()));
                 }
                 //设置上一个元素的鼠标悬停提示
                 if (ImGui::IsItemHovered())
@@ -323,6 +325,7 @@ int main(int,char**)
                         m_pImageTextureView1 = NULL;
                         MousePosition_1 = { 0,0 };
                         MousePosition_2 = { 0,0 };
+                        
 
                         //开启翻译
                         Screenshot_translate = true;
@@ -485,6 +488,10 @@ int main(int,char**)
                         translate_interface = true;
                         translate_click = true;
                     }
+                    y = 0;
+                    x = 0;
+                    w = 0;
+                    h = 0;
                 }
                 else {
                     Screenshot_translate_shu--;

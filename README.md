@@ -23,8 +23,8 @@ Translate-miku
     │             OpenSSL-Win64
     │             Visual_Leak_Detector
     │             tesseract-5.2.0-x64-windows
-    └ DLL ┐
-    │     ...
+    │             DLL
+    │             DLLDebug
     └ tessdata ┐
     │          ...
     └ imgui ┐
