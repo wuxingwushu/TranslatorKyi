@@ -766,24 +766,28 @@ void CleanupRenderTarget()
 
 //获得剪贴板的内容
 std::string ClipboardTochar() {
-    if (OpenClipboard(NULL))//打开剪贴板
-    { 
+    int ClipboardBoll = 5;
+    while (ClipboardBoll > 0) {
+        ClipboardBoll--;
+        if (!OpenClipboard(NULL))//打开剪贴板
+        {
+            printf("打开剪贴板失败\n");
+            CloseClipboard();//关闭剪贴板
+            continue;
+        }
+
         HGLOBAL hmem = GetClipboardData(CF_TEXT);//获取剪切板内容块
         if (hmem == NULL)    // 对剪切板分配内存
         {
-            puts("内存赋值错误!!!\n");
-            CloseClipboard();
-            return "Error";
+            printf("获取剪切板内容块错误!!!\n");
+            CloseClipboard();//关闭剪贴板
+            continue;
         }
         else {
             std::string CharS = (char*)GlobalLock(hmem);//获取内容块的地址
             CloseClipboard();//关闭剪贴板
             return CharS;
-        } 
-    }
-    else {
-        CloseClipboard();//关闭剪贴板
-        return "Error";
+        }
     }
 }
 
@@ -791,50 +795,53 @@ std::string ClipboardTochar() {
 
 //将内容复制到剪贴板
 void CopyToClipboard(std::string str) {
-    // utf8 转到 Unicode 要不然粘贴出来是乱吗
-    if (!OpenClipboard(NULL))//打开剪贴板
-    {
-        puts("打开剪贴板失败\n");
-        CloseClipboard();
+    int ClipboardBoll = 5;
+    while (ClipboardBoll > 0) {
+        ClipboardBoll--;
+        if (!OpenClipboard(NULL))//打开剪贴板
+        {
+            puts("打开剪贴板失败\n");
+            CloseClipboard();
+            continue;
+        }
+
+        if (!EmptyClipboard())       // 清空剪切板，写入之前，必须先清空剪切板
+        {
+            puts("清空剪切板失败\n");
+            CloseClipboard();
+            continue;
+        }
+
+        HGLOBAL hMemory;
+        if ((hMemory = GlobalAlloc(GMEM_MOVEABLE, strlen(str.c_str()) + 1)) == NULL)    // 对剪切板分配内存
+        {
+            puts("内存赋值错误!!!\n");
+            CloseClipboard();
+            continue;
+        }
+
+        LPTSTR lpMemory;
+        if ((lpMemory = (LPTSTR)GlobalLock(hMemory)) == NULL)             // 将内存区域锁定
+        {
+            puts("锁定内存错误!!!\n");
+            CloseClipboard();
+            continue;
+        }
+
+        memcpy_s(lpMemory, strlen(str.c_str()) + 1, str.c_str(), strlen(str.c_str()) + 1);   // 将数据复制进入内存区域
+
+        GlobalUnlock(hMemory);                   // 解除内存锁定
+
+        if (SetClipboardData(CF_TEXT, hMemory) == NULL)
+        {
+            puts("设置剪切板数据失败!!!\n");
+            CloseClipboard();
+            continue;
+        }
+
+        CloseClipboard();//关闭剪贴板
         return;
     }
-
-    if (!EmptyClipboard())       // 清空剪切板，写入之前，必须先清空剪切板
-    {
-        puts("清空剪切板失败\n");
-        CloseClipboard();
-        return;
-    }
-
-    HGLOBAL hMemory;
-    if ((hMemory = GlobalAlloc(GMEM_MOVEABLE, strlen(str.c_str()) + 1)) == NULL)    // 对剪切板分配内存
-    {
-        puts("内存赋值错误!!!\n");
-        CloseClipboard();
-        return;
-    }
-
-    LPTSTR lpMemory;
-    if ((lpMemory = (LPTSTR)GlobalLock(hMemory)) == NULL)             // 将内存区域锁定
-    {
-        puts("锁定内存错误!!!\n");
-        CloseClipboard();
-        return;
-    }
-
-    memcpy_s(lpMemory, strlen(str.c_str()) + 1, str.c_str(), strlen(str.c_str()) + 1);   // 将数据复制进入内存区域
-
-    GlobalUnlock(hMemory);                   // 解除内存锁定
-
-    if (SetClipboardData(CF_TEXT, hMemory) == NULL)
-    {
-        puts("设置剪切板数据失败!!!\n");
-        CloseClipboard();
-        return;
-    }
-
-
-    CloseClipboard();//关闭剪贴板
 }
 
 
