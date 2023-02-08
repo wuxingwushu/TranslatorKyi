@@ -4,15 +4,15 @@ _______________#########_______________________
 ______________############_____________________
 ______________#############____________________
 _____________##__###########___________________
-____________###__######_#####__________________                     ½­³Ç×Ó  . ³ÌĞòÔ±Ö®¸è
+____________###__######_#####__________________                     æ±ŸåŸå­  . ç¨‹åºå‘˜ä¹‹æ­Œ
 ____________###_#######___####_________________
-___________###__##########_####________________               Ê®ÄêÉúËÀÁ½Ã£Ã££¬Ğ´³ÌĞò£¬µ½ÌìÁÁ¡£
-__________####__###########_####_______________                     Ç§ĞĞ´úÂë£¬BugºÎ´¦²Ø¡£
-________#####___###########__#####_____________               ×İÊ¹ÉÏÏßÓÖÔõÑù£¬³¯Áî¸Ä£¬Ï¦¶Ï³¦¡£
+___________###__##########_####________________               åå¹´ç”Ÿæ­»ä¸¤èŒ«èŒ«ï¼Œå†™ç¨‹åºï¼Œåˆ°å¤©äº®ã€‚
+__________####__###########_####_______________                     åƒè¡Œä»£ç ï¼ŒBugä½•å¤„è—ã€‚
+________#####___###########__#####_____________               çºµä½¿ä¸Šçº¿åˆæ€æ ·ï¼Œæœä»¤æ”¹ï¼Œå¤•æ–­è‚ ã€‚
 _______######___###_########___#####___________
-_______#####___###___########___######_________               Áìµ¼Ã¿ÌìĞÂÏë·¨£¬ÌìÌì¸Ä£¬ÈÕÈÕÃ¦¡£
-______######___###__###########___######_______                     Ïà¹ËÎŞÑÔ£¬Î©ÓĞÀáÇ§ĞĞ¡£
-_____######___####_##############__######______               Ã¿ÍíµÆ»ğÀ»Éº´¦£¬Ò¹ÄÑÃÂ£¬¼Ó°à¿ñ¡£
+_______#####___###___########___######_________               é¢†å¯¼æ¯å¤©æ–°æƒ³æ³•ï¼Œå¤©å¤©æ”¹ï¼Œæ—¥æ—¥å¿™ã€‚
+______######___###__###########___######_______                     ç›¸é¡¾æ— è¨€ï¼ŒæƒŸæœ‰æ³ªåƒè¡Œã€‚
+_____######___####_##############__######______               æ¯æ™šç¯ç«é˜‘çŠå¤„ï¼Œå¤œéš¾å¯ï¼ŒåŠ ç­ç‹‚ã€‚
 ____#######__#####################_#######_____
 ____#######__##############################____
 ___#######__######_#################_#######___
@@ -31,22 +31,22 @@ ________##_______####________####______________
 
 int main(int,char**)
 {
-    IniDataInit();//³õÊ¼»¯Èí¼şÊı¾İ
+    IniDataInit();//åˆå§‹åŒ–è½¯ä»¶æ•°æ®
 
 
-    //·ÀÖ¹Èí¼ş¶à¿ª
+    //é˜²æ­¢è½¯ä»¶å¤šå¼€
     if (FindWindow(NULL, _T("ImGui Tool")))
     {
-        MessageBoxEx(NULL, TEXT("©c(*¡£>§¥<)o©b"), TEXT("ÒÑ¾­Æô¶¯À²£¡"), MB_OK, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
+        MessageBoxEx(NULL, TEXT("ãƒ½(*ã€‚>Ğ”<)oã‚œ"), TEXT("å·²ç»å¯åŠ¨å•¦ï¼"), MB_OK, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
         return FALSE;
     }
 
     WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL , NULL, NULL, _T("ImGui Tool"), NULL };
     ::RegisterClassEx(&wc);
     g_hInst = wc.hInstance;
-    //´´½¨´°¿Ú                 //WS_EX_TOPMOST ´°¿ÚÖÃ¶¥    
+    //åˆ›å»ºçª—å£                 //WS_EX_TOPMOST çª—å£ç½®é¡¶    
     hwnd = ::CreateWindowEx(WS_EX_TOPMOST | WS_EX_TOOLWINDOW, wc.lpszClassName, _T("ImGui Tool"), WS_OVERLAPPEDWINDOW, 100, 100, 1, 1, NULL, NULL, wc.hInstance, NULL);
-    //´´½¨DX11Éè±¸
+    //åˆ›å»ºDX11è®¾å¤‡
     if (!CreateDeviceD3D(hwnd))
     {
         CleanupDeviceD3D();
@@ -56,23 +56,23 @@ int main(int,char**)
 
 
 
-    //ÏµÍ³ÍĞÅÌ´´½¨
+    //ç³»ç»Ÿæ‰˜ç›˜åˆ›å»º
     NOTIFYICONDATA nid = { sizeof(nid) };
     nid.hWnd = hwnd;
     nid.uID = 1;
-    strncpy_s(nid.szTip, TEXT("ÈË¼Ò½Ğ·­Òë¼§£¡"), sizeof(TEXT("ÈË¼Ò½Ğ·­Òë¼§£¡")));//Êó±êÍ£Ö¹ÏµÍ³ÍĞÅÌÉÏµÄÌáÊ¾
+    strncpy_s(nid.szTip, TEXT("äººå®¶å«ç¿»è¯‘å§¬ï¼"), sizeof(TEXT("äººå®¶å«ç¿»è¯‘å§¬ï¼")));//é¼ æ ‡åœæ­¢ç³»ç»Ÿæ‰˜ç›˜ä¸Šçš„æç¤º
     nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_SHOWTIP | NIF_GUID;
     nid.uCallbackMessage = WM_IAWENTRAY;
-    nid.hIcon = (HICON)LoadImage(NULL, TEXT("product.ico"), IMAGE_ICON, 0, 0, LR_LOADFROMFILE);//ico Í¼Æ¬ Ö»Ö§³Ö32x32  ,  16x16
+    nid.hIcon = (HICON)LoadImage(NULL, TEXT("product.ico"), IMAGE_ICON, 0, 0, LR_LOADFROMFILE);//ico å›¾ç‰‡ åªæ”¯æŒ32x32  ,  16x16
     Shell_NotifyIcon(NIM_ADD, &nid);
 
-    ::ShowWindow(hwnd, SW_HIDE);//¿ªÆôwinÏÔÊ¾
-    ::UpdateWindow(hwnd);//¸üĞÂĞĞÎª´°¿Ú
+    ::ShowWindow(hwnd, SW_HIDE);//å¼€å¯winæ˜¾ç¤º
+    ::UpdateWindow(hwnd);//æ›´æ–°è¡Œä¸ºçª—å£
 
 
     
 
-    //³õÊ¼»¯ IMGUI 
+    //åˆå§‹åŒ– IMGUI 
     ImGuiIO& io = IMGUI_init();
     
 
@@ -84,15 +84,15 @@ int main(int,char**)
     bool done = false;
     while (!done)
     {
-        Sleep(20);//0.02ÃëµÄÏìÓ¦¼ä¸ô,½µµÍCPUµÄÊ¹ÓÃÂÊ
+        Sleep(20);//0.02ç§’çš„å“åº”é—´éš”,é™ä½CPUçš„ä½¿ç”¨ç‡
         /*
         VK_CONTROL = Ctrl
         VK_MENU    = Alt
         */
 
-        //½ØÍ¼·­Òë¿ì½İ¼ü
+        //æˆªå›¾ç¿»è¯‘å¿«æ·é”®
         if ((GetKeyState(screenshot_key_1 + 16) < 0) && (GetKeyState(screenshot_key_2[0]) < 0)) {
-            //¹Ø±ÕÆäËûUI
+            //å…³é—­å…¶ä»–UI
             SystemTray_interface = false;
             translate_interface = false;
             Set_interface = false;
@@ -103,94 +103,94 @@ int main(int,char**)
             Screenshot_click = true;
         }
 
-        //Ñ¡Ôñ·­Òë¿ì½İ¼ü
+        //é€‰æ‹©ç¿»è¯‘å¿«æ·é”®
         if ((GetKeyState(screenshot_key_1 + 16) < 0) && (GetKeyState(choice_key_2[0]) < 0)) {
             
-            //µÈ´ı¼üÅÌËÉ¿ª£¨±ÜÃâÄ£Äâ°´¼ü ctrl + c Ê±ÓĞÆäËû°´¼ü£¬µ¼ÖÂÎŞ·¨»ñÈ¡Ñ¡ÔñÄÚÈİ£©
+            //ç­‰å¾…é”®ç›˜æ¾å¼€ï¼ˆé¿å…æ¨¡æ‹ŸæŒ‰é”® ctrl + c æ—¶æœ‰å…¶ä»–æŒ‰é”®ï¼Œå¯¼è‡´æ— æ³•è·å–é€‰æ‹©å†…å®¹ï¼‰
             while ((GetKeyState(screenshot_key_1 + 16) < 0) || (GetKeyState(choice_key_2[0]) < 0)) {
-                //¹Ø±ÕÆäËûUI
+                //å…³é—­å…¶ä»–UI
                 SystemTray_interface = false;
                 Screenshot_interface = false;
                 Set_interface = false;
-                //´ò¿ª·­Òë½çÃæ
+                //æ‰“å¼€ç¿»è¯‘ç•Œé¢
                 translate_interface_time = clock();
                 translate_interface = true;
                 translate_click = true;
             }
 
-            std::string strS = ClipboardTochar();//¶ÁÈ¡µ±Ç°¼ôÇĞ°åµÄÄÚÈİ£¬±£´æÆğÀ´
+            std::string strS = ClipboardTochar();//è¯»å–å½“å‰å‰ªåˆ‡æ¿çš„å†…å®¹ï¼Œä¿å­˜èµ·æ¥
 
-            //»ñÈ¡µ±Ç°Ñ¡ÔñµÄÄÚÈİ ctrl + c
-            keybd_event(17, 0, 0, 0);//°´ÏÂ ctrl
-            keybd_event(67, 0, 0, 0);//°´ÏÂ c
-            keybd_event(17, 0, KEYEVENTF_KEYUP, 0);//ËÉ¿ª ctrl
-            keybd_event(67, 0, KEYEVENTF_KEYUP, 0);//ËÉ¿ª c
+            //è·å–å½“å‰é€‰æ‹©çš„å†…å®¹ ctrl + c
+            keybd_event(17, 0, 0, 0);//æŒ‰ä¸‹ ctrl
+            keybd_event(67, 0, 0, 0);//æŒ‰ä¸‹ c
+            keybd_event(17, 0, KEYEVENTF_KEYUP, 0);//æ¾å¼€ ctrl
+            keybd_event(67, 0, KEYEVENTF_KEYUP, 0);//æ¾å¼€ c
 
 
-            Sleep(5);//µÈ´ıÉÏÃæµÄÄÚÈİ¸´ÖÆµ½¼ôÇĞ°åÉÏ
+            Sleep(5);//ç­‰å¾…ä¸Šé¢çš„å†…å®¹å¤åˆ¶åˆ°å‰ªåˆ‡æ¿ä¸Š
 
-            translate_English = ClipboardTochar();//´Ó¼ôÇĞ°åÉÏ¶ÁÈ¡³öÀ´
+            translate_English = ClipboardTochar();//ä»å‰ªåˆ‡æ¿ä¸Šè¯»å–å‡ºæ¥
             translate_English = UnicodeToUtf8(translate_English);
 
             if (strlen(translate_English.c_str()) <= 1) {
-                translate_Chinese =  u8"²»´æÔÚµ¥´Ê";
+                translate_Chinese =  u8"ä¸å­˜åœ¨å•è¯";
             }
             else {
                 if (SystemTray_mode) {
-                    translate_Chinese = Translate_Youdao(Youdao_ID.c_str(), Youdao_Key.c_str(), translate_English, Youdao_English.c_str(), Youdao_Chinese.c_str());//·­ÒëÄÚÈİ
+                    translate_Chinese = Translate_Youdao(Youdao_ID.c_str(), Youdao_Key.c_str(), translate_English, Youdao_English.c_str(), Youdao_Chinese.c_str());//ç¿»è¯‘å†…å®¹
                 }
                 else {
-                    translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), translate_English, Baidu_English.c_str(), Baidu_Chinese.c_str());//·­ÒëÄÚÈİ
+                    translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), translate_English, Baidu_English.c_str(), Baidu_Chinese.c_str());//ç¿»è¯‘å†…å®¹
                 }
             }
 
-            CopyToClipboard(strS);//»¹Ô­Ô­À´¼ôÇĞ°åµÄÄÚÈİ
+            CopyToClipboard(strS);//è¿˜åŸåŸæ¥å‰ªåˆ‡æ¿çš„å†…å®¹
         }
 
-        //Ìæ»»·­Òë¿ì½İ¼ü
+        //æ›¿æ¢ç¿»è¯‘å¿«æ·é”®
         if ((GetKeyState(screenshot_key_1 + 16) < 0) && (GetKeyState(replace_key_2[0]) < 0)) {
-            //µÈ´ı¼üÅÌËÉ¿ª£¨±ÜÃâÄ£Äâ°´¼ü ctrl + c Ê±ÓĞÆäËû°´¼ü£¬µ¼ÖÂÎŞ·¨»ñÈ¡Ñ¡ÔñÄÚÈİ£©
+            //ç­‰å¾…é”®ç›˜æ¾å¼€ï¼ˆé¿å…æ¨¡æ‹ŸæŒ‰é”® ctrl + c æ—¶æœ‰å…¶ä»–æŒ‰é”®ï¼Œå¯¼è‡´æ— æ³•è·å–é€‰æ‹©å†…å®¹ï¼‰
             while ((GetKeyState(screenshot_key_1 + 16) < 0) || (GetKeyState(replace_key_2[0]) < 0)) {
-                //¹Ø±ÕÆäËûUI
+                //å…³é—­å…¶ä»–UI
                 SystemTray_interface = false;
                 Screenshot_interface = false;
                 translate_interface = false;
                 Set_interface = false;
             }
 
-            std::string strS = ClipboardTochar();//¶ÁÈ¡µ±Ç°¼ôÇĞ°åµÄÄÚÈİ£¬±£´æÆğÀ´
+            std::string strS = ClipboardTochar();//è¯»å–å½“å‰å‰ªåˆ‡æ¿çš„å†…å®¹ï¼Œä¿å­˜èµ·æ¥
 
-            //»ñÈ¡µ±Ç°Ñ¡ÔñµÄÄÚÈİ ctrl + c
-            keybd_event(17, 0, 0, 0);//°´ÏÂ ctrl
-            keybd_event(67, 0, 0, 0);//°´ÏÂ c
-            keybd_event(17, 0, KEYEVENTF_KEYUP, 0);//ËÉ¿ª ctrl
-            keybd_event(67, 0, KEYEVENTF_KEYUP, 0);//ËÉ¿ª c
+            //è·å–å½“å‰é€‰æ‹©çš„å†…å®¹ ctrl + c
+            keybd_event(17, 0, 0, 0);//æŒ‰ä¸‹ ctrl
+            keybd_event(67, 0, 0, 0);//æŒ‰ä¸‹ c
+            keybd_event(17, 0, KEYEVENTF_KEYUP, 0);//æ¾å¼€ ctrl
+            keybd_event(67, 0, KEYEVENTF_KEYUP, 0);//æ¾å¼€ c
 
-            Sleep(5);//µÈ´ıÉÏÃæµÄÄÚÈİ¸´ÖÆµ½¼ôÇĞ°åÉÏ
+            Sleep(5);//ç­‰å¾…ä¸Šé¢çš„å†…å®¹å¤åˆ¶åˆ°å‰ªåˆ‡æ¿ä¸Š
 
-            translate_English = ClipboardTochar();//´Ó¼ôÇĞ°åÉÏ¶ÁÈ¡³öÀ´
+            translate_English = ClipboardTochar();//ä»å‰ªåˆ‡æ¿ä¸Šè¯»å–å‡ºæ¥
             translate_English = UnicodeToUtf8(translate_English);
 
             if (strlen(translate_English.c_str()) > 0) {
                 if (SystemTray_mode) {
-                    translate_Chinese = Translate_Youdao(Youdao_ID.c_str(), Youdao_Key.c_str(), translate_English, Youdao_English.c_str(), Youdao_ChineseReplace.c_str());//·­ÒëÄÚÈİ
+                    translate_Chinese = Translate_Youdao(Youdao_ID.c_str(), Youdao_Key.c_str(), translate_English, Youdao_English.c_str(), Youdao_ChineseReplace.c_str());//ç¿»è¯‘å†…å®¹
                 }
                 else {
-                    translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), translate_English, Baidu_English.c_str(), Baidu_ChineseReplace.c_str());//·­ÒëÄÚÈİ
+                    translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), translate_English, Baidu_English.c_str(), Baidu_ChineseReplace.c_str());//ç¿»è¯‘å†…å®¹
                 }
             }
 
-            CopyToClipboard(Utf8ToUnicode(translate_Chinese.c_str()));//°Ñ·­ÒëµÄÄÚÈİ¸´ÖÆµ½¼ôÇĞ°åÉÏ
+            CopyToClipboard(Utf8ToUnicode(translate_Chinese.c_str()));//æŠŠç¿»è¯‘çš„å†…å®¹å¤åˆ¶åˆ°å‰ªåˆ‡æ¿ä¸Š
 
-            //Õ³Ìù³öÈ¥ ctrl + v
-            keybd_event(17, 0, 0, 0);//°´ÏÂ ctrl
-            keybd_event(86, 0, 0, 0);//°´ÏÂ v
-            keybd_event(17, 0, KEYEVENTF_KEYUP, 0);//ËÉ¿ª ctrl
-            keybd_event(86, 0, KEYEVENTF_KEYUP, 0);//ËÉ¿ª v
+            //ç²˜è´´å‡ºå» ctrl + v
+            keybd_event(17, 0, 0, 0);//æŒ‰ä¸‹ ctrl
+            keybd_event(86, 0, 0, 0);//æŒ‰ä¸‹ v
+            keybd_event(17, 0, KEYEVENTF_KEYUP, 0);//æ¾å¼€ ctrl
+            keybd_event(86, 0, KEYEVENTF_KEYUP, 0);//æ¾å¼€ v
 
-            Sleep(5);//µÈ´ıÉÏÃæµÄÄÚÈİÕ³Ìù³öÈ¥
+            Sleep(5);//ç­‰å¾…ä¸Šé¢çš„å†…å®¹ç²˜è´´å‡ºå»
 
-            CopyToClipboard(strS);//»¹Ô­Ô­À´¼ôÇĞ°åµÄÄÚÈİ
+            CopyToClipboard(strS);//è¿˜åŸåŸæ¥å‰ªåˆ‡æ¿çš„å†…å®¹
         }
 
         
@@ -213,45 +213,45 @@ int main(int,char**)
     
         {
 
-            //·­ÒëÄÚÈİÏÔÊ¾½çÃæ
+            //ç¿»è¯‘å†…å®¹æ˜¾ç¤ºç•Œé¢
             if (translate_interface) {
                 if (translate_click) {
                     static POINT pt = { 0,0 };
-                    GetCursorPos(&pt);//»ñÈ¡Êó±êÎ»ÖÃ
-                    ImGui::SetNextWindowPos({ float(pt.x + 10), float(pt.y) });//ÉèÖÃ´°¿ÚÉú³ÉÎ»ÖÃ
+                    GetCursorPos(&pt);//è·å–é¼ æ ‡ä½ç½®
+                    ImGui::SetNextWindowPos({ float(pt.x + 10), float(pt.y) });//è®¾ç½®çª—å£ç”Ÿæˆä½ç½®
                     translate_click = false;
                 }
 
-                ImGui::Begin(u8"·­Òë½á¹ûUI", &translate_interface, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//´´½¨´°¿Ú
+                ImGui::Begin(u8"ç¿»è¯‘ç»“æœUI", &translate_interface, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//åˆ›å»ºçª—å£
 
-                ImGui::PushTextWrapPos(WindowWidth - 30);//ÏŞÖÆ×ÖÌåµÄ·¶Î§£¨ÏñËØ£©
+                ImGui::PushTextWrapPos(WindowWidth - 30);//é™åˆ¶å­—ä½“çš„èŒƒå›´ï¼ˆåƒç´ ï¼‰
                 ImGui::Text(translate_English.c_str());
-                ImGui::SameLine();//ÈÃÏÂÒ»¸öÔªËØ²¢ÅÅ
-                ImGui::SetCursorPosX(WindowWidth - 30);//ÉèÖÃÏÂÒ»¸öÔªËØÉú³ÉµÄÎ»ÖÃ
+                ImGui::SameLine();//è®©ä¸‹ä¸€ä¸ªå…ƒç´ å¹¶æ’
+                ImGui::SetCursorPosX(WindowWidth - 30);//è®¾ç½®ä¸‹ä¸€ä¸ªå…ƒç´ ç”Ÿæˆçš„ä½ç½®
                 if (ImGui::Button("<")) {
                     CopyToClipboard(Utf8ToUnicode(translate_English.c_str()));
                 }
-                //ÉèÖÃÉÏÒ»¸öÔªËØµÄÊó±êĞüÍ£ÌáÊ¾
+                //è®¾ç½®ä¸Šä¸€ä¸ªå…ƒç´ çš„é¼ æ ‡æ‚¬åœæç¤º
                 if (ImGui::IsItemHovered())
                 {
-                    ImGui::SetTooltip(u8"¸´ÖÆ");//ÌáÊ¾ÄÚÈİ
+                    ImGui::SetTooltip(u8"å¤åˆ¶");//æç¤ºå†…å®¹
                 }
 
                 ImGui::Text(translate_Chinese.c_str());
-                ImGui::SameLine();//ÈÃÒ»¸öÔªËØ²¢ÅÅ
-                ImGui::SetCursorPosX(WindowWidth - 30);//ÉèÖÃÏÂÒ»¸öÔªËØÉú³ÉµÄÎ»ÖÃ
+                ImGui::SameLine();//è®©ä¸€ä¸ªå…ƒç´ å¹¶æ’
+                ImGui::SetCursorPosX(WindowWidth - 30);//è®¾ç½®ä¸‹ä¸€ä¸ªå…ƒç´ ç”Ÿæˆçš„ä½ç½®
                 if (ImGui::Button(">")) {
-                    CopyToClipboard(Utf8ToUnicode(translate_Chinese.c_str()));//¸´ÖÆÖĞÎÄÒª×ª¸ñÊ½²Å¿ÉÒÔÒª²»È»Õ³Ìù³öÀ´µÄÊÇÂÒÂë
+                    CopyToClipboard(Utf8ToUnicode(translate_Chinese.c_str()));//å¤åˆ¶ä¸­æ–‡è¦è½¬æ ¼å¼æ‰å¯ä»¥è¦ä¸ç„¶ç²˜è´´å‡ºæ¥çš„æ˜¯ä¹±ç 
                 }
-                //ÉèÖÃÉÏÒ»¸öÔªËØµÄÊó±êĞüÍ£ÌáÊ¾
+                //è®¾ç½®ä¸Šä¸€ä¸ªå…ƒç´ çš„é¼ æ ‡æ‚¬åœæç¤º
                 if (ImGui::IsItemHovered())
                 {
-                    ImGui::SetTooltip(u8"¸´ÖÆ");//ÌáÊ¾ÄÚÈİ
+                    ImGui::SetTooltip(u8"å¤åˆ¶");//æç¤ºå†…å®¹
                 }
 
-                //Êó±êÔÚ½çÃæÉÏ
+                //é¼ æ ‡åœ¨ç•Œé¢ä¸Š
                 static POINT pt = { 0,0 };
-                GetCursorPos(&pt);//»ñÈ¡Êó±êÎ»ÖÃ
+                GetCursorPos(&pt);//è·å–é¼ æ ‡ä½ç½®
                 if ((pt.x > ImGui::GetWindowPos().x) && (pt.y > ImGui::GetWindowPos().y) && (pt.x < (ImGui::GetWindowPos().x + ImGui::GetWindowWidth())) && (pt.y < (ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
                     translate_interface_time = clock();
                 }
@@ -265,14 +265,14 @@ int main(int,char**)
                 ImGui::End();
             }
     
-            //½ØÍ¼²Ù×÷½çÃæ
+            //æˆªå›¾æ“ä½œç•Œé¢
             if (Screenshot_interface) {
-                //½ØÒ»´ÎÍ¼ÔËĞĞÒ»´Î
+                //æˆªä¸€æ¬¡å›¾è¿è¡Œä¸€æ¬¡
                 if (Screenshot_init) {
-                    //ÉèÖÃÉú³ÉÎ»ÖÃ
+                    //è®¾ç½®ç”Ÿæˆä½ç½®
                     ImGui::SetNextWindowPos({ -8, -8 });
                     ImGui::SetNextWindowSize(ImVec2(windows_Width + 16, windows_Heigth + 16));
-                    //½ØÈ¡Í¼Æ¬
+                    //æˆªå–å›¾ç‰‡
                     screen("TemporaryData");
                     m_pImageTextureView1 = DX11LoadTextureImageFromFile("TemporaryData");
                     image_ID = m_pImageTextureView1;
@@ -280,25 +280,25 @@ int main(int,char**)
                 }
 
 
-                //ÓÒ¼üµã»÷ÊÂ¼ş
+                //å³é”®ç‚¹å‡»äº‹ä»¶
                 if (GetKeyState(VK_RBUTTON) < 0) {
-                    //»ñÈ¡Êó±êÓÒ¼üµã»÷ÊÂ¼ş£¬È¡Ïû½ØÍ¼
+                    //è·å–é¼ æ ‡å³é”®ç‚¹å‡»äº‹ä»¶ï¼Œå–æ¶ˆæˆªå›¾
                     Screenshot_interface = false;
                 }
 
  
                 if (Screenshot_click) {
-                    //×ó¼üµã»÷ÊÂ¼ş
+                    //å·¦é”®ç‚¹å‡»äº‹ä»¶
                     if (GetKeyState(VK_LBUTTON) < 0) {
-                        //»ñÈ¡×ó¼üÎ»ÖÃ
+                        //è·å–å·¦é”®ä½ç½®
                         GetCursorPos(&MousePosition_1);
                         GetCursorPos(&MousePosition_2);
-                        //»ñÈ¡Êó±ê×ó¼üµã»÷µÄµÚÒ»¸öÎ»ÖÃ£¬È»ºó¾Í¹ØµôÕâ¸öÊÂ¼ş
+                        //è·å–é¼ æ ‡å·¦é”®ç‚¹å‡»çš„ç¬¬ä¸€ä¸ªä½ç½®ï¼Œç„¶åå°±å…³æ‰è¿™ä¸ªäº‹ä»¶
                         Screenshot_click = false;
                     }
                 }
                 else {
-                    //¸üĞÂÊó±êÒÆ¶¯½áÊøÎ»ÖÃ
+                    //æ›´æ–°é¼ æ ‡ç§»åŠ¨ç»“æŸä½ç½®
                     GetCursorPos(&MousePosition_2);
 
                     if (MousePosition_1.x < MousePosition_2.x) {
@@ -318,116 +318,116 @@ int main(int,char**)
                         h = MousePosition_1.y - MousePosition_2.y;
                     }
 
-                    //Êó±ê×ó¼üËÉ¿ªÊÂ¼ş
+                    //é¼ æ ‡å·¦é”®æ¾å¼€äº‹ä»¶
                     if (GetKeyState(VK_LBUTTON) >= 0) {
-                        //ÊÍ·ÅÍ¼Æ¬ÎÆÀíÄÚ´æ
+                        //é‡Šæ”¾å›¾ç‰‡çº¹ç†å†…å­˜
                         m_pImageTextureView1->Release();
                         m_pImageTextureView1 = NULL;
                         MousePosition_1 = { 0,0 };
                         MousePosition_2 = { 0,0 };
                         
 
-                        //¿ªÆô·­Òë
+                        //å¼€å¯ç¿»è¯‘
                         Screenshot_translate = true;
                         Screenshot_translate_shu = 2;
 
-                        //¹Ø±Õ´°¿Ú
+                        //å…³é—­çª—å£
                         Screenshot_interface = false;
                     }
                 }
 
-                //´´½¨´°¿Ú
-                ImGui::Begin("½ØÍ¼½çÃæUI", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_NoScrollbar);
+                //åˆ›å»ºçª—å£
+                ImGui::Begin("æˆªå›¾ç•Œé¢UI", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_NoScrollbar);
 
-                //ÏÔÊ¾Í¼Æ¬
+                //æ˜¾ç¤ºå›¾ç‰‡
                 ImGui::Image(image_ID, ImVec2(windows_Width, windows_Heigth));
                 
-                //´´½¨»­²¼,ÓÃÓÚ°Ñ¿òÑ¡Ö®ÍâµÄ»­Ãæ±ä°µ¡£
+                //åˆ›å»ºç”»å¸ƒ,ç”¨äºæŠŠæ¡†é€‰ä¹‹å¤–çš„ç”»é¢å˜æš—ã€‚
                 ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
                 draw_list->AddQuadFilled(
-                    //¾ØĞÎ¿òµÄËÄ¸öµã£¨Ë³Ê±Õë£©
+                    //çŸ©å½¢æ¡†çš„å››ä¸ªç‚¹ï¼ˆé¡ºæ—¶é’ˆï¼‰
                     ImVec2(0, 0),
                     ImVec2(0, y),
                     ImVec2(x + w, y),
                     ImVec2(x + w, 0),
-                    //ÑÕÉ«
+                    //é¢œè‰²
                     IM_COL32(0, 0, 0, 100));
 
                 draw_list->AddQuadFilled(
-                    //¾ØĞÎ¿òµÄËÄ¸öµã£¨Ë³Ê±Õë£©
+                    //çŸ©å½¢æ¡†çš„å››ä¸ªç‚¹ï¼ˆé¡ºæ—¶é’ˆï¼‰
                     ImVec2(x + w, 0),
                     ImVec2(windows_Width, 0),
                     ImVec2(windows_Width, y + h),
                     ImVec2(x + w, y + h),
-                    //ÑÕÉ«
+                    //é¢œè‰²
                     IM_COL32(0, 0, 0, 100));
 
                 draw_list->AddQuadFilled(
-                    //¾ØĞÎ¿òµÄËÄ¸öµã£¨Ë³Ê±Õë£©
+                    //çŸ©å½¢æ¡†çš„å››ä¸ªç‚¹ï¼ˆé¡ºæ—¶é’ˆï¼‰
                     ImVec2(x, y + h),
                     ImVec2(windows_Width, y + h),
                     ImVec2(windows_Width, windows_Heigth),
                     ImVec2(x, windows_Heigth),
-                    //ÑÕÉ«
+                    //é¢œè‰²
                     IM_COL32(0, 0, 0, 100));
 
                 draw_list->AddQuadFilled(
-                    //¾ØĞÎ¿òµÄËÄ¸öµã£¨Ë³Ê±Õë£©
+                    //çŸ©å½¢æ¡†çš„å››ä¸ªç‚¹ï¼ˆé¡ºæ—¶é’ˆï¼‰
                     ImVec2(0, y),
                     ImVec2(x, y),
                     ImVec2(x, windows_Heigth),
                     ImVec2(0, windows_Heigth),
-                    //ÑÕÉ«
+                    //é¢œè‰²
                     IM_COL32(0, 0, 0, 100));
 
 
                 static POINT pt = { 0,0 };
-                GetCursorPos(&pt);//»ñÈ¡Êó±êÎ»ÖÃ
+                GetCursorPos(&pt);//è·å–é¼ æ ‡ä½ç½®
                 ImGui::SetCursorPosX(pt.x + 9);
                 ImGui::SetCursorPosY(pt.y - 56);
-                //ÏÔÊ¾·Å´óÎ»ÖÃ
+                //æ˜¾ç¤ºæ”¾å¤§ä½ç½®
                 ImGui::Image(image_ID, ImVec2(64, 64),
                     ImVec2(float(pt.x - 16) / float(windows_Width), float(pt.y - 16) / float(windows_Heigth)),
                     ImVec2(float(pt.x + 16) / float(windows_Width), float(pt.y + 16) / float(windows_Heigth)));
-                //»­Ê®×Ö×¼ĞÄ
+                //ç”»åå­—å‡†å¿ƒ
                 draw_list->AddQuadFilled(
-                    //¾ØĞÎ¿òµÄËÄ¸öµã£¨Ë³Ê±Õë£©
+                    //çŸ©å½¢æ¡†çš„å››ä¸ªç‚¹ï¼ˆé¡ºæ—¶é’ˆï¼‰
                     ImVec2(pt.x + 1, pt.y - 33),
                     ImVec2(pt.x + 65, pt.y - 33),
                     ImVec2(pt.x + 65, pt.y - 32),
                     ImVec2(pt.x + 1, pt.y - 32),
-                    //ÑÕÉ«
+                    //é¢œè‰²
                     IM_COL32(255, 0, 0, 100));
 
                 draw_list->AddQuadFilled(
-                    //¾ØĞÎ¿òµÄËÄ¸öµã£¨Ë³Ê±Õë£©
+                    //çŸ©å½¢æ¡†çš„å››ä¸ªç‚¹ï¼ˆé¡ºæ—¶é’ˆï¼‰
                     ImVec2(pt.x + 32, pt.y - 64),
                     ImVec2(pt.x + 33, pt.y - 64),
                     ImVec2(pt.x + 33, pt.y - 0),
                     ImVec2(pt.x + 32, pt.y - 0),
-                    //ÑÕÉ«
+                    //é¢œè‰²
                     IM_COL32(255, 0, 0, 100));
                 ImGui::End();
             }
              
-            //ÏµÍ³ÍĞÅÌµÄÓÒ¼ü²Ëµ¥
+            //ç³»ç»Ÿæ‰˜ç›˜çš„å³é”®èœå•
             if (SystemTray_interface) {
-                //ÉèÖÃÉú³ÉÎ»ÖÃÔÚÊó±êµÄÓÒÉÏ½Ç
+                //è®¾ç½®ç”Ÿæˆä½ç½®åœ¨é¼ æ ‡çš„å³ä¸Šè§’
                 if (SystemTray_init) {
                     static POINT pt = { 0,0 };
-                    GetCursorPos(&pt);//»ñÈ¡Êó±êÎ»ÖÃ
-                    ImGui::SetNextWindowPos({ float(pt.x), float(pt.y) - 90 });//ÉèÖÃ´°¿ÚÉú³ÉÎ»ÖÃ
+                    GetCursorPos(&pt);//è·å–é¼ æ ‡ä½ç½®
+                    ImGui::SetNextWindowPos({ float(pt.x), float(pt.y) - 90 });//è®¾ç½®çª—å£ç”Ÿæˆä½ç½®
                     SystemTray_init = false;
                 }
                 
-                //´´½¨ÓÒ¼ü²Ëµ¥
-                ImGui::Begin(u8"²Ëµ¥UI", &SystemTray_interface, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//´´½¨´°¿Ú
+                //åˆ›å»ºå³é”®èœå•
+                ImGui::Begin(u8"èœå•UI", &SystemTray_interface, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//åˆ›å»ºçª—å£
                 
                 
 
-                //ÉèÖÃ°´¼ü
-                if (ImGui::Button(u8"ÉèÖÃ")) {
+                //è®¾ç½®æŒ‰é”®
+                if (ImGui::Button(u8"è®¾ç½®")) {
                     SystemTray_interface = false;
                     Screenshot_interface = false;
                     translate_interface = false;
@@ -436,24 +436,24 @@ int main(int,char**)
                 }
 
                 if (SystemTray_mode) {
-                    if (ImGui::Button(u8"°Ù¶È")) {
+                    if (ImGui::Button(u8"ç™¾åº¦")) {
                         SystemTray_mode = false;
                     }
                 }
                 else {
-                    if (ImGui::Button(u8"ÓĞµÀ")) {
+                    if (ImGui::Button(u8"æœ‰é“")) {
                         SystemTray_mode = true;
                     }
                 }
                 
-                if (ImGui::Button(u8"ÍË³ö")){
+                if (ImGui::Button(u8"é€€å‡º")){
                     done = true;
                 }
 
 
-                //Êó±êÔÚ½çÃæÉÏ
+                //é¼ æ ‡åœ¨ç•Œé¢ä¸Š
                 static POINT pt = { 0,0 };
-                GetCursorPos(&pt);//»ñÈ¡Êó±êÎ»ÖÃ
+                GetCursorPos(&pt);//è·å–é¼ æ ‡ä½ç½®
                 if ((pt.x > ImGui::GetWindowPos().x) && (pt.y > ImGui::GetWindowPos().y) && (pt.x < (ImGui::GetWindowPos().x + ImGui::GetWindowWidth())) && (pt.y < (ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
                     SystemTray_interface_time = clock();
                 }
@@ -464,24 +464,24 @@ int main(int,char**)
                 ImGui::End();
             }
 
-            //½ØÍ¼ÄÚÈİÊ¶±ğºÍ·­Òë£¬Çø·Ö¿ªÀ´£¨·ÀÖ¹½ØÍ¼BUG²»¹Ø±Õ½çÃæ£©
+            //æˆªå›¾å†…å®¹è¯†åˆ«å’Œç¿»è¯‘ï¼ŒåŒºåˆ†å¼€æ¥ï¼ˆé˜²æ­¢æˆªå›¾BUGä¸å…³é—­ç•Œé¢ï¼‰
             if (Screenshot_translate) {
                 if (Screenshot_translate_shu <= 0) {
                     Screenshot_translate = false;
-                    //»­Ãæ¹ıĞ¡£¬È¡ÏûÊ¶±ğ
+                    //ç”»é¢è¿‡å°ï¼Œå–æ¶ˆè¯†åˆ«
                     if (w > 10 && h > 10) {
-                        translate_English = Tesseract_OCR(x, y, w, h, TesseractModel.c_str());//Òª·­Òë½çÃæ¹Ø±ÕÁË²Å¿ÉÒÔÒª²»È»»á³öBUG
+                        translate_English = Tesseract_OCR(x, y, w, h, TesseractModel.c_str());//è¦ç¿»è¯‘ç•Œé¢å…³é—­äº†æ‰å¯ä»¥è¦ä¸ç„¶ä¼šå‡ºBUG
 
                         if (strlen(translate_English.c_str()) > 0) {
                             if (SystemTray_mode) {
-                                translate_Chinese = Translate_Youdao(Youdao_ID.c_str(), Youdao_Key.c_str(), UnicodeToUtf8(translate_English), Youdao_English.c_str(), Youdao_Chinese.c_str());//·­ÒëÄÚÈİ
+                                translate_Chinese = Translate_Youdao(Youdao_ID.c_str(), Youdao_Key.c_str(), UnicodeToUtf8(translate_English), Youdao_English.c_str(), Youdao_Chinese.c_str());//ç¿»è¯‘å†…å®¹
                             }
                             else {
-                                translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), UnicodeToUtf8(translate_English), Baidu_English.c_str(), Baidu_Chinese.c_str());//·­ÒëÄÚÈİ
+                                translate_Chinese = Translate_Baidu(Baidu_ID.c_str(), Baidu_Key.c_str(), UnicodeToUtf8(translate_English), Baidu_English.c_str(), Baidu_Chinese.c_str());//ç¿»è¯‘å†…å®¹
                             }
                         }
                         else {
-                            translate_Chinese = u8"ÄÚÈİ²»´æÔÚ£¡";
+                            translate_Chinese = u8"å†…å®¹ä¸å­˜åœ¨ï¼";
                         }
 
                         translate_interface_time = clock();
@@ -498,83 +498,83 @@ int main(int,char**)
                 }
             }
 
-            //ÉèÖÃ½çÃæ
+            //è®¾ç½®ç•Œé¢
             if (Set_interface) {
                 if (Set_init) {
                     ImGui::SetNextWindowSize(ImVec2(900, 600));
                     Set_init = false;
                     set_Residence_Time = Residence_Time / 1000;
                 }
-                ImGui::Begin(u8"ÉèÖÃUI", &Set_interface, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//´´½¨´°¿Ú
-                ImGui::Text(u8"ÓĞµÀ·­Òë");
-                ImGui::InputText(u8"ÓĞµÀ·­ÒëÓïÖÖ", set_Youdao_English, 10);
-                TipsUI("(?)", u8"ÄãÒª·­ÒëµÄÄÚÈİÓïÖÖ¡£\nÄ¬ÈÏ£¨auto£©×Ô¶¯¼ì²â¡£");
-                ImGui::InputText(u8"ÓĞµÀÄ¿±êÓïÖÖ", set_Youdao_Chinese, 10);
-                TipsUI("(?)", u8"ÄãÏ£Íû·­Òë³ÉÊ²Ã´ÓïÑÔ¡£");
-                ImGui::InputText(u8"ÓĞµÀÌæ»»ÓïÖÖ", set_Youdao_ChineseReplace, 10);
-                TipsUI("(?)", u8"½«±»Ñ¡ÖĞµÄÓïÑÔÌæ»»³ÉÊ²Ã´ÓïÑÔ¡£");
-                ImGui::InputText(u8"ÓĞµÀ·­ÒëID", set_Youdao_ID, 50);
-                ImGui::InputText(u8"ÓĞµÀ·­ÒëAPI", set_Youdao_Key, 50);
+                ImGui::Begin(u8"è®¾ç½®UI", &Set_interface, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//åˆ›å»ºçª—å£
+                ImGui::Text(u8"æœ‰é“ç¿»è¯‘");
+                ImGui::InputText(u8"æœ‰é“ç¿»è¯‘è¯­ç§", set_Youdao_English, 10);
+                TipsUI("(?)", u8"ä½ è¦ç¿»è¯‘çš„å†…å®¹è¯­ç§ã€‚\né»˜è®¤ï¼ˆautoï¼‰è‡ªåŠ¨æ£€æµ‹ã€‚");
+                ImGui::InputText(u8"æœ‰é“ç›®æ ‡è¯­ç§", set_Youdao_Chinese, 10);
+                TipsUI("(?)", u8"ä½ å¸Œæœ›ç¿»è¯‘æˆä»€ä¹ˆè¯­è¨€ã€‚");
+                ImGui::InputText(u8"æœ‰é“æ›¿æ¢è¯­ç§", set_Youdao_ChineseReplace, 10);
+                TipsUI("(?)", u8"å°†è¢«é€‰ä¸­çš„è¯­è¨€æ›¿æ¢æˆä»€ä¹ˆè¯­è¨€ã€‚");
+                ImGui::InputText(u8"æœ‰é“ç¿»è¯‘ID", set_Youdao_ID, 50);
+                ImGui::InputText(u8"æœ‰é“ç¿»è¯‘API", set_Youdao_Key, 50);
 
-                ImGui::Text(u8"°Ù¶È·­Òë");
-                ImGui::InputText(u8"°Ù¶È·­ÒëÓïÖÖ", set_Baidu_English, 5);
-                TipsUI("(?)", u8"ÄãÒª·­ÒëµÄÄÚÈİÓïÖÖ¡£\nÄ¬ÈÏ£¨auto£©×Ô¶¯¼ì²â¡£");
-                ImGui::InputText(u8"°Ù¶ÈÄ¿±êÓïÖÖ", set_Baidu_Chinese, 5);
-                TipsUI("(?)", u8"ÄãÏ£Íû·­Òë³ÉÊ²Ã´ÓïÑÔ¡£");
-                ImGui::InputText(u8"°Ù¶ÈÌæ»»ÓïÖÖ", set_Baidu_ChineseReplace, 5);
-                TipsUI("(?)", u8"½«±»Ñ¡ÖĞµÄÓïÑÔÌæ»»³ÉÊ²Ã´ÓïÑÔ¡£");
-                ImGui::InputText(u8"°Ù¶È·­ÒëID", set_Baidu_ID, 30);
-                ImGui::InputText(u8"°Ù¶È·­ÒëAPI", set_Baidu_Key, 30);
-                ImGui::Text(u8"ÉèÖÃ");
-                ImGui::InputText(u8"OCRÄ£ĞÍ", set_TesseractModel, 10);
-                TipsUI("(?)", u8"½ØÍ¼Ê¶±ğÎÄ×ÖµÄÄ£ĞÍ¡£\n¸ü¶à²é¿´Tesseract-OCRÎÄµµ¡£");
-                ImGui::SliderInt(u8"·­ÒëÏÔÊ¾Ê±¼ä", &set_Residence_Time, 0, 60);
-                TipsUI("(?)", u8"·­ÒëµÄ½á¹ûÏÔÊ¾¶à¾Ã£¨Ãë£©£¡£¨Êó±êÀë¿ªµÄÊ±¼ä£©");
-                ImGui::SliderInt(u8"·­Òë½çÃæ³õÊ¼¿í¶È", &WindowWidth, 0, 1000);
-                ImGui::Checkbox(u8"ÊÇ·ñ¸ü¸Ä×ÖÌåÑùÊ½", &Fontbool);
-                TipsUI("(?)", u8"Èç¹û¸ü¸Ä×ÖÌåÑùÊ½£¬×ÖÌåÑùÊ½µÄÂ·¾¶±ØĞë±£Ö¤Ã»ÎÊÌâ£¡\nÈç¹ûÒòÎª¸ü¸Ä×ÖÌåÑùÊ½³ö´íµ¼ÖÂÎŞ·¨´ò¿ªÈí¼ş!\n¿ÉÒÔ³¢ÊÔ°ÑData.iniµÄFontboolĞŞ¸ÄÎª0");
-                ImGui::InputText(u8"×ÖÌåÑùÊ½", set_Font_path, 500);
-                TipsUI("(?)", u8"¾ø¶ÔÂ·¾¶Àı£ºC:\\Users\\SmileySans-Oblique.ttf\nÏà¶ÔÂ·¾¶Àı£º.\\tessdata\\SmileySans-Oblique.ttf");
-                ImGui::SliderFloat(u8"×ÖÌå´óĞ¡", &FontSize, 0, 100);
-                ImGui::SliderFloat(u8"°´¼üÔ²Èó¶È", &ButtonRounding, 0, 20);
+                ImGui::Text(u8"ç™¾åº¦ç¿»è¯‘");
+                ImGui::InputText(u8"ç™¾åº¦ç¿»è¯‘è¯­ç§", set_Baidu_English, 5);
+                TipsUI("(?)", u8"ä½ è¦ç¿»è¯‘çš„å†…å®¹è¯­ç§ã€‚\né»˜è®¤ï¼ˆautoï¼‰è‡ªåŠ¨æ£€æµ‹ã€‚");
+                ImGui::InputText(u8"ç™¾åº¦ç›®æ ‡è¯­ç§", set_Baidu_Chinese, 5);
+                TipsUI("(?)", u8"ä½ å¸Œæœ›ç¿»è¯‘æˆä»€ä¹ˆè¯­è¨€ã€‚");
+                ImGui::InputText(u8"ç™¾åº¦æ›¿æ¢è¯­ç§", set_Baidu_ChineseReplace, 5);
+                TipsUI("(?)", u8"å°†è¢«é€‰ä¸­çš„è¯­è¨€æ›¿æ¢æˆä»€ä¹ˆè¯­è¨€ã€‚");
+                ImGui::InputText(u8"ç™¾åº¦ç¿»è¯‘ID", set_Baidu_ID, 30);
+                ImGui::InputText(u8"ç™¾åº¦ç¿»è¯‘API", set_Baidu_Key, 30);
+                ImGui::Text(u8"è®¾ç½®");
+                ImGui::InputText(u8"OCRæ¨¡å‹", set_TesseractModel, 10);
+                TipsUI("(?)", u8"æˆªå›¾è¯†åˆ«æ–‡å­—çš„æ¨¡å‹ã€‚\næ›´å¤šæŸ¥çœ‹Tesseract-OCRæ–‡æ¡£ã€‚");
+                ImGui::SliderInt(u8"ç¿»è¯‘æ˜¾ç¤ºæ—¶é—´", &set_Residence_Time, 0, 60);
+                TipsUI("(?)", u8"ç¿»è¯‘çš„ç»“æœæ˜¾ç¤ºå¤šä¹…ï¼ˆç§’ï¼‰ï¼ï¼ˆé¼ æ ‡ç¦»å¼€çš„æ—¶é—´ï¼‰");
+                ImGui::SliderInt(u8"ç¿»è¯‘ç•Œé¢åˆå§‹å®½åº¦", &WindowWidth, 0, 1000);
+                ImGui::Checkbox(u8"æ˜¯å¦æ›´æ”¹å­—ä½“æ ·å¼", &Fontbool);
+                TipsUI("(?)", u8"å¦‚æœæ›´æ”¹å­—ä½“æ ·å¼ï¼Œå­—ä½“æ ·å¼çš„è·¯å¾„å¿…é¡»ä¿è¯æ²¡é—®é¢˜ï¼\nå¦‚æœå› ä¸ºæ›´æ”¹å­—ä½“æ ·å¼å‡ºé”™å¯¼è‡´æ— æ³•æ‰“å¼€è½¯ä»¶!\nå¯ä»¥å°è¯•æŠŠData.iniçš„Fontboolä¿®æ”¹ä¸º0");
+                ImGui::InputText(u8"å­—ä½“æ ·å¼", set_Font_path, 500);
+                TipsUI("(?)", u8"ç»å¯¹è·¯å¾„ä¾‹ï¼šC:\\Users\\SmileySans-Oblique.ttf\nç›¸å¯¹è·¯å¾„ä¾‹ï¼š.\\tessdata\\SmileySans-Oblique.ttf");
+                ImGui::SliderFloat(u8"å­—ä½“å¤§å°", &FontSize, 0, 100);
+                ImGui::SliderFloat(u8"æŒ‰é”®åœ†æ¶¦åº¦", &ButtonRounding, 0, 20);
                 
-                ImGui::ColorEdit4(u8"°´¼üÑÕÉ«", set_ButtonColor);
+                ImGui::ColorEdit4(u8"æŒ‰é”®é¢œè‰²", set_ButtonColor);
                 PreservationSetColor(set_ButtonColor, ButtonColor);
-                ImGui::ColorEdit4(u8"ĞüÍ£ÑÕÉ«", set_ButtonHoveredColor);
+                ImGui::ColorEdit4(u8"æ‚¬åœé¢œè‰²", set_ButtonHoveredColor);
                 PreservationSetColor(set_ButtonHoveredColor, ButtonHoveredColor);
-                ImGui::ColorEdit4(u8"µã»÷ÑÕÉ«", set_ButtonActiveColor); 
+                ImGui::ColorEdit4(u8"ç‚¹å‡»é¢œè‰²", set_ButtonActiveColor); 
                 PreservationSetColor(set_ButtonActiveColor, ButtonActiveColor);
 
-                ImGui::Combo(u8"×éºÏ¼ü", &screenshot_key_1, items, IM_ARRAYSIZE(items));
-                TipsUI("(?)", u8"ºÍÏÂÃæµÄ°´¼ü×éºÏ£¡");
-                ImGui::InputText(u8"½ØÍ¼°´¼ü", screenshot_key_2, 2);
-                ImGui::InputText(u8"Ñ¡Ôñ°´¼ü", choice_key_2, 2);
-                ImGui::InputText(u8"Ìæ»»°´¼ü", replace_key_2, 2);
+                ImGui::Combo(u8"ç»„åˆé”®", &screenshot_key_1, items, IM_ARRAYSIZE(items));
+                TipsUI("(?)", u8"å’Œä¸‹é¢çš„æŒ‰é”®ç»„åˆï¼");
+                ImGui::InputText(u8"æˆªå›¾æŒ‰é”®", screenshot_key_2, 2);
+                ImGui::InputText(u8"é€‰æ‹©æŒ‰é”®", choice_key_2, 2);
+                ImGui::InputText(u8"æ›¿æ¢æŒ‰é”®", replace_key_2, 2);
 
-                ImGui::SetCursorPosX(150);//ÉèÖÃÏÂÒ»¸öÔªËØÉú³ÉµÄÎ»ÖÃ
+                ImGui::SetCursorPosX(150);//è®¾ç½®ä¸‹ä¸€ä¸ªå…ƒç´ ç”Ÿæˆçš„ä½ç½®
 
-                if (ImGui::Button(u8"±£´æ")) {
+                if (ImGui::Button(u8"ä¿å­˜")) {
                     IniDataPreservation();
                     Set_interface = false;
                     IniDataInit();
                 }
-                //ÉèÖÃÉÏÒ»¸öÔªËØµÄÊó±êĞüÍ£ÌáÊ¾
+                //è®¾ç½®ä¸Šä¸€ä¸ªå…ƒç´ çš„é¼ æ ‡æ‚¬åœæç¤º
                 if (ImGui::IsItemHovered())
                 {
-                    ImGui::SetTooltip(u8"²¿·ÖÄÚÈİÒª¹Ø±ÕÈí¼şÖØĞÂ´ò¿ª²ÅÉúĞ§");//ÌáÊ¾ÄÚÈİ
+                    ImGui::SetTooltip(u8"éƒ¨åˆ†å†…å®¹è¦å…³é—­è½¯ä»¶é‡æ–°æ‰“å¼€æ‰ç”Ÿæ•ˆ");//æç¤ºå†…å®¹
                 }
 
-                ImGui::SameLine();//ÈÃÏÂÒ»¸öÔªËØ²¢ÅÅ
-                ImGui::SetCursorPosX(400);//ÉèÖÃÏÂÒ»¸öÔªËØÉú³ÉµÄÎ»ÖÃ
+                ImGui::SameLine();//è®©ä¸‹ä¸€ä¸ªå…ƒç´ å¹¶æ’
+                ImGui::SetCursorPosX(400);//è®¾ç½®ä¸‹ä¸€ä¸ªå…ƒç´ ç”Ÿæˆçš„ä½ç½®
 
-                if (ImGui::Button(u8"¹Ø±Õ")) {
+                if (ImGui::Button(u8"å…³é—­")) {
                     IniDataInit();
                     Set_interface = false;
                 }
-                //ÉèÖÃÉÏÒ»¸öÔªËØµÄÊó±êĞüÍ£ÌáÊ¾
+                //è®¾ç½®ä¸Šä¸€ä¸ªå…ƒç´ çš„é¼ æ ‡æ‚¬åœæç¤º
                 if (ImGui::IsItemHovered())
                 {
-                    ImGui::SetTooltip(u8"·ÅÆú¸ü¸Ä¡£");//ÌáÊ¾ÄÚÈİ
+                    ImGui::SetTooltip(u8"æ”¾å¼ƒæ›´æ”¹ã€‚");//æç¤ºå†…å®¹
                 }
 
 
@@ -652,13 +652,13 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     {
     case WM_IAWENTRAY:
         /*
-        MK_LBUTTON¡¡Êó±ê×ó¼ü±»°´ÏÂ¡£
-        MK_MBUTTON¡¡Êó±êÖĞ¼ü±»°´ÏÂ¡£
-        MK_RBUTTON¡¡Êó±êÓÒ¼ü±»°´ÏÂ¡£
+        MK_LBUTTONã€€é¼ æ ‡å·¦é”®è¢«æŒ‰ä¸‹ã€‚
+        MK_MBUTTONã€€é¼ æ ‡ä¸­é”®è¢«æŒ‰ä¸‹ã€‚
+        MK_RBUTTONã€€é¼ æ ‡å³é”®è¢«æŒ‰ä¸‹ã€‚
         */
         switch (lParam)
         {
-        case WM_RBUTTONDOWN://ÓÒ¼üÍ¼±ê
+        case WM_RBUTTONDOWN://å³é”®å›¾æ ‡
         {
             SystemTray_interface_time = clock();
             if (SystemTray_interface) {
@@ -671,7 +671,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             }
         }
         break;
-        case WM_LBUTTONUP://×ó¼üÍ¼±ê
+        case WM_LBUTTONUP://å·¦é”®å›¾æ ‡
             break;
         }
         break;
@@ -764,28 +764,28 @@ void CleanupRenderTarget()
 
 
 
-//»ñµÃ¼ôÌù°åµÄÄÚÈİ
+//è·å¾—å‰ªè´´æ¿çš„å†…å®¹
 std::string ClipboardTochar() {
     int ClipboardBoll = 5;
     while (ClipboardBoll > 0) {
         ClipboardBoll--;
-        if (!OpenClipboard(NULL))//´ò¿ª¼ôÌù°å
+        if (!OpenClipboard(NULL))//æ‰“å¼€å‰ªè´´æ¿
         {
-            printf("´ò¿ª¼ôÌù°åÊ§°Ü\n");
-            CloseClipboard();//¹Ø±Õ¼ôÌù°å
+            printf("æ‰“å¼€å‰ªè´´æ¿å¤±è´¥\n");
+            CloseClipboard();//å…³é—­å‰ªè´´æ¿
             continue;
         }
 
-        HGLOBAL hmem = GetClipboardData(CF_TEXT);//»ñÈ¡¼ôÇĞ°åÄÚÈİ¿é
-        if (hmem == NULL)    // ¶Ô¼ôÇĞ°å·ÖÅäÄÚ´æ
+        HGLOBAL hmem = GetClipboardData(CF_TEXT);//è·å–å‰ªåˆ‡æ¿å†…å®¹å—
+        if (hmem == NULL)    // å¯¹å‰ªåˆ‡æ¿åˆ†é…å†…å­˜
         {
-            printf("»ñÈ¡¼ôÇĞ°åÄÚÈİ¿é´íÎó!!!\n");
-            CloseClipboard();//¹Ø±Õ¼ôÌù°å
+            printf("è·å–å‰ªåˆ‡æ¿å†…å®¹å—é”™è¯¯!!!\n");
+            CloseClipboard();//å…³é—­å‰ªè´´æ¿
             continue;
         }
         else {
-            std::string CharS = (char*)GlobalLock(hmem);//»ñÈ¡ÄÚÈİ¿éµÄµØÖ·
-            CloseClipboard();//¹Ø±Õ¼ôÌù°å
+            std::string CharS = (char*)GlobalLock(hmem);//è·å–å†…å®¹å—çš„åœ°å€
+            CloseClipboard();//å…³é—­å‰ªè´´æ¿
             return CharS;
         }
     }
@@ -793,53 +793,53 @@ std::string ClipboardTochar() {
 
 
 
-//½«ÄÚÈİ¸´ÖÆµ½¼ôÌù°å
+//å°†å†…å®¹å¤åˆ¶åˆ°å‰ªè´´æ¿
 void CopyToClipboard(std::string str) {
     int ClipboardBoll = 5;
     while (ClipboardBoll > 0) {
         ClipboardBoll--;
-        if (!OpenClipboard(NULL))//´ò¿ª¼ôÌù°å
+        if (!OpenClipboard(NULL))//æ‰“å¼€å‰ªè´´æ¿
         {
-            puts("´ò¿ª¼ôÌù°åÊ§°Ü\n");
+            puts("æ‰“å¼€å‰ªè´´æ¿å¤±è´¥\n");
             CloseClipboard();
             continue;
         }
 
-        if (!EmptyClipboard())       // Çå¿Õ¼ôÇĞ°å£¬Ğ´ÈëÖ®Ç°£¬±ØĞëÏÈÇå¿Õ¼ôÇĞ°å
+        if (!EmptyClipboard())       // æ¸…ç©ºå‰ªåˆ‡æ¿ï¼Œå†™å…¥ä¹‹å‰ï¼Œå¿…é¡»å…ˆæ¸…ç©ºå‰ªåˆ‡æ¿
         {
-            puts("Çå¿Õ¼ôÇĞ°åÊ§°Ü\n");
+            puts("æ¸…ç©ºå‰ªåˆ‡æ¿å¤±è´¥\n");
             CloseClipboard();
             continue;
         }
 
         HGLOBAL hMemory;
-        if ((hMemory = GlobalAlloc(GMEM_MOVEABLE, strlen(str.c_str()) + 1)) == NULL)    // ¶Ô¼ôÇĞ°å·ÖÅäÄÚ´æ
+        if ((hMemory = GlobalAlloc(GMEM_MOVEABLE, strlen(str.c_str()) + 1)) == NULL)    // å¯¹å‰ªåˆ‡æ¿åˆ†é…å†…å­˜
         {
-            puts("ÄÚ´æ¸³Öµ´íÎó!!!\n");
+            puts("å†…å­˜èµ‹å€¼é”™è¯¯!!!\n");
             CloseClipboard();
             continue;
         }
 
         LPTSTR lpMemory;
-        if ((lpMemory = (LPTSTR)GlobalLock(hMemory)) == NULL)             // ½«ÄÚ´æÇøÓòËø¶¨
+        if ((lpMemory = (LPTSTR)GlobalLock(hMemory)) == NULL)             // å°†å†…å­˜åŒºåŸŸé”å®š
         {
-            puts("Ëø¶¨ÄÚ´æ´íÎó!!!\n");
+            puts("é”å®šå†…å­˜é”™è¯¯!!!\n");
             CloseClipboard();
             continue;
         }
 
-        memcpy_s(lpMemory, strlen(str.c_str()) + 1, str.c_str(), strlen(str.c_str()) + 1);   // ½«Êı¾İ¸´ÖÆ½øÈëÄÚ´æÇøÓò
+        memcpy_s(lpMemory, strlen(str.c_str()) + 1, str.c_str(), strlen(str.c_str()) + 1);   // å°†æ•°æ®å¤åˆ¶è¿›å…¥å†…å­˜åŒºåŸŸ
 
-        GlobalUnlock(hMemory);                   // ½â³ıÄÚ´æËø¶¨
+        GlobalUnlock(hMemory);                   // è§£é™¤å†…å­˜é”å®š
 
         if (SetClipboardData(CF_TEXT, hMemory) == NULL)
         {
-            puts("ÉèÖÃ¼ôÇĞ°åÊı¾İÊ§°Ü!!!\n");
+            puts("è®¾ç½®å‰ªåˆ‡æ¿æ•°æ®å¤±è´¥!!!\n");
             CloseClipboard();
             continue;
         }
 
-        CloseClipboard();//¹Ø±Õ¼ôÌù°å
+        CloseClipboard();//å…³é—­å‰ªè´´æ¿
         return;
     }
 }
@@ -847,7 +847,7 @@ void CopyToClipboard(std::string str) {
 
 
 
-//IMGUI ³õÊ¼»¯
+//IMGUI åˆå§‹åŒ–
 ImGuiIO& IMGUI_init() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -879,18 +879,18 @@ ImGuiIO& IMGUI_init() {
 
 
 
-    //ImGui ·ç¸ñÉèÖÃ
+    //ImGui é£æ ¼è®¾ç½®
     ImGuiStyle& Style = ImGui::GetStyle();
     auto Color = Style.Colors;
 
     
     Style.ChildRounding = 0.0f;
-    //ÊÇ·ñÔ²Èó°´¼ü
+    //æ˜¯å¦åœ†æ¶¦æŒ‰é”®
     Style.FrameRounding = ButtonRounding;
 
-    Color[ImGuiCol_Button] = ImColor(ButtonColor[0], ButtonColor[1], ButtonColor[2], ButtonColor[3]);//°´¼üÑÕÉ«
-    Color[ImGuiCol_ButtonHovered] = ImColor(ButtonHoveredColor[0], ButtonHoveredColor[1], ButtonHoveredColor[2], ButtonHoveredColor[3]);//Êó±êĞüÍ£ÑÕÉ«
-    Color[ImGuiCol_ButtonActive] = ImColor(ButtonActiveColor[0], ButtonActiveColor[1], ButtonActiveColor[2], ButtonActiveColor[3]);//Êó±êµã»÷ÑÕÉ«
+    Color[ImGuiCol_Button] = ImColor(ButtonColor[0], ButtonColor[1], ButtonColor[2], ButtonColor[3]);//æŒ‰é”®é¢œè‰²
+    Color[ImGuiCol_ButtonHovered] = ImColor(ButtonHoveredColor[0], ButtonHoveredColor[1], ButtonHoveredColor[2], ButtonHoveredColor[3]);//é¼ æ ‡æ‚¬åœé¢œè‰²
+    Color[ImGuiCol_ButtonActive] = ImColor(ButtonActiveColor[0], ButtonActiveColor[1], ButtonActiveColor[2], ButtonActiveColor[3]);//é¼ æ ‡ç‚¹å‡»é¢œè‰²
 
     Color[ImGuiCol_FrameBg] = ImColor(54, 54, 54, 150);
     Color[ImGuiCol_FrameBgActive] = ImColor(42, 42, 42, 150);
@@ -908,18 +908,18 @@ ImGuiIO& IMGUI_init() {
     return io;
 }
 
-//¼ÓÌáÊ¾
+//åŠ æç¤º
 void TipsUI(const char* label, const char* Tips) {
-    ImGui::SameLine();//ÈÃÒ»¸öÔªËØ²¢ÅÅ
+    ImGui::SameLine();//è®©ä¸€ä¸ªå…ƒç´ å¹¶æ’
     ImGui::Text(label);
-    //ÉèÖÃÉÏÒ»¸öÔªËØµÄÊó±êĞüÍ£ÌáÊ¾
+    //è®¾ç½®ä¸Šä¸€ä¸ªå…ƒç´ çš„é¼ æ ‡æ‚¬åœæç¤º
     if (ImGui::IsItemHovered())
     {
-        ImGui::SetTooltip(Tips);//ÌáÊ¾ÄÚÈİ
+        ImGui::SetTooltip(Tips);//æç¤ºå†…å®¹
     }
 }
 
-//¼ÓÔØÍ¼Æ¬
+//åŠ è½½å›¾ç‰‡
 ID3D11ShaderResourceView* DX11LoadTextureImageFromFile(LPCSTR lpszFilePath)
 {
     ID3D11Texture2D* pTexture2D = NULL;
@@ -930,7 +930,7 @@ ID3D11ShaderResourceView* DX11LoadTextureImageFromFile(LPCSTR lpszFilePath)
     ZeroMemory(&loadInfo, sizeof(D3DX11_IMAGE_LOAD_INFO));
     loadInfo.BindFlags = D3D11_BIND_SHADER_RESOURCE;
     loadInfo.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    loadInfo.MipLevels = D3DX11_DEFAULT; //ÕâÊ±»á²úÉú×î´óµÄmipmaps²ã¡£ 
+    loadInfo.MipLevels = D3DX11_DEFAULT; //è¿™æ—¶ä¼šäº§ç”Ÿæœ€å¤§çš„mipmapså±‚ã€‚ 
     loadInfo.MipFilter = D3DX11_FILTER_LINEAR;
     D3DX11CreateTextureFromFile(g_pd3dDevice, lpszFilePath, &loadInfo, NULL, (ID3D11Resource**)(&pTexture2D), &result);
     pTexture2D->GetDesc(&dec);
@@ -960,23 +960,23 @@ ID3D11ShaderResourceView* DX11LoadTextureImageFromFile(LPCSTR lpszFilePath)
 
 
 
-//½ØÍ¼&±£´æ£¨È«ÆÁ£©
+//æˆªå›¾&ä¿å­˜ï¼ˆå…¨å±ï¼‰
 void screen(LPCSTR fileName)
 {
     HWND window = GetDesktopWindow();
-    HDC _dc = GetWindowDC(window);//ÆÁÄ»DC
-    HDC dc = CreateCompatibleDC(0);//ÄÚ´æDC
+    HDC _dc = GetWindowDC(window);//å±å¹•DC
+    HDC dc = CreateCompatibleDC(0);//å†…å­˜DC
 
     RECT re;
     GetWindowRect(window, &re);
     int w = re.right,
         h = re.bottom;
     void* buf = new char[w * h * 4];
-    void* buff = buf;//±¸·İ±£´æÉêÇëÄÚ´æµÄµØÖ·£¬ÒòÎªºóÃæ buf Õâ¸öÄÚ´æµØÖ·»á¶ªÊ§µ¼ÖÂÄÚ´æĞ¹Â¶¡£
+    void* buff = buf;//å¤‡ä»½ä¿å­˜ç”³è¯·å†…å­˜çš„åœ°å€ï¼Œå› ä¸ºåé¢ buf è¿™ä¸ªå†…å­˜åœ°å€ä¼šä¸¢å¤±å¯¼è‡´å†…å­˜æ³„éœ²ã€‚
 
-    HBITMAP bm = CreateCompatibleBitmap(_dc, w, h);//½¨Á¢ºÍÆÁÄ»¼æÈİµÄbitmap
-    SelectObject(dc, bm);//½«memBitmapÑ¡ÈëÄÚ´æDC
-    StretchBlt(dc, 0, 0, w, h, _dc, 0, 0, w, h, SRCCOPY);//¸´ÖÆÆÁÄ»Í¼Ïñµ½ÄÚ´æDC
+    HBITMAP bm = CreateCompatibleBitmap(_dc, w, h);//å»ºç«‹å’Œå±å¹•å…¼å®¹çš„bitmap
+    SelectObject(dc, bm);//å°†memBitmapé€‰å…¥å†…å­˜DC
+    StretchBlt(dc, 0, 0, w, h, _dc, 0, 0, w, h, SRCCOPY);//å¤åˆ¶å±å¹•å›¾åƒåˆ°å†…å­˜DC
 
     void* f = CreateFile(fileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, 0);
 
@@ -1024,12 +1024,12 @@ void screen(LPCSTR fileName)
 }
 
 
-//ostringstream¶ÔÏóÓÃÀ´½øĞĞ¸ñÊ½»¯µÄÊä³ö£¬³£ÓÃÓÚ½«¸÷ÖÖÀàĞÍ×ª»»ÎªstringÀàĞÍ
-//ostringstreamÖ»Ö§³Ö<<²Ù×÷·û
+//ostringstreamå¯¹è±¡ç”¨æ¥è¿›è¡Œæ ¼å¼åŒ–çš„è¾“å‡ºï¼Œå¸¸ç”¨äºå°†å„ç§ç±»å‹è½¬æ¢ä¸ºstringç±»å‹
+//ostringstreamåªæ”¯æŒ<<æ“ä½œç¬¦
 template<typename T>std::string toString(const T& t)
 {
-    std::ostringstream oss;  //´´½¨Ò»¸ö¸ñÊ½»¯Êä³öÁ÷
-    oss << t;             //°ÑÖµ´«µİÈçÁ÷ÖĞ
+    std::ostringstream oss;  //åˆ›å»ºä¸€ä¸ªæ ¼å¼åŒ–è¾“å‡ºæµ
+    oss << t;             //æŠŠå€¼ä¼ é€’å¦‚æµä¸­
     return oss.str();
 }
 

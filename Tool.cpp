@@ -5,7 +5,7 @@
 
 
 
-//string ת wstring
+//string 转 wstring
 std::string ws2s(const std::wstring& ws)
 {
     size_t i;
@@ -22,7 +22,7 @@ std::string ws2s(const std::wstring& ws)
     return result;
 }
 
-//wstring ת string
+//wstring 转 string
 std::wstring s2ws(const std::string& s)
 {
     size_t i;
@@ -39,7 +39,7 @@ std::wstring s2ws(const std::string& s)
     return result;
 }
 
-//Unicode ת�� utf8
+//Unicode 转到 utf8
 std::string  UnicodeToUtf8(const std::string& Unicode)
 {
     std::wstring wstr = s2ws(Unicode);
@@ -54,7 +54,7 @@ std::string  UnicodeToUtf8(const std::string& Unicode)
 
 
 
-//utf8 ת�� Unicode
+//utf8 转到 Unicode
 std::string Utf8ToUnicode(const char* szU8)
 {
     int wcsLen = MultiByteToWideChar(CP_UTF8, NULL, szU8, (int)strlen(szU8), NULL, 0);

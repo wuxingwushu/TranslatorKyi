@@ -1,14 +1,14 @@
-#pragma once//·ÀÖ¹¶ş´Î±àÒë
+#pragma once//é˜²æ­¢äºŒæ¬¡ç¼–è¯‘
 #include <time.h>
 #include <string.h>
 #include <iostream>
 #include <tchar.h>
 #include <sstream>
 #include <windows.h>//WIN API
-//#include "vld.h"//ÄÚ´æĞ¹Â¶¼ì²â¿â £¨Debug Ê±²Å»áÆô¶¯£©
+//#include "vld.h"//å†…å­˜æ³„éœ²æ£€æµ‹åº“ ï¼ˆDebug æ—¶æ‰ä¼šå¯åŠ¨ï¼‰
 
 
-static clock_t shijian;//²âÊÔºÄÊ±
+static clock_t shijian;//æµ‹è¯•è€—æ—¶
 /*shijian = clock();
 printf("%d\n", shijian - clock());
 */
@@ -17,7 +17,7 @@ printf("%d\n", shijian - clock());
 std::cout <<   << std::endl;
  
 
-GetKeyState°´¼ü±í
+GetKeyStateæŒ‰é”®è¡¨
 https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
 */
 
@@ -27,31 +27,31 @@ https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
 #include <string>
 #include <curl/curl.h>
 
-// ÕâÊÇÓĞµÀ·­Òë API µÄµØÖ·
+// è¿™æ˜¯æœ‰é“ç¿»è¯‘ API çš„åœ°å€
 const std::string API_URL = "http://fanyi.youdao.com/translate?&doctype=json&type=ZH_CN2EN";
 
-// ÕâÊÇÓĞµÀ·­Òë API µÄË½ÈË key£¬ĞèÒªÔÚÓĞµÀ·­Òë¹ÙÍøÉêÇë
+// è¿™æ˜¯æœ‰é“ç¿»è¯‘ API çš„ç§äºº keyï¼Œéœ€è¦åœ¨æœ‰é“ç¿»è¯‘å®˜ç½‘ç”³è¯·
 const std::string PRIVATE_KEY = "your_private_key";
 
-// ÕâÊÇÓĞµÀ·­Òë API µÄË½ÈË key£¬ĞèÒªÔÚÓĞµÀ·­Òë¹ÙÍøÉêÇë
+// è¿™æ˜¯æœ‰é“ç¿»è¯‘ API çš„ç§äºº keyï¼Œéœ€è¦åœ¨æœ‰é“ç¿»è¯‘å®˜ç½‘ç”³è¯·
 const std::string APP_KEY = "your_app_key";
 
-// ÕâÊÇÓĞµÀ·­Òë API µÄÊäÈëÓïÑÔ£¬¿ÉÒÔÊÇ "ZH_CN" »ò "EN"
+// è¿™æ˜¯æœ‰é“ç¿»è¯‘ API çš„è¾“å…¥è¯­è¨€ï¼Œå¯ä»¥æ˜¯ "ZH_CN" æˆ– "EN"
 const std::string INPUT_LANG = "ZH_CN";
 
-// ÕâÊÇÓĞµÀ·­Òë API µÄÊä³öÓïÑÔ£¬¿ÉÒÔÊÇ "ZH_CN" »ò "EN"
+// è¿™æ˜¯æœ‰é“ç¿»è¯‘ API çš„è¾“å‡ºè¯­è¨€ï¼Œå¯ä»¥æ˜¯ "ZH_CN" æˆ– "EN"
 const std::string OUTPUT_LANG = "EN";
 
-// ÕâÊÇÒ»¸öº¯Êı£¬ÓÃÓÚ½«×Ö·û´®×ª»»Îª URL ±àÂë
+// è¿™æ˜¯ä¸€ä¸ªå‡½æ•°ï¼Œç”¨äºå°†å­—ç¬¦ä¸²è½¬æ¢ä¸º URL ç¼–ç 
 std::string url_encode(const std::string& str) {
-  // ³õÊ¼»¯ curl ¿â
+  // åˆå§‹åŒ– curl åº“
   CURL *curl = curl_easy_init();
   if (!curl) {
     std::cerr << "Error: failed to initialize curl" << std::endl;
     return "";
   }
 
-  // ÉèÖÃ curl ¿âµÄÑ¡Ïî
+  // è®¾ç½® curl åº“çš„é€‰é¡¹
   curl_easy_setopt(curl, CURLOPT_URL, API_URL.c_str());
   curl_easy_setopt(curl, CURLOPT_POSTFIELDS, ("q=" + str).c_str());
   curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, -1L);
@@ -60,7 +60,7 @@ std::string url_encode(const std::string& str) {
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, NULL);
 
-  // ÉèÖÃ HTTP Í·²¿
+  // è®¾ç½® HTTP å¤´éƒ¨
   struct curl_s
 
 */

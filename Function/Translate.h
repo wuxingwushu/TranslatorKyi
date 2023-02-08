@@ -1,4 +1,4 @@
-#pragma once//·ÀÖ¹¶þ´Î±àÒë
+#pragma once//ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½Î±ï¿½ï¿½ï¿½
 #include "../base.h"
 #include <json.h>
 #include <curl/curl.h>

@@ -1,40 +1,40 @@
 #include "base.h"
-#include "Tool.h"//Êı¾İ¸ñÊ½×ª»»
-#include "imgui/GUI.h"//ÏÔÊ¾½çÃæ
-#include "Function/tesseract.h"//Í¼Æ¬Ê¶±ğÎÄ×Ö
-#include "Function/Translate.h"//·­ÒëÎÄ×Ö
-#include "ini.h"//Èí¼şÊı¾İ
-using namespace inih;//ÆôÓÃ ini ¶ÁÈ¡
+#include "Tool.h"//æ•°æ®æ ¼å¼è½¬æ¢
+#include "imgui/GUI.h"//æ˜¾ç¤ºç•Œé¢
+#include "Function/tesseract.h"//å›¾ç‰‡è¯†åˆ«æ–‡å­—
+#include "Function/Translate.h"//ç¿»è¯‘æ–‡å­—
+#include "ini.h"//è½¯ä»¶æ•°æ®
+using namespace inih;//å¯ç”¨ ini è¯»å–
 //#define	PI					3.14
 
 
-//Ä£°å ×ª ×Ö·û´®
+//æ¨¡æ¿ è½¬ å­—ç¬¦ä¸²
 template<typename T>std::string toString(const T& t);
 
-//iniÎÄ¼ş´¦Àí¹¤¾ßº¯Êı
+//iniæ–‡ä»¶å¤„ç†å·¥å…·å‡½æ•°
 std::string ColorArraytoString(int* color);
 void GetColor(std::vector<int> colordata, int* color, float* set_color);
 void PreservationSetColor(float* setcolor, int* color);
 
-//¶ÁÈ¡INIÊı¾İ
+//è¯»å–INIæ•°æ®
 void IniDataInit();
-//±£´æINIÊı¾İ
+//ä¿å­˜INIæ•°æ®
 void IniDataPreservation();
 
 
-//IMGUI ³õÊ¼»¯
+//IMGUI åˆå§‹åŒ–
 ImGuiIO& IMGUI_init();
-//¼ÓÌáÊ¾
+//åŠ æç¤º
 void TipsUI(const char* label, const char* Tips);
 
-//»ñµÃ¼ôÌù°åµÄÄÚÈİ
+//è·å¾—å‰ªè´´æ¿çš„å†…å®¹
 std::string ClipboardTochar();
-//½«ÄÚÈİ¸´ÖÆµ½¼ôÌù°å
+//å°†å†…å®¹å¤åˆ¶åˆ°å‰ªè´´æ¿
 void CopyToClipboard(std::string str);
 
-//¼ÓÔØÍ¼Æ¬
+//åŠ è½½å›¾ç‰‡
 ID3D11ShaderResourceView* DX11LoadTextureImageFromFile(LPCSTR lpszFilePath);
-//½ØÍ¼&±£´æ£¨È«ÆÁ£©
+//æˆªå›¾&ä¿å­˜ï¼ˆå…¨å±ï¼‰
 void screen(LPCSTR fileName);
 
 //DX11
@@ -47,27 +47,27 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 
 /*
- ©°©¤©¤©¤©´   ©°©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©´ ©°©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©´ ©°©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©´ ©°©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©´
- ©¦Esc   ©¦   ©¦  F1  ©¦  F2  ©¦  F3  ©¦  F4  ©¦ ©¦  F5  ©¦  F6  ©¦  F7  ©¦  F8  ©¦ ©¦  F9  ©¦  F10 ©¦  F11 ©¦  F12 ©¦ ©¦  P/S ©¦  S L ©¦  P/B ©¦           ©°©´    ©°©´    ©°©´
- ©¸©¤©¤©¤©¼   ©¸©¤©¤©¤©Ø©¤©¤©¤©Ø©¤©¤©¤©Ø©¤©¤©¤©¼ ©¸©¤©¤©¤©Ø©¤©¤©¤©Ø©¤©¤©¤©Ø©¤©¤©¤©¼ ©¸©¤©¤©¤©Ø©¤©¤©¤©Ø©¤©¤©¤©Ø©¤©¤©¤©¼ ©¸©¤©¤©¤©Ø©¤©¤©¤©Ø©¤©¤©¤©¼           ©¸©¼    ©¸©¼    ©¸©¼
- ©°©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©¤©¤©¤©¤©´ ©°©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©´ ©°©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©Ğ©¤©¤©¤©´
- ©¦  ~ ` ©¦ ! 1  ©¦ @ 2  ©¦  # 3 ©¦ $ 4  ©¦ % 5  ©¦ ^ 6  ©¦ & 7  ©¦ * 8  ©¦ ( 9  ©¦  ) 0 ©¦ _ -  ©¦ + =  ©¦     BacSp    ©¦ ©¦ Ins  ©¦ Hom  ©¦  PUp ©¦ ©¦ N L  ©¦   /  ©¦   *  ©¦   -  ©¦
- ©À©¤©¤©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©¤©¤©¤©¤©È ©À©¤©¤©¤©à©¤©¤©¤©à©¤©¤©¤©È ©À©¤©¤©¤©à©¤©¤©¤©à©¤©¤©¤©à©¤©¤©¤©È
- ©¦   Tab    ©¦   Q  ©¦   W  ©¦   E  ©¦   R  ©¦   T  ©¦   Y  ©¦   U  ©¦   I  ©¦   O  ©¦   P  ©¦  { [ ©¦  } ] ©¦   | \    ©¦ ©¦  Del ©¦  End ©¦  PDn ©¦ ©¦   7  ©¦   8  ©¦   9  ©¦      ©¦
- ©À©¤©¤©¤©¤©¤©Ø©Ğ©¤©¤©Ø©Ğ©¤©¤©Ø©Ğ©¤©¤©Ø©Ğ©¤©¤©Ø©Ğ©¤©¤©Ø©Ğ©¤©¤©Ø©Ğ©¤©¤©Ø©Ğ©¤©¤©Ø©Ğ©¤©¤©Ø©Ğ©¤©¤©Ø©Ğ©¤©¤©Ø©Ğ©¤©¤©Ø©¤©¤©¤©¤©¤©È ©¸©¤©¤©¤©Ø©¤©¤©¤©Ø©¤©¤©¤©¼ ©À©¤©¤©¤©à©¤©¤©¤©à©¤©¤©¤©È   +  ©¦
- ©¦    Caps    ©¦   A  ©¦   S  ©¦   D  ©¦   F  ©¦   G  ©¦   H  ©¦   J  ©¦   K  ©¦   L  ©¦  : ; ©¦  " ' ©¦      Enter     ©¦                            ©¦   4  ©¦   5  ©¦   6  ©¦      ©¦
- ©À©¤©¤©¤©¤©¤©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©Ğ©¤©Ø©¤©¤©¤©¤©¤©¤©¤©¤©È         ©°©¤©¤©¤©´         ©À©¤©¤©¤©à©¤©¤©¤©à©¤©¤©¤©à©¤©¤©¤©È
- ©¦     Shift      ©¦   Z  ©¦   X  ©¦   C  ©¦   V  ©¦   B  ©¦   N  ©¦   M  ©¦  < , ©¦  > . ©¦  ? / ©¦        Shift       ©¦         ©¦  ¡ü  ©¦         ©¦   1  ©¦   2  ©¦   3  ©¦      ©¦
- ©À©¤©¤©¤©¤©¤©Ğ©¤©¤©Ø©¤©Ğ©¤©Ø©¤©¤©Ğ©Ø©¤©¤©¤©Ø©¤©¤©¤©Ø©¤©¤©¤©Ø©¤©¤©¤©Ø©¤©¤©¤©Ø©¤©¤©Ğ©Ø©¤©¤©¤©à©¤©¤©¤©Ø©Ğ©¤©¤©¤©¤©Ğ©¤©¤©¤©¤©È ©°©¤©¤©¤©à©¤©¤©¤©à©¤©¤©¤©´ ©À©¤©¤©¤©Ø©¤©¤©¤©à©¤©¤©¤©È   E©¦©¦
- ©¦   Ctrl   ©¦        ©¦   Alt  ©¦                    Space                     ©¦  Alt   ©¦        ©¦        ©¦   Ctrl ©¦ ©¦  ¡û  ©¦  ¡ı  ©¦  ¡ú  ©¦ ©¦   0          ©¦  .   ©¦¡û©¤©¼©¦
- ©¸©¤©¤©¤©¤©¤©Ø©¤©¤©¤©¤©Ø©¤©¤©¤©¤©Ø©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©Ø©¤©¤©¤©¤©Ø©¤©¤©¤©¤©Ø©¤©¤©¤©¤©Ø©¤©¤©¤©¤©¼ ©¸©¤©¤©¤©Ø©¤©¤©¤©Ø©¤©¤©¤©¼ ©¸©¤©¤©¤©¤©¤©¤©¤©Ø©¤©¤©¤©Ø©¤©¤©¤©¼
+ â”Œâ”€â”€â”€â”   â”Œâ”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â” â”Œâ”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â” â”Œâ”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â” â”Œâ”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”
+ â”‚Esc   â”‚   â”‚  F1  â”‚  F2  â”‚  F3  â”‚  F4  â”‚ â”‚  F5  â”‚  F6  â”‚  F7  â”‚  F8  â”‚ â”‚  F9  â”‚  F10 â”‚  F11 â”‚  F12 â”‚ â”‚  P/S â”‚  S L â”‚  P/B â”‚           â”Œâ”    â”Œâ”    â”Œâ”
+ â””â”€â”€â”€â”˜   â””â”€â”€â”€â”´â”€â”€â”€â”´â”€â”€â”€â”´â”€â”€â”€â”˜ â””â”€â”€â”€â”´â”€â”€â”€â”´â”€â”€â”€â”´â”€â”€â”€â”˜ â””â”€â”€â”€â”´â”€â”€â”€â”´â”€â”€â”€â”´â”€â”€â”€â”˜ â””â”€â”€â”€â”´â”€â”€â”€â”´â”€â”€â”€â”˜           â””â”˜    â””â”˜    â””â”˜
+ â”Œâ”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â” â”Œâ”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â” â”Œâ”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”¬â”€â”€â”€â”
+ â”‚  ~ ` â”‚ ! 1  â”‚ @ 2  â”‚  # 3 â”‚ $ 4  â”‚ % 5  â”‚ ^ 6  â”‚ & 7  â”‚ * 8  â”‚ ( 9  â”‚  ) 0 â”‚ _ -  â”‚ + =  â”‚     BacSp    â”‚ â”‚ Ins  â”‚ Hom  â”‚  PUp â”‚ â”‚ N L  â”‚   /  â”‚   *  â”‚   -  â”‚
+ â”œâ”€â”€â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”€â”€â”€â”€â”¤ â”œâ”€â”€â”€â”¼â”€â”€â”€â”¼â”€â”€â”€â”¤ â”œâ”€â”€â”€â”¼â”€â”€â”€â”¼â”€â”€â”€â”¼â”€â”€â”€â”¤
+ â”‚   Tab    â”‚   Q  â”‚   W  â”‚   E  â”‚   R  â”‚   T  â”‚   Y  â”‚   U  â”‚   I  â”‚   O  â”‚   P  â”‚  { [ â”‚  } ] â”‚   | \    â”‚ â”‚  Del â”‚  End â”‚  PDn â”‚ â”‚   7  â”‚   8  â”‚   9  â”‚      â”‚
+ â”œâ”€â”€â”€â”€â”€â”´â”¬â”€â”€â”´â”¬â”€â”€â”´â”¬â”€â”€â”´â”¬â”€â”€â”´â”¬â”€â”€â”´â”¬â”€â”€â”´â”¬â”€â”€â”´â”¬â”€â”€â”´â”¬â”€â”€â”´â”¬â”€â”€â”´â”¬â”€â”€â”´â”¬â”€â”€â”´â”€â”€â”€â”€â”€â”¤ â””â”€â”€â”€â”´â”€â”€â”€â”´â”€â”€â”€â”˜ â”œâ”€â”€â”€â”¼â”€â”€â”€â”¼â”€â”€â”€â”¤   +  â”‚
+ â”‚    Caps    â”‚   A  â”‚   S  â”‚   D  â”‚   F  â”‚   G  â”‚   H  â”‚   J  â”‚   K  â”‚   L  â”‚  : ; â”‚  " ' â”‚      Enter     â”‚                            â”‚   4  â”‚   5  â”‚   6  â”‚      â”‚
+ â”œâ”€â”€â”€â”€â”€â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”¬â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”¤         â”Œâ”€â”€â”€â”         â”œâ”€â”€â”€â”¼â”€â”€â”€â”¼â”€â”€â”€â”¼â”€â”€â”€â”¤
+ â”‚     Shift      â”‚   Z  â”‚   X  â”‚   C  â”‚   V  â”‚   B  â”‚   N  â”‚   M  â”‚  < , â”‚  > . â”‚  ? / â”‚        Shift       â”‚         â”‚  â†‘  â”‚         â”‚   1  â”‚   2  â”‚   3  â”‚      â”‚
+ â”œâ”€â”€â”€â”€â”€â”¬â”€â”€â”´â”€â”¬â”€â”´â”€â”€â”¬â”´â”€â”€â”€â”´â”€â”€â”€â”´â”€â”€â”€â”´â”€â”€â”€â”´â”€â”€â”€â”´â”€â”€â”¬â”´â”€â”€â”€â”¼â”€â”€â”€â”´â”¬â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”¤ â”Œâ”€â”€â”€â”¼â”€â”€â”€â”¼â”€â”€â”€â” â”œâ”€â”€â”€â”´â”€â”€â”€â”¼â”€â”€â”€â”¤   Eâ”‚â”‚
+ â”‚   Ctrl   â”‚        â”‚   Alt  â”‚                    Space                     â”‚  Alt   â”‚        â”‚        â”‚   Ctrl â”‚ â”‚  â†  â”‚  â†“  â”‚  â†’  â”‚ â”‚   0          â”‚  .   â”‚â†â”€â”˜â”‚
+ â””â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”´â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”´â”€â”€â”€â”€â”´â”€â”€â”€â”€â”´â”€â”€â”€â”€â”˜ â””â”€â”€â”€â”´â”€â”€â”€â”´â”€â”€â”€â”˜ â””â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”´â”€â”€â”€â”˜
 */
 
 
 
 static LPTSTR lpPath = new char[MAX_PATH];
 
-//ÉèÖÃUIÓÃµÄ±äÁ¿
+//è®¾ç½®UIç”¨çš„å˜é‡
 //****************************************************************************************************
 static char* set_Baidu_English = new char[5] {};
 static char* set_Baidu_Chinese = new char[5] {};
@@ -92,47 +92,47 @@ static float set_ButtonActiveColor[4];
 const char* items[] = { "Shift", "Ctrl", "Alt" };
 //****************************************************************************************************
 
-//·­ÒëÄ¿±êÓïÑÔÉèÖÃ
-std::string Baidu_English;//¼ì²âÄ¿±êÓïÑÔ
-std::string Baidu_Chinese;//·­ÒëÄ¿±êÓïÑÔ
-std::string Baidu_ChineseReplace;//Ìæ»»µÄÄ¿±êÓïÑÔ
-//·­ÒëAPI µÄ ID ºÍ Key
+//ç¿»è¯‘ç›®æ ‡è¯­è¨€è®¾ç½®
+std::string Baidu_English;//æ£€æµ‹ç›®æ ‡è¯­è¨€
+std::string Baidu_Chinese;//ç¿»è¯‘ç›®æ ‡è¯­è¨€
+std::string Baidu_ChineseReplace;//æ›¿æ¢çš„ç›®æ ‡è¯­è¨€
+//ç¿»è¯‘API çš„ ID å’Œ Key
 std::string Baidu_ID;
 std::string Baidu_Key;
 
 
-//·­ÒëÄ¿±êÓïÑÔÉèÖÃ
-std::string Youdao_English;//¼ì²âÄ¿±êÓïÑÔ
-std::string Youdao_Chinese;//·­ÒëÄ¿±êÓïÑÔ
-std::string Youdao_ChineseReplace;//Ìæ»»µÄÄ¿±êÓïÑÔ
-//·­ÒëAPI µÄ ID ºÍ Key
+//ç¿»è¯‘ç›®æ ‡è¯­è¨€è®¾ç½®
+std::string Youdao_English;//æ£€æµ‹ç›®æ ‡è¯­è¨€
+std::string Youdao_Chinese;//ç¿»è¯‘ç›®æ ‡è¯­è¨€
+std::string Youdao_ChineseReplace;//æ›¿æ¢çš„ç›®æ ‡è¯­è¨€
+//ç¿»è¯‘API çš„ ID å’Œ Key
 std::string Youdao_ID;
 std::string Youdao_Key;
 
 
-//°´¼ü
-static int  screenshot_key_1;//½ØÍ¼°´¼ü screenshot_key_1 && screenshot_key_2
+//æŒ‰é”®
+static int  screenshot_key_1;//æˆªå›¾æŒ‰é”® screenshot_key_1 && screenshot_key_2
 static char* screenshot_key_2 = new char[2] {};
 
-//static int  choice_key_1;//Ñ¡Ôñ°´¼ü choice_key_1 && choice_key_2
+//static int  choice_key_1;//é€‰æ‹©æŒ‰é”® choice_key_1 && choice_key_2
 static char* choice_key_2 = new char[2] {};
 
-//static int  replace_key_1;//Ìæ»»°´¼ü replace_key_1 && replace_key_2
+//static int  replace_key_1;//æ›¿æ¢æŒ‰é”® replace_key_1 && replace_key_2
 static char* replace_key_2 = new char[2] {};
 
-//Èí¼şÉèÖÃ
-static int Residence_Time;//Êó±êÀë¿ª½çÃæÊ±µÄÏÔÊ¾Ê±¼ä
-static int WindowWidth;//·­Òë½çÃæ ¿í¶È ³õÊ¼´óĞ¡
-static bool Fontbool;//ÊÇ·ñÑ¡ÓÃ×ÖÌåÑùÊ½
-std::string Font_path;//×ÖÌåÑùÊ½
-static float FontSize;//×ÖÌå´óĞ¡
-static float ButtonRounding;//°´¼üÔ²Èó¶È
-std::string TesseractModel;//Tesseract-ORC Ä£ĞÍ
-static int ButtonColor[4];//°´¼üÑÕÉ«
-static int ButtonHoveredColor[4];//Êó±êĞüÍ£ÑÕÉ«
-static int ButtonActiveColor[4];//Êó±êµã»÷ÑÕÉ«
+//è½¯ä»¶è®¾ç½®
+static int Residence_Time;//é¼ æ ‡ç¦»å¼€ç•Œé¢æ—¶çš„æ˜¾ç¤ºæ—¶é—´
+static int WindowWidth;//ç¿»è¯‘ç•Œé¢ å®½åº¦ åˆå§‹å¤§å°
+static bool Fontbool;//æ˜¯å¦é€‰ç”¨å­—ä½“æ ·å¼
+std::string Font_path;//å­—ä½“æ ·å¼
+static float FontSize;//å­—ä½“å¤§å°
+static float ButtonRounding;//æŒ‰é”®åœ†æ¶¦åº¦
+std::string TesseractModel;//Tesseract-ORC æ¨¡å‹
+static int ButtonColor[4];//æŒ‰é”®é¢œè‰²
+static int ButtonHoveredColor[4];//é¼ æ ‡æ‚¬åœé¢œè‰²
+static int ButtonActiveColor[4];//é¼ æ ‡ç‚¹å‡»é¢œè‰²
 
-//¶ÁÈ¡INIÊı¾İ
+//è¯»å–INIæ•°æ®
 void IniDataInit() {
 	strcpy(lpPath, "./Data.ini");
 	INIReader iniData{ lpPath };
@@ -180,7 +180,7 @@ void IniDataInit() {
 	GetColor(iniData.GetVector<int>("Set", "ButtonActiveColor"), ButtonActiveColor, set_ButtonActiveColor);
 }
 
-//±£´æINIÊı¾İ
+//ä¿å­˜INIæ•°æ®
 void IniDataPreservation() {
 	WritePrivateProfileString("language", "Youdao_English", set_Youdao_English, lpPath);
 	WritePrivateProfileString("language", "Youdao_Chinese", set_Youdao_Chinese, lpPath);
@@ -224,37 +224,37 @@ void IniDataPreservation() {
 
 
 
-//ÉèÖÃ
+//è®¾ç½®
 static bool Set_interface = false;
-static bool Set_init = false;//ÊÇ·ñÊÇµÚÒ»´Î´ò¿ª½çÃæ
+static bool Set_init = false;//æ˜¯å¦æ˜¯ç¬¬ä¸€æ¬¡æ‰“å¼€ç•Œé¢
 
-//·­Òë½çÃæ
-static bool translate_interface = false;//½çÃæ¿ª¹Ø
-static bool translate_click = false;//ÅĞ¶ÏÊó±êµÚÒ»´Îµã»÷
-static clock_t translate_interface_time;//Êó±êÀë¿ª½çÃæµÄÊ±¼ä´Á
+//ç¿»è¯‘ç•Œé¢
+static bool translate_interface = false;//ç•Œé¢å¼€å…³
+static bool translate_click = false;//åˆ¤æ–­é¼ æ ‡ç¬¬ä¸€æ¬¡ç‚¹å‡»
+static clock_t translate_interface_time;//é¼ æ ‡ç¦»å¼€ç•Œé¢çš„æ—¶é—´æˆ³
 std::string translate_English = "Error";
-std::string translate_Chinese = u8"¿Õ";
+std::string translate_Chinese = u8"ç©º";
 
 
 
-//½ØÍ¼½çÃæ
-static bool Screenshot_interface = false;//½çÃæ¿ª¹Ø
-static bool Screenshot_click = false;//ÅĞ¶ÏÊó±êµÚÒ»´Îµã»÷
-static bool Screenshot_init = false;//ÊÇ·ñÊÇµÚÒ»´Î´ò¿ª½çÃæ
-static bool Screenshot_translate = false;//ÊÇ·ñ·­ÒëÁËÄÚÈİ£¬·ÀÖ¹½ØÍ¼BUG
+//æˆªå›¾ç•Œé¢
+static bool Screenshot_interface = false;//ç•Œé¢å¼€å…³
+static bool Screenshot_click = false;//åˆ¤æ–­é¼ æ ‡ç¬¬ä¸€æ¬¡ç‚¹å‡»
+static bool Screenshot_init = false;//æ˜¯å¦æ˜¯ç¬¬ä¸€æ¬¡æ‰“å¼€ç•Œé¢
+static bool Screenshot_translate = false;//æ˜¯å¦ç¿»è¯‘äº†å†…å®¹ï¼Œé˜²æ­¢æˆªå›¾BUG
 static int Screenshot_translate_shu = 2;
-static POINT MousePosition_1 = { 0,0 };//µÚÒ»´Î×ó¼üµã»÷Î»ÖÃ
-static POINT MousePosition_2 = { 0,0 };//×ó¼üËÉ¿ªÎ»ÖÃ
-static ImTextureID image_ID;//IMGUIÍ¼Æ¬ID
-static ID3D11ShaderResourceView* m_pImageTextureView1;//DX11µÄÍ¼Æ¬ID
+static POINT MousePosition_1 = { 0,0 };//ç¬¬ä¸€æ¬¡å·¦é”®ç‚¹å‡»ä½ç½®
+static POINT MousePosition_2 = { 0,0 };//å·¦é”®æ¾å¼€ä½ç½®
+static ImTextureID image_ID;//IMGUIå›¾ç‰‡ID
+static ID3D11ShaderResourceView* m_pImageTextureView1;//DX11çš„å›¾ç‰‡ID
 static l_int32 x, y, w, h;
 
 
-//ÏµÍ³ÍĞÅÌ²Ëµ¥
-static bool SystemTray_interface = false;//½çÃæ¿ª¹Ø
-static bool SystemTray_init = false;//ÊÇ·ñÊÇµÚÒ»´Î´ò¿ª½çÃæ
-static bool SystemTray_mode = false;//·­Òë·½Ê½ 1£ºÓĞµÀ   0£º°Ù¶È
-static clock_t SystemTray_interface_time;//Êó±êÀë¿ª½çÃæµÄÊ±¼ä´Á
+//ç³»ç»Ÿæ‰˜ç›˜èœå•
+static bool SystemTray_interface = false;//ç•Œé¢å¼€å…³
+static bool SystemTray_init = false;//æ˜¯å¦æ˜¯ç¬¬ä¸€æ¬¡æ‰“å¼€ç•Œé¢
+static bool SystemTray_mode = false;//ç¿»è¯‘æ–¹å¼ 1ï¼šæœ‰é“   0ï¼šç™¾åº¦
+static clock_t SystemTray_interface_time;//é¼ æ ‡ç¦»å¼€ç•Œé¢çš„æ—¶é—´æˆ³
 
 
 //IMGUI
@@ -262,8 +262,8 @@ static ImVec4 clear_color;
 
 
 
-static int windows_Width{ GetSystemMetrics(SM_CXSCREEN) };//»ñÈ¡ÏÔÊ¾Æ÷µÄ¿í
-static int windows_Heigth{ GetSystemMetrics(SM_CYSCREEN) };//»ñÈ¡ÏÔÊ¾Æ÷µÄ¸ß
+static int windows_Width{ GetSystemMetrics(SM_CXSCREEN) };//è·å–æ˜¾ç¤ºå™¨çš„å®½
+static int windows_Heigth{ GetSystemMetrics(SM_CYSCREEN) };//è·å–æ˜¾ç¤ºå™¨çš„é«˜
 
 
 
@@ -275,7 +275,7 @@ static HWND hwnd = NULL;
 
 HINSTANCE g_hInst = NULL;
 
-#define WM_IAWENTRAY    WM_USER+2  //ÏµÍ³ÍĞÅÌµÄ×Ô¶¨ÒåÏûÏ¢ 
+#define WM_IAWENTRAY    WM_USER+2  //ç³»ç»Ÿæ‰˜ç›˜çš„è‡ªå®šä¹‰æ¶ˆæ¯ 
 
 static ID3D11Device* g_pd3dDevice = NULL;
 static ID3D11DeviceContext* g_pd3dDeviceContext = NULL;

@@ -1,16 +1,16 @@
-#pragma once//·ÀÖ¹¶þ´Î±àÒë
+#pragma once//é˜²æ­¢äºŒæ¬¡ç¼–è¯‘
 #include "base.h"
 
 
 
-//string ×ª wstring
+//string è½¬ wstring
 std::string ws2s(const std::wstring& ws);
 
-//wstring ×ª string
+//wstring è½¬ string
 std::wstring s2ws(const std::string& s);
 
-//Unicode ×ªµ½ utf8
+//Unicode è½¬åˆ° utf8
 std::string  UnicodeToUtf8(const std::string& Unicode);
 
-//utf8 ×ªµ½ Unicode
+//utf8 è½¬åˆ° Unicode
 std::string Utf8ToUnicode(const char* szU8);

@@ -29,25 +29,25 @@ SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/tesseract-5.2.0-x64-windows/lib
 
 
 
-execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/Environment/DLL ${CMAKE_CURRENT_BINARY_DIR}) # ¿½±´ÎÄ¼ş¼Ğ
-#execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/Environment/DLLDebug ${CMAKE_CURRENT_BINARY_DIR}) # ¿½±´ÎÄ¼ş¼Ğ
+execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/Environment/DLL ${CMAKE_CURRENT_BINARY_DIR}) # æ‹·è´æ–‡ä»¶å¤¹
+#execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/Environment/DLLDebug ${CMAKE_CURRENT_BINARY_DIR}) # æ‹·è´æ–‡ä»¶å¤¹
 
-execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/launch.vs.json ${PROJECT_SOURCE_DIR}/.vs)# ÉèÖÃµÄDLLÎÄ¼şÂ·¾¶
+execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/launch.vs.json ${PROJECT_SOURCE_DIR}/.vs)# è®¾ç½®çš„DLLæ–‡ä»¶è·¯å¾„
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/product.ico ${CMAKE_CURRENT_BINARY_DIR})
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/Data.ini ${CMAKE_CURRENT_BINARY_DIR})
-execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/tessdata ${CMAKE_CURRENT_BINARY_DIR}/tessdata)# °Ñ tesseract µÄÄ£ĞÍ¿½½øÈ¥
+execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/tessdata ${CMAKE_CURRENT_BINARY_DIR}/tessdata)# æŠŠ tesseract çš„æ¨¡å‹æ‹·è¿›å»
 
 
 
 add_executable(Translate-miku  ${DIRSRCS}
-	resource.rc#ÉèÖÃexe³ÌĞòÍ¼±ê
+	resource.rc#è®¾ç½®exeç¨‹åºå›¾æ ‡
 )
 
-add_subdirectory(Function) # ¶Ô×ÓÎÄ¼ş¼Ğ½øĞĞCMake
+add_subdirectory(Function) # å¯¹å­æ–‡ä»¶å¤¹è¿›è¡ŒCMake
 add_subdirectory(imgui)
 
 
-Set_Target_Properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")#¹Ø±Õ¿ØÖÆÌ¨
+Set_Target_Properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")#å…³é—­æ§åˆ¶å°
 
 #target_link_libraries(Translate-miku FunctionLib imguiLib tesseract52d.lib leptonica-1.82.0d.lib d3dx11.lib vld.lib jsoncpp.lib libcurl-d.lib libssl.lib libcrypto.lib)
 target_link_libraries(Translate-miku FunctionLib imguiLib tesseract52.lib leptonica-1.82.0.lib d3dx11.lib vld.lib jsoncpp.lib libcurl.lib libssl.lib libcrypto.lib)

@@ -67,7 +67,7 @@ std::string UrlDecode(const std::string& str)
 
 
 
-//£¨ ÏêÏ¸ÏêÏ¸²é¿´°Ù¶È·­ÒëAPIÎÄµµ£ºhttps ://fanyi-api.baidu.com/product/113 £©
+//ï¼ˆ è¯¦ç»†è¯¦ç»†æŸ¥çœ‹ç™¾åº¦ç¿»è¯‘APIæ–‡æ¡£ï¼šhttps ://fanyi-api.baidu.com/product/113 ï¼‰
 std::string Translate_Baidu(const char* appid, const char* secret_key, std::string English, const char* from, const char* to) {
     //appid             //replace myAppid with your own appid
     //secret_key        //replace mySecretKey with your own mySecretKey
@@ -75,9 +75,9 @@ std::string Translate_Baidu(const char* appid, const char* secret_key, std::stri
     //from;             //replace en with your own language type of input text
     //to;               //replace zh with your own language type of output text
 
-    //²»´æÔÚµ¥´ÊÈ¡Ïû·­Òë
+    //ä¸å­˜åœ¨å•è¯å–æ¶ˆç¿»è¯‘
     if (strlen(English.c_str()) <= 1) {
-        return std::string(u8"²»´æÔÚµ¥´Ê");
+        return std::string(u8"ä¸å­˜åœ¨å•è¯");
     }
 
 
@@ -96,7 +96,7 @@ std::string Translate_Baidu(const char* appid, const char* secret_key, std::stri
         sprintf(salt, "%d", a);
         char sign[120] = "";
         strcat(sign, appid);
-        strcat(sign, English.c_str());//»ñÈ¡¼ÓÃÜMD5Ê± English ²»Òª½øĞĞ Url_Encode ´¦Àí  £¨ ÏêÏ¸ÏêÏ¸²é¿´°Ù¶È·­ÒëAPIÎÄµµ£ºhttps://fanyi-api.baidu.com/product/113 £©
+        strcat(sign, English.c_str());//è·å–åŠ å¯†MD5æ—¶ English ä¸è¦è¿›è¡Œ Url_Encode å¤„ç†  ï¼ˆ è¯¦ç»†è¯¦ç»†æŸ¥çœ‹ç™¾åº¦ç¿»è¯‘APIæ–‡æ¡£ï¼šhttps://fanyi-api.baidu.com/product/113 ï¼‰
         strcat(sign, salt);
         strcat(sign, secret_key);
         unsigned char md[16];
@@ -111,7 +111,7 @@ std::string Translate_Baidu(const char* appid, const char* secret_key, std::stri
         strcat(myurl, "appid=");
         strcat(myurl, appid);
         strcat(myurl, "&q=");
-        strcat(myurl, UrlEncode(English).c_str());//Éú³ÉÍøÒ³Á´½ÓÊ± English ²ÅÒª½øĞĞ Url_Encode ´¦Àí   £¨ ÏêÏ¸ÏêÏ¸²é¿´°Ù¶È·­ÒëAPIÎÄµµ£ºhttps://fanyi-api.baidu.com/product/113 £©
+        strcat(myurl, UrlEncode(English).c_str());//ç”Ÿæˆç½‘é¡µé“¾æ¥æ—¶ English æ‰è¦è¿›è¡Œ Url_Encode å¤„ç†   ï¼ˆ è¯¦ç»†è¯¦ç»†æŸ¥çœ‹ç™¾åº¦ç¿»è¯‘APIæ–‡æ¡£ï¼šhttps://fanyi-api.baidu.com/product/113 ï¼‰
         strcat(myurl, "&from=");
         strcat(myurl, from);
         strcat(myurl, "&to=");
@@ -121,7 +121,7 @@ std::string Translate_Baidu(const char* appid, const char* secret_key, std::stri
         strcat(myurl, "&sign=");
         strcat(myurl, buf);
         //printf("%s\n", myurl);
-        //ÉèÖÃ·ÃÎÊµÄµØÖ·
+        //è®¾ç½®è®¿é—®çš„åœ°å€
         curl_easy_setopt(curl, CURLOPT_URL, &myurl);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
         res = curl_easy_perform(curl);
@@ -131,11 +131,11 @@ std::string Translate_Baidu(const char* appid, const char* secret_key, std::stri
         }
         /* always cleanup */
         curl_easy_cleanup(curl);
-        fseek(fp, 0, SEEK_END);//½«ÎÄ¼şÄÚ²¿µÄÖ¸ÕëÖ¸ÏòÎÄ¼şÄ©Î²
-        long lsize = ftell(fp);//»ñÈ¡ÎÄ¼ş³¤¶È£¬£¨µÃµ½ÎÄ¼şÎ»ÖÃÖ¸Õëµ±Ç°Î»ÖÃÏà¶ÔÓÚÎÄ¼şÊ×µÄÆ«ÒÆ×Ö½ÚÊı£©
-        fseek(fp, NULL, SEEK_SET);//½«ÎÄ¼şÄÚ²¿µÄÖ¸ÕëÖØĞÂÖ¸ÏòÒ»¸öÁ÷µÄ¿ªÍ·
-        char* kaox = new char[lsize];//ÉêÇëÄÚ´æ¿Õ¼ä£¬lsize*sizeof(char)ÊÇÎªÁË¸üÑÏ½÷£¬16Î»ÉÏcharÕ¼Ò»¸ö×Ö·û£¬ÆäËû»úÆ÷ÉÏ¿ÉÄÜ±ä»¯
-        fread(kaox, 1, lsize, fp);//½«pfileÖĞÄÚÈİ¶ÁÈëpreadÖ¸ÏòÄÚ´æÖĞ
+        fseek(fp, 0, SEEK_END);//å°†æ–‡ä»¶å†…éƒ¨çš„æŒ‡é’ˆæŒ‡å‘æ–‡ä»¶æœ«å°¾
+        long lsize = ftell(fp);//è·å–æ–‡ä»¶é•¿åº¦ï¼Œï¼ˆå¾—åˆ°æ–‡ä»¶ä½ç½®æŒ‡é’ˆå½“å‰ä½ç½®ç›¸å¯¹äºæ–‡ä»¶é¦–çš„åç§»å­—èŠ‚æ•°ï¼‰
+        fseek(fp, NULL, SEEK_SET);//å°†æ–‡ä»¶å†…éƒ¨çš„æŒ‡é’ˆé‡æ–°æŒ‡å‘ä¸€ä¸ªæµçš„å¼€å¤´
+        char* kaox = new char[lsize];//ç”³è¯·å†…å­˜ç©ºé—´ï¼Œlsize*sizeof(char)æ˜¯ä¸ºäº†æ›´ä¸¥è°¨ï¼Œ16ä½ä¸Šcharå ä¸€ä¸ªå­—ç¬¦ï¼Œå…¶ä»–æœºå™¨ä¸Šå¯èƒ½å˜åŒ–
+        fread(kaox, 1, lsize, fp);//å°†pfileä¸­å†…å®¹è¯»å…¥preadæŒ‡å‘å†…å­˜ä¸­
         fclose(fp);
 
 
@@ -144,13 +144,13 @@ std::string Translate_Baidu(const char* appid, const char* secret_key, std::stri
         if (!reader.parse(kaox, value)) {
             printf("parse json error!");
             delete[] kaox;
-            return "´íÎó";
+            return "é”™è¯¯";
         }
         std::string Chinese = value["trans_result"][0]["dst"].asString();
         delete[] kaox;
         return Chinese;
     }
-    return "´íÎó";
+    return "é”™è¯¯";
 }
 
 std::string Translate_Youdao(const char* appid, const char* secret_key, std::string English, const char* from, const char* to)
@@ -161,9 +161,9 @@ std::string Translate_Youdao(const char* appid, const char* secret_key, std::str
     //from;             //replace en with your own language type of input text
     //to;               //replace zh with your own language type of output text
 
-    //²»´æÔÚµ¥´ÊÈ¡Ïû·­Òë
+    //ä¸å­˜åœ¨å•è¯å–æ¶ˆç¿»è¯‘
     if (strlen(English.c_str()) <= 1) {
-        return std::string(u8"²»´æÔÚµ¥´Ê");
+        return std::string(u8"ä¸å­˜åœ¨å•è¯");
     }
 
     CURL* curl;
@@ -180,7 +180,7 @@ std::string Translate_Youdao(const char* appid, const char* secret_key, std::str
         sprintf(salt, "%d", a);
         char sign[120] = "";
         strcat(sign, appid);
-        strcat(sign, English.c_str());//»ñÈ¡¼ÓÃÜMD5Ê± English ²»Òª½øĞĞ Url_Encode ´¦Àí  £¨ ÏêÏ¸ÏêÏ¸²é¿´°Ù¶È·­ÒëAPIÎÄµµ£ºhttps://fanyi-api.baidu.com/product/113 £©
+        strcat(sign, English.c_str());//è·å–åŠ å¯†MD5æ—¶ English ä¸è¦è¿›è¡Œ Url_Encode å¤„ç†  ï¼ˆ è¯¦ç»†è¯¦ç»†æŸ¥çœ‹ç™¾åº¦ç¿»è¯‘APIæ–‡æ¡£ï¼šhttps://fanyi-api.baidu.com/product/113 ï¼‰
         strcat(sign, salt);
         strcat(sign, secret_key);
         unsigned char md[16];
@@ -195,7 +195,7 @@ std::string Translate_Youdao(const char* appid, const char* secret_key, std::str
         strcat(myurl, "appKey=");
         strcat(myurl, appid);
         strcat(myurl, "&q=");
-        strcat(myurl, UrlEncode(English).c_str());//Éú³ÉÍøÒ³Á´½ÓÊ± English ²ÅÒª½øĞĞ Url_Encode ´¦Àí   £¨ ÏêÏ¸ÏêÏ¸²é¿´°Ù¶È·­ÒëAPIÎÄµµ£ºhttps://fanyi-api.baidu.com/product/113 £©
+        strcat(myurl, UrlEncode(English).c_str());//ç”Ÿæˆç½‘é¡µé“¾æ¥æ—¶ English æ‰è¦è¿›è¡Œ Url_Encode å¤„ç†   ï¼ˆ è¯¦ç»†è¯¦ç»†æŸ¥çœ‹ç™¾åº¦ç¿»è¯‘APIæ–‡æ¡£ï¼šhttps://fanyi-api.baidu.com/product/113 ï¼‰
         strcat(myurl, "&from=");
         strcat(myurl, from);
         strcat(myurl, "&to=");
@@ -205,7 +205,7 @@ std::string Translate_Youdao(const char* appid, const char* secret_key, std::str
         strcat(myurl, "&salt=");
         strcat(myurl, salt);
         //printf("%s\n", myurl);
-        //ÉèÖÃ·ÃÎÊµÄµØÖ·
+        //è®¾ç½®è®¿é—®çš„åœ°å€
         curl_easy_setopt(curl, CURLOPT_URL, &myurl);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
         res = curl_easy_perform(curl);
@@ -215,11 +215,11 @@ std::string Translate_Youdao(const char* appid, const char* secret_key, std::str
         }
         /* always cleanup */
         curl_easy_cleanup(curl);
-        fseek(fp, 0, SEEK_END);//½«ÎÄ¼şÄÚ²¿µÄÖ¸ÕëÖ¸ÏòÎÄ¼şÄ©Î²
-        long lsize = ftell(fp);//»ñÈ¡ÎÄ¼ş³¤¶È£¬£¨µÃµ½ÎÄ¼şÎ»ÖÃÖ¸Õëµ±Ç°Î»ÖÃÏà¶ÔÓÚÎÄ¼şÊ×µÄÆ«ÒÆ×Ö½ÚÊı£©
-        fseek(fp, NULL, SEEK_SET);//½«ÎÄ¼şÄÚ²¿µÄÖ¸ÕëÖØĞÂÖ¸ÏòÒ»¸öÁ÷µÄ¿ªÍ·
-        char* kaox = new char[lsize];//ÉêÇëÄÚ´æ¿Õ¼ä£¬lsize*sizeof(char)ÊÇÎªÁË¸üÑÏ½÷£¬16Î»ÉÏcharÕ¼Ò»¸ö×Ö·û£¬ÆäËû»úÆ÷ÉÏ¿ÉÄÜ±ä»¯
-        fread(kaox, 1, lsize, fp);//½«pfileÖĞÄÚÈİ¶ÁÈëpreadÖ¸ÏòÄÚ´æÖĞ
+        fseek(fp, 0, SEEK_END);//å°†æ–‡ä»¶å†…éƒ¨çš„æŒ‡é’ˆæŒ‡å‘æ–‡ä»¶æœ«å°¾
+        long lsize = ftell(fp);//è·å–æ–‡ä»¶é•¿åº¦ï¼Œï¼ˆå¾—åˆ°æ–‡ä»¶ä½ç½®æŒ‡é’ˆå½“å‰ä½ç½®ç›¸å¯¹äºæ–‡ä»¶é¦–çš„åç§»å­—èŠ‚æ•°ï¼‰
+        fseek(fp, NULL, SEEK_SET);//å°†æ–‡ä»¶å†…éƒ¨çš„æŒ‡é’ˆé‡æ–°æŒ‡å‘ä¸€ä¸ªæµçš„å¼€å¤´
+        char* kaox = new char[lsize];//ç”³è¯·å†…å­˜ç©ºé—´ï¼Œlsize*sizeof(char)æ˜¯ä¸ºäº†æ›´ä¸¥è°¨ï¼Œ16ä½ä¸Šcharå ä¸€ä¸ªå­—ç¬¦ï¼Œå…¶ä»–æœºå™¨ä¸Šå¯èƒ½å˜åŒ–
+        fread(kaox, 1, lsize, fp);//å°†pfileä¸­å†…å®¹è¯»å…¥preadæŒ‡å‘å†…å­˜ä¸­
         fclose(fp);
 
 
@@ -228,11 +228,11 @@ std::string Translate_Youdao(const char* appid, const char* secret_key, std::str
         if (!reader.parse(kaox, value)) {
             printf("parse json error!");
             delete[] kaox;
-            return "´íÎó";
+            return "é”™è¯¯";
         }
         std::string Chinese = value["web"][0]["value"][0].asString();
         delete[] kaox;
         return Chinese;
     }
-    return "´íÎó";
+    return "é”™è¯¯";
 }

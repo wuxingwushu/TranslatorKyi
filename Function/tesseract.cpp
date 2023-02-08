@@ -12,7 +12,7 @@ std::string Tesseract_OCR(l_int32 x, l_int32 y, l_int32 w, l_int32 h, const char
         exit(1);
     }
 
-    // Open input image with leptonica library : ¿ª·ÅÊäÈëÍ¼ÏñÓëleptonica¿â
+    // Open input image with leptonica library : ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½leptonicaï¿½ï¿½
     Pix* image = pixRead("TemporaryData");
     BOX* region = boxCreate(x, y, w, h);
     PIX* imgCrop = pixClipRectangle(image, region, NULL);
