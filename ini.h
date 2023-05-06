@@ -580,6 +580,23 @@ namespace inih {
             }
             out.close();
         }
+
+        //修改后的 write()
+        inline static void write_Gai(const std::string& filepath,
+            const INIReader& reader) {
+            std::ofstream out;
+            out.open(filepath);
+            if (!out.is_open()) {
+                throw std::runtime_error("cannot open output file: " + filepath);
+            }
+            for (const auto& section : reader.Sections()) {
+                out << "[" << section << "]\n";
+                for (const auto& key : reader.Keys(section)) {
+                    out << key << "=" << reader.Get(section, key) << "\n";
+                }
+            }
+            out.close();
+        }
     };
 }
 #endif /* __INIWRITER_H__ */

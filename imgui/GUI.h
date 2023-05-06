@@ -1,16 +1,23 @@
-#pragma once//·ÀÖ¹¶þ´Î±àÒë
+#pragma once//ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½Î±ï¿½ï¿½ï¿½
 #include "imconfig.h"
 #include "imgui.h"
-#include "imgui_impl_dx11.h"
-#include "imgui_impl_win32.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
 #include "imgui_internal.h"
 #include "imstb_rectpack.h"
 #include "imstb_textedit.h"
 #include "imstb_truetype.h"
 #include "Font.h"
 
-#include <d3d11.h>
-#include "d3dx11effect.h"
-#include <D3DX11tex.h>
-#pragma comment(lib,"d3d11.lib")
-#pragma warning( disable : 4996 )
+static void HelpMarker(const char* desc)
+{
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+    {
+        ImGui::BeginTooltip();
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+        ImGui::TextUnformatted(desc);
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+}

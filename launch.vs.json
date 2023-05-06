@@ -5,8 +5,8 @@
     {
       "type": "default",
       "project": "CMakeLists.txt",
-      "projectTarget": "Translate-miku.exe",
-      "name": "Translate-miku.exe",
+      "projectTarget": "VulKan.exe",
+      "name": "VulKan.exe",
       "cwd": "${fileDirname}",
       "env": {
         "PATH": "${PATH};${fileDirname}\\Environment\\Visual_Leak_Detector\\bin\\Win64;"

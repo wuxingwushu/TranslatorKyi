@@ -1,10 +1,67 @@
-#pragma once//��ֹ���α���
+#pragma once
 #include "../base.h"
 #include <json.h>
 #include <curl/curl.h>
 #include <openssl/md5.h>
 #include <assert.h>
 
+class Translate
+{
+public:
+	Translate();
+	~Translate();
 
-std::string Translate_Baidu(const char* appid, const char* secret_key, std::string English, const char* from, const char* to);
-std::string Translate_Youdao(const char* appid, const char* secret_key, std::string English, const char* from, const char* to);
+	void SetBaiduAppID(const char* appid) { mBaiduAppid = appid; }
+	void SetBaiduSecretkey(const char* secret_key) { mBaiduSecret_key = secret_key;}
+
+	void SetYoudaoAppID(const char* appid) { mYoudaoAppid = appid; }
+	void SetYoudaoSecretkey(const char* secret_key) { mYoudaoSecret_key = secret_key; }
+
+	void SetFrom(int from) { mFrom = from; }
+	void SetTo(int to) { mTo = to; }
+	void SetTranslate(int translate) { mTranslate = translate; }
+
+	std::string TranslateAPI(std::string English) {
+		switch (mTranslate)
+		{
+		case 0:
+			return Translate_Baidu(English);
+			break;
+		case 1:
+			return Translate_Youdao(English);
+			break;
+		default:
+			break;
+		}
+	}
+	const char* TranslateName[2] = {"百度","有道"};
+
+	const char** Baidu_items;
+	const char** Youdao_items;
+
+	int mFrom;
+	int mTo;
+
+	int mTranslate = 0;
+private:
+	const char* mBaiduAppid;
+	const char* mBaiduSecret_key;
+
+	const char* mYoudaoAppid;
+	const char* mYoudaoSecret_key;
+
+	
+
+
+	unsigned char ToHex(unsigned char x);
+
+	unsigned char FromHex(unsigned char x);
+
+	std::string UrlEncode(const std::string& str);
+
+	std::string UrlDecode(const std::string& str);
+
+	std::string Translate_Baidu(std::string English);
+
+	std::string Translate_Youdao(std::string English);
+};

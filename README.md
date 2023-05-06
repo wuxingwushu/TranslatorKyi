@@ -43,5 +43,5 @@ Translate-miku
 	> [tesseract-ocr](https://github.com/tesseract-ocr/tesseract/tree/5.2.0)
 	> 编译生成动态库 api 命令：
 	> ```
-	> vcpkg install tesseract:x64-windows
+	> 在你下载的tesseract源码打开CMD输入指令："你的路径\vcpkg.exe install tesseract:x64-windows-static"
 	> ```

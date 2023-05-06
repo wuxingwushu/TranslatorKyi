@@ -1,66 +1,57 @@
-#pragma once//防止二次编译
-#include <time.h>
-#include <string.h>
+#pragma once
 #include <iostream>
-#include <tchar.h>
-#include <sstream>
-#include <windows.h>//WIN API
-//#include "vld.h"//内存泄露检测库 （Debug 时才会启动）
-
-
-static clock_t shijian;//测试耗时
-/*shijian = clock();
-printf("%d\n", shijian - clock());
-*/
-
-/*
-std::cout <<   << std::endl;
- 
-
-GetKeyState按键表
-https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
-*/
-
-
-/*
-#include <iostream>
+#include <vector>//动态数组
+#include <array>//静态数组
+#include <map>
 #include <string>
-#include <curl/curl.h>
+#include <optional>
+#include <set>
+#include <fstream>
 
-// 这是有道翻译 API 的地址
-const std::string API_URL = "http://fanyi.youdao.com/translate?&doctype=json&type=ZH_CN2EN";
 
-// 这是有道翻译 API 的私人 key，需要在有道翻译官网申请
-const std::string PRIVATE_KEY = "your_private_key";
+#include <windows.h>//WIN API
 
-// 这是有道翻译 API 的私人 key，需要在有道翻译官网申请
-const std::string APP_KEY = "your_app_key";
+//矩阵计算库
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
-// 这是有道翻译 API 的输入语言，可以是 "ZH_CN" 或 "EN"
-const std::string INPUT_LANG = "ZH_CN";
 
-// 这是有道翻译 API 的输出语言，可以是 "ZH_CN" 或 "EN"
-const std::string OUTPUT_LANG = "EN";
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>//跨平台接口
+#include <vulkan/vulkan.h>//VulKan API
 
-// 这是一个函数，用于将字符串转换为 URL 编码
-std::string url_encode(const std::string& str) {
-  // 初始化 curl 库
-  CURL *curl = curl_easy_init();
-  if (!curl) {
-    std::cerr << "Error: failed to initialize curl" << std::endl;
-    return "";
-  }
 
-  // 设置 curl 库的选项
-  curl_easy_setopt(curl, CURLOPT_URL, API_URL.c_str());
-  curl_easy_setopt(curl, CURLOPT_POSTFIELDS, ("q=" + str).c_str());
-  curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, -1L);
-  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA, NULL);
 
-  // 设置 HTTP 头部
-  struct curl_s
+//#define VMA_DEBUG_MARGIN 16//边距（Margins）https://blog.csdn.net/weixin_50523841/article/details/122506850
+#include "vk_mem_alloc.h"//内存分配器，宏声明 放在了 device.cpp 当中去了，引用的时候要放在CPP当中用要不然会报错（反复定义）
 
-*/
+#include "FilePath.h"//资源路径
+
+#include "Tool/Tool.h"
+#include "Variable.h"
+
+
+//开启的测试模式
+const std::vector<const char*> validationLayers = {
+	"VK_LAYER_KHRONOS_validation"//测试类型
+};
+
+
+struct VPMatrices {
+	glm::mat4 mViewMatrix;
+	glm::mat4 mProjectionMatrix;
+
+	VPMatrices() {
+		mViewMatrix = glm::mat4(1.0f);
+		mProjectionMatrix = glm::mat4(1.0f);
+	}
+};
+
+struct ObjectUniform {
+	glm::mat4 mModelMatrix;
+
+	ObjectUniform() {
+		mModelMatrix = glm::mat4(1.0f);
+	}
+};

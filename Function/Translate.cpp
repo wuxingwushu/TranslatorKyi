@@ -1,15 +1,32 @@
 #include "Translate.h"
 
 
+Translate::Translate()
+{   
+    Baidu_items = new const char* [Variable::Baiduitems.size()];
+    for (int i = 0; i < Variable::Baiduitems.size(); i++)
+    {
+        Baidu_items[i] = Variable::Baiduitems[i].c_str();
+    }
+    Youdao_items = new const char* [Variable::Youdaoitems.size()];
+    for (int i = 0; i < Variable::Youdaoitems.size(); i++)
+    {
+        Youdao_items[i] = Variable::Youdaoitems[i].c_str();
+    }
+}
+
+Translate::~Translate()
+{
+
+}
 
 
-
-unsigned char ToHex(unsigned char x)
+unsigned char Translate::ToHex(unsigned char x)
 {
     return  x > 9 ? x + 55 : x + 48;
 }
 
-unsigned char FromHex(unsigned char x)
+unsigned char Translate::FromHex(unsigned char x)
 {
     unsigned char y;
     if (x >= 'A' && x <= 'Z') y = x - 'A' + 10;
@@ -21,7 +38,7 @@ unsigned char FromHex(unsigned char x)
 
 
 
-std::string UrlEncode(const std::string& str)
+std::string Translate::UrlEncode(const std::string& str)
 {
     std::string strTemp = "";
     size_t length = str.length();
@@ -46,7 +63,7 @@ std::string UrlEncode(const std::string& str)
 }
 
 
-std::string UrlDecode(const std::string& str)
+std::string Translate::UrlDecode(const std::string& str)
 {
     std::string strTemp = "";
     size_t length = str.length();
@@ -68,18 +85,17 @@ std::string UrlDecode(const std::string& str)
 
 
 //（ 详细详细查看百度翻译API文档：https ://fanyi-api.baidu.com/product/113 ）
-std::string Translate_Baidu(const char* appid, const char* secret_key, std::string English, const char* from, const char* to) {
-    //appid             //replace myAppid with your own appid
-    //secret_key        //replace mySecretKey with your own mySecretKey
-    //English           //replace apple with your own text to be translate, ensure that the input text is encoded with UTF-8!
-    //from;             //replace en with your own language type of input text
-    //to;               //replace zh with your own language type of output text
+std::string Translate::Translate_Baidu(std::string English) {
+    //appid             //将myAppid替换为您自己的appid
+    //secret_key        //将mySecretKey替换为您自己的mySecretKey
+    //English           //将apple替换为您自己要翻译的文本，确保输入文本使用UTF-8编码！
+    //from;             //用您自己的语言类型的输入文本替换en
+    //to;               //用您自己语言类型的输出文本替换zh
 
     //不存在单词取消翻译
     if (strlen(English.c_str()) <= 1) {
         return std::string(u8"不存在单词");
     }
-
 
 
     CURL* curl;
@@ -89,16 +105,16 @@ std::string Translate_Baidu(const char* appid, const char* secret_key, std::stri
 
     curl = curl_easy_init();
     if (curl) {
-        char myurl[1000] = "http://api.fanyi.baidu.com/api/trans/vip/translate?";
+        char myurl[100000] = "http://api.fanyi.baidu.com/api/trans/vip/translate?";
         
         char salt[60];
         int a = rand();
         sprintf(salt, "%d", a);
         char sign[120] = "";
-        strcat(sign, appid);
+        strcat(sign, mBaiduAppid);
         strcat(sign, English.c_str());//获取加密MD5时 English 不要进行 Url_Encode 处理  （ 详细详细查看百度翻译API文档：https://fanyi-api.baidu.com/product/113 ）
         strcat(sign, salt);
-        strcat(sign, secret_key);
+        strcat(sign, mBaiduSecret_key);
         unsigned char md[16];
         int i;
         char tmp[3] = { '\0' }, buf[33] = { '\0' };
@@ -109,13 +125,13 @@ std::string Translate_Baidu(const char* appid, const char* secret_key, std::stri
         }
         //printf("%s\n", buf);
         strcat(myurl, "appid=");
-        strcat(myurl, appid);
+        strcat(myurl, mBaiduAppid);
         strcat(myurl, "&q=");
         strcat(myurl, UrlEncode(English).c_str());//生成网页链接时 English 才要进行 Url_Encode 处理   （ 详细详细查看百度翻译API文档：https://fanyi-api.baidu.com/product/113 ）
         strcat(myurl, "&from=");
-        strcat(myurl, from);
+        strcat(myurl, Baidu_items[mFrom]);
         strcat(myurl, "&to=");
-        strcat(myurl, to);
+        strcat(myurl, Baidu_items[mTo]);
         strcat(myurl, "&salt=");
         strcat(myurl, salt);
         strcat(myurl, "&sign=");
@@ -153,13 +169,14 @@ std::string Translate_Baidu(const char* appid, const char* secret_key, std::stri
     return "错误";
 }
 
-std::string Translate_Youdao(const char* appid, const char* secret_key, std::string English, const char* from, const char* to)
+std::string Translate::Translate_Youdao(std::string English)
 {
-    //appid             //replace myAppid with your own appid
-    //secret_key        //replace mySecretKey with your own mySecretKey
-    //English           //replace apple with your own text to be translate, ensure that the input text is encoded with UTF-8!
-    //from;             //replace en with your own language type of input text
-    //to;               //replace zh with your own language type of output text
+    //appid             //将myAppid替换为您自己的appid
+    //secret_key        //将mySecretKey替换为您自己的mySecretKey
+    //English           //将apple替换为您自己要翻译的文本，确保输入文本使用UTF-8编码！
+    //from;             //用您自己的语言类型的输入文本替换en
+    //to;               //用您自己语言类型的输出文本替换zh
+
 
     //不存在单词取消翻译
     if (strlen(English.c_str()) <= 1) {
@@ -173,16 +190,16 @@ std::string Translate_Youdao(const char* appid, const char* secret_key, std::str
 
     curl = curl_easy_init();
     if (curl) {
-        char myurl[1000] = "http://openapi.youdao.com/api?";
+        char myurl[100000] = "http://openapi.youdao.com/api?";
 
         char salt[60];
         int a = rand();
         sprintf(salt, "%d", a);
         char sign[120] = "";
-        strcat(sign, appid);
+        strcat(sign, mYoudaoAppid);
         strcat(sign, English.c_str());//获取加密MD5时 English 不要进行 Url_Encode 处理  （ 详细详细查看百度翻译API文档：https://fanyi-api.baidu.com/product/113 ）
         strcat(sign, salt);
-        strcat(sign, secret_key);
+        strcat(sign, mYoudaoSecret_key);
         unsigned char md[16];
         int i;
         char tmp[3] = { '\0' }, buf[33] = { '\0' };
@@ -193,13 +210,13 @@ std::string Translate_Youdao(const char* appid, const char* secret_key, std::str
         }
         //printf("%s\n", buf);
         strcat(myurl, "appKey=");
-        strcat(myurl, appid);
+        strcat(myurl, mYoudaoAppid);
         strcat(myurl, "&q=");
         strcat(myurl, UrlEncode(English).c_str());//生成网页链接时 English 才要进行 Url_Encode 处理   （ 详细详细查看百度翻译API文档：https://fanyi-api.baidu.com/product/113 ）
         strcat(myurl, "&from=");
-        strcat(myurl, from);
+        strcat(myurl, Youdao_items[mFrom]);
         strcat(myurl, "&to=");
-        strcat(myurl, to);
+        strcat(myurl, Youdao_items[mTo]);
         strcat(myurl, "&sign=");
         strcat(myurl, buf);
         strcat(myurl, "&salt=");

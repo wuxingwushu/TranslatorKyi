@@ -1,34 +1,34 @@
+#pragma once
 #include "tesseract.h"
 
-std::string Tesseract_OCR(l_int32 x, l_int32 y, l_int32 w, l_int32 h, const char* Model)
-{
-    //printf("%d - %d - %d - %d", x, y, w, h);
 
-    char* outText;
-    tesseract::TessBaseAPI* api = new tesseract::TessBaseAPI();
-    // Initialize tesseract-ocr with English, without specifying tessdata path
-    if (api->Init("tessdata", Model)) {
+Tesseract::Tesseract(const char* Model)
+{
+    api = new tesseract::TessBaseAPI();
+    if (api->Init("TessData", Model)) {//初始化， Model 是识别的模型
         fprintf(stderr, "Could not initialize tesseract.\n");
         exit(1);
     }
+}
 
-    // Open input image with leptonica library : ��������ͼ����leptonica��
-    Pix* image = pixRead("TemporaryData");
-    BOX* region = boxCreate(x, y, w, h);
-    PIX* imgCrop = pixClipRectangle(image, region, NULL);
-    boxDestroy(&region);
-    api->SetImage(imgCrop);
-    // Get OCR result
-    outText = api->GetUTF8Text();
-    std::string Text = outText;
-    //printf("OCR output:\n%s", outText);
-
-    // Destroy used object and release memory
+Tesseract::~Tesseract()
+{
     api->End();
     delete api;
-    delete[] outText;
-    pixDestroy(&image);
-    pixDestroy(&imgCrop);
+}
 
+std::string Tesseract::IdentifyPictures(l_int32 x, l_int32 y, l_int32 w, l_int32 h, char* data) {
+    Pix* image = pixCreate(Variable::windows_Width, Variable::windows_Heigth, 32);
+    memcpy((char*)pixGetData(image), data, (Variable::windows_Heigth * Variable::windows_Width * 4));
+    BOX* region = boxCreate(x, y, w, h);
+    PIX* imgCrop = pixClipRectangle(image, region, NULL);
+    api->SetImage(imgCrop);
+    char* outText = api->GetUTF8Text();
+    //intf("OCR output:\n%s", outText);
+    Text = outText;
+    boxDestroy(&region);
+    pixDestroy(&imgCrop);
+    pixDestroy(&image);
+    delete[] outText;
     return Text;
 }
