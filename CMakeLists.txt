@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(VulKan)
+project(TranslatorWoman)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -7,7 +7,7 @@ if(CMAKE_BUILD_TYPE AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
 	message("Debug模式")
 else()
 	message("Release模式")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O3")
 endif()
 
 aux_source_directory(. DIRSRCS)
@@ -51,7 +51,7 @@ endif()
 
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/launch.vs.json ${PROJECT_SOURCE_DIR}/.vs)# 设置的DLL文件路径
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/Data.ini ${CMAKE_CURRENT_BINARY_DIR})
-# execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/Environment/DLL ${CMAKE_CURRENT_BINARY_DIR}) # 拷贝文件夹
+execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/TTF ${CMAKE_CURRENT_BINARY_DIR}/TTF)
 execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/TessData ${CMAKE_CURRENT_BINARY_DIR}/TessData)# 把 tesseract 的模型拷进去
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/product.ico ${CMAKE_CURRENT_BINARY_DIR})
 
@@ -67,7 +67,7 @@ add_subdirectory(ImGui)
 add_subdirectory(Tool)
 add_subdirectory(Function)
 
-add_executable(VulKan  ${DIRSRCS}
+add_executable(TranslatorWoman  ${DIRSRCS}
 	resource.rc#设置exe程序图标
 )
 
@@ -84,7 +84,7 @@ add_executable(VulKan  ${DIRSRCS}
 
 if(CMAKE_BUILD_TYPE AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
 	target_link_libraries(
-		VulKan 
+		TranslatorWoman 
 		vulkanLib 
 		textureLib 
 		imguiLib 
@@ -107,9 +107,9 @@ else()
 	set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")#关闭控制台
 
 	target_link_libraries(
-		VulKan 
-		vulkanLib 
-		textureLib 
+		TranslatorWoman 
+		vulkanLib
+		textureLib
 		imguiLib 
 		ToolLib 
 		FunctionLib 

@@ -20,7 +20,6 @@ namespace GAME {
 	//总初始化
 	void Application::run(VulKan::Window* w) {
 		mWindow = w;
-		buffer = new char[1080 * 1920 * 4];
 		//initWindow();//初始化窗口
 		initVulkan();//初始化Vulkan
 		initImGui();//初始化ImGui
@@ -47,7 +46,6 @@ namespace GAME {
 		mWidth = mSwapChain->getExtent().width;
 		mHeight = mSwapChain->getExtent().height;
 		mRenderPass = new VulKan::RenderPass(mDevice);
-		mSampler = new VulKan::Sampler(mDevice);//采样器
 		createRenderPass();
 		mSwapChain->createFrameBuffers(mRenderPass);
 
@@ -191,8 +189,8 @@ namespace GAME {
 			mWindow->pollEvents();
 			KeyBoardEvents();//监听键盘
 			
-			if (InterFace->qingBool) {
-				InterFace->qingBool = false;
+			if (InterFace->EndDisplayBool) {
+				InterFace->EndDisplayBool = false;
 				InterFace->SetInterFaceBool(false);
 				render();
 			}
@@ -226,23 +224,17 @@ namespace GAME {
 				std::string strS = TOOL::ClipboardTochar();//读取当前剪切板的内容，保存起来
 
 				//获取当前选择的内容 ctrl + c
-				keybd_event(17, 0, 0, 0);//按下 ctrl
-				keybd_event(67, 0, 0, 0);//按下 c
-				keybd_event(17, 0, KEYEVENTF_KEYUP, 0);//松开 ctrl
-				keybd_event(67, 0, KEYEVENTF_KEYUP, 0);//松开 c
+				TOOL::CtrlAndC();
 				Sleep(5);//等待上面的内容复制到剪切板上
 				
 				Variable::eng = TOOL::UnicodeToUtf8(TOOL::ClipboardTochar());//获取选中的文本
 				Variable::zhong = InterFace->mTranslate->TranslateAPI(Variable::eng);//翻译内容
+
 				memset(InterFace->eng, 0, sizeof(InterFace->eng));
 				memset(InterFace->zhong, 0, sizeof(InterFace->zhong));
 				memcpy(InterFace->eng, Variable::eng.c_str(), Variable::eng.size());
 				memcpy(InterFace->zhong, Variable::zhong.c_str(), Variable::zhong.size());
-				InterFace->TranslateTime = clock();
 				InterFace->SetInterFace(0);//设置显示类
-				InterFace->SetInterFaceBool(true);//开启显示
-				InterFace->InterFace();
-				render();
 
 				TOOL::CopyToClipboard(strS);//还原原来剪切板的内容
 				return;
@@ -256,22 +248,19 @@ namespace GAME {
 				std::string strS = TOOL::ClipboardTochar();//读取当前剪切板的内容，保存起来
 
 				//获取当前选择的内容 ctrl + c
-				keybd_event(17, 0, 0, 0);//按下 ctrl
-				keybd_event(67, 0, 0, 0);//按下 c
-				keybd_event(17, 0, KEYEVENTF_KEYUP, 0);//松开 ctrl
-				keybd_event(67, 0, KEYEVENTF_KEYUP, 0);//松开 c
+				TOOL::CtrlAndC();
 				Sleep(5);//等待上面的内容复制到剪切板上
 
 				Variable::eng = TOOL::UnicodeToUtf8(TOOL::ClipboardTochar());//获取选中的文本
+				int LTo = InterFace->mTranslate->mTo;
+				InterFace->mTranslate->mTo = Variable::ReplaceLanguage;
 				Variable::zhong = InterFace->mTranslate->TranslateAPI(Variable::eng);//翻译内容
+				InterFace->mTranslate->mTo = LTo;
 				
 				TOOL::CopyToClipboard(TOOL::Utf8ToUnicode(Variable::zhong.c_str()));
 				//粘贴出去 ctrl + v
-				keybd_event(17, 0, 0, 0);//按下 ctrl
-				keybd_event(86, 0, 0, 0);//按下 v
-				keybd_event(17, 0, KEYEVENTF_KEYUP, 0);//松开 ctrl
-				keybd_event(86, 0, KEYEVENTF_KEYUP, 0);//松开 v
-
+				TOOL::CtrlAndV();
+				Sleep(5);
 				TOOL::CopyToClipboard(strS);//还原原来剪切板的内容
 				return;
 			}
@@ -284,9 +273,6 @@ namespace GAME {
 				buffer = TOOL::screen(buffer);//获取截图数据
 				InterFace->LoadTextureFromFile(buffer, &InterFace->mTextureData);//生成图片ID
 				InterFace->SetInterFace(1);//设置显示类
-				InterFace->SetInterFaceBool(true);//开启显示
-				InterFace->InterFace();
-				render();
 				return;
 			}
 		}
@@ -371,23 +357,20 @@ namespace GAME {
 	//回收资源
 	void Application::cleanUp() {
 
-		InterFace->~ImGuiInterFace();
+		delete InterFace;
 		
 		for (int i = 0; i < mSwapChain->getImageCount(); ++i) {
-			mCommandBuffers[i]->~CommandBuffer();//必须先销毁 CommandBuffer ，才可以销毁绑定的 CommandPool。
-			mImageAvailableSemaphores[i]->~Semaphore();
-			mRenderFinishedSemaphores[i]->~Semaphore();
-			mFences[i]->~Fence();
+			delete mCommandBuffers[i];//必须先销毁 CommandBuffer ，才可以销毁绑定的 CommandPool。
+			delete mImageAvailableSemaphores[i];
+			delete mRenderFinishedSemaphores[i];
+			delete mFences[i];
 		}
-
-
-		mSampler->~Sampler();
-		mRenderPass->~RenderPass();
-		mSwapChain->~SwapChain();
-		mCommandPool->~CommandPool();
-		mDevice->~Device();
-		mWindowSurface->~WindowSurface();
-		mInstance->~Instance();
-		mWindow->~Window();
+		delete mRenderPass;
+		delete mSwapChain;
+		delete mCommandPool;
+		delete mDevice;
+		delete mWindowSurface;
+		delete mInstance;
+		delete mWindow;
 	}
 }

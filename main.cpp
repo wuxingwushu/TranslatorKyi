@@ -1,6 +1,13 @@
 #include "application.h"
 
 int main() {
+	//防止软件多开
+	if (FindWindow(NULL, "TranslatorWoman"))
+	{
+		MessageBoxEx(NULL, TEXT("ヽ(*。>Д<)o゜"), TEXT("已经启动啦！"), MB_OK, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
+		return FALSE;
+	}
+
 	TOOL::SpdLogInit();
 
 	Variable::ReadFile(iniData);
@@ -20,8 +27,8 @@ int main() {
 		//std::cout << "main: " << e.what() << std::endl;
 	}
 
-	mWin->~Window();
-	app->~Application();
+	delete mWin;
+	delete app;
 
 	return 0;
 }

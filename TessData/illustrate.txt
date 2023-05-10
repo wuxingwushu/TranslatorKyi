@@ -1,0 +1,2 @@
+这个文件夹存放 Tesseract-OCR 的模型文件
+在 https://tesseract-ocr.github.io/tessdoc/Data-Files.html 可以下载到模型文件

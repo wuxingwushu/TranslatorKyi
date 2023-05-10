@@ -11,11 +11,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		switch (lParam)
 		{
 		case WM_RBUTTONUP:
-			mAppcpp->InterFace->SetInterFace(2);
-			mAppcpp->InterFace->SetInterFaceBool(true);
+			mAppcpp->InterFace->SetInterFace(3);
 			break;
 		case WM_LBUTTONUP:
-			exit(0);
+			//exit(0);
 			break;
 		}
 		break;
@@ -43,9 +42,9 @@ namespace GAME::VulKan {
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);//关掉opengl API
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);//是否禁止窗口改变大小
 		glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);//窗口显示
-		glfwWindowHint(GLFW_FLOATING, GLFW_TRUE);//窗口置顶
+		//glfwWindowHint(GLFW_FLOATING, GLFW_TRUE);//窗口置顶
 		GLFWmonitor* pMonitor = FullScreen ? glfwGetPrimaryMonitor() : NULL;
-		mWindow = glfwCreateWindow(mWidth, mHeight, "Game_Demo - VulKan", pMonitor, nullptr);//创建一个窗口
+		mWindow = glfwCreateWindow(mWidth, mHeight, "TranslatorWoman", pMonitor, nullptr);//创建一个窗口
 		if (!mWindow) {//判断窗口是否创建成功
 			std::cerr << "Error: failed to create window" << std::endl;
 		}
@@ -55,7 +54,7 @@ namespace GAME::VulKan {
 		
 
 
-		glfwSetWindowAttrib(mWindow, GLFW_FLOATING, GLFW_TRUE);//窗口置顶
+		//glfwSetWindowAttrib(mWindow, GLFW_FLOATING, GLFW_TRUE);//窗口置顶
 		//glfwSetWindowOpacity(mWindow, 0.0f);//窗口透明度
 		//glViewport(0, 0, width, height);
 		glfwSetWindowUserPointer(mWindow, this);

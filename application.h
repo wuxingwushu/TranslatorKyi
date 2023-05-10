@@ -74,7 +74,7 @@ namespace GAME {
 		VulKan::SwapChain* mSwapChain{ nullptr };//设置VulKan的工作细节
 		VulKan::RenderPass* mRenderPass{ nullptr };//设置GPU画布
 		VulKan::CommandPool* mCommandPool{ nullptr };//设置渲染指令的工作
-		VulKan::Sampler* mSampler{ nullptr };//图片采样器
+		//VulKan::Sampler* mSampler{ nullptr };//图片采样器
 		std::vector<VulKan::CommandBuffer*> mCommandBuffers{};//主录入渲染指令
 
 
@@ -83,8 +83,6 @@ namespace GAME {
 		std::vector<VulKan::Semaphore*> mImageAvailableSemaphores{};//图片显示完毕信号量
 		std::vector<VulKan::Semaphore*> mRenderFinishedSemaphores{};//图片渲染完成信号量
 		std::vector<VulKan::Fence*> mFences{};//控制管线工作，比如（下一个管线需要上一个管线的图片，那就等上一个管线图片输入进来才开始工作）
-
-		Texture* texture = nullptr;
 
 	public:
 		ImGuiInterFace* InterFace = nullptr; // ImGui 游戏界面都写这里面

@@ -26,13 +26,49 @@ namespace Variable {
 
 		Model = iniData->Get<std::string>("Set", "TesseractModel");
 
-		DisplayTime = iniData->Get<float>("Set", "DisplayTime") * 1000;
+		DisplayTime = iniData->Get<int>("Set", "DisplayTime");
+		FontSize = iniData->Get<float>("Set", "FontSize");
+		ReplaceLanguage = iniData->Get<int>("Set", "ReplaceLanguage");
+		FontBool = iniData->Get<int>("Set", "FontBool") ? true : false;
+		FontFilePath = iniData->Get<std::string>("Set", "FontFilePath");
+
+		delete iniData;
 	}
 
 	extern void SaveFile() {
 		inih::INIReader* iniData = new inih::INIReader(IniPath);
-		iniData->UpdateEntry("Window", "Width", BaiduAppid);//修改
+		//保存 百度ID Key
+		iniData->UpdateEntry("BaiduAPI", "Baidu_ID", BaiduAppid);
+		iniData->UpdateEntry("BaiduAPI", "Baidu_Key", BaiduSecret_key);
+		//保存 有道 ID Key
+		iniData->UpdateEntry("YoudaoAPI", "Youdao_ID", BaiduAppid);
+		iniData->UpdateEntry("YoudaoAPI", "Youdao_Key", BaiduSecret_key);
+		//保存 翻译配置
+		iniData->UpdateEntry("FT", "Translate", Translate);
+		iniData->UpdateEntry("FT", "From", From);
+		iniData->UpdateEntry("FT", "To", To);
+		//保存 快捷键位
+		iniData->UpdateEntry("Key", "MakeUp", MakeUp);
+		iniData->UpdateEntry("Key", "Screenshotkey", Screenshotkey);
+		iniData->UpdateEntry("Key", "Choicekey", Choicekey);
+		iniData->UpdateEntry("Key", "Replacekey", Replacekey);
+		//保存 选择模型
+		iniData->UpdateEntry("Set", "TesseractModel", Model);
+		//保存 显示时间
+		iniData->UpdateEntry("Set", "DisplayTime", DisplayTime);
+		//保存 字体大小
+		iniData->UpdateEntry("Set", "FontSize", FontSize);
+		//保存 替换语言
+		iniData->UpdateEntry("Set", "ReplaceLanguage", ReplaceLanguage);
+		//保存 是否开启自定义字体
+		iniData->UpdateEntry("Set", "FontBool", FontBool?"1":"0");
+		//保存 字体文件路径
+		iniData->UpdateEntry("Set", "FontFilePath", FontFilePath);
+
+
 		inih::INIWriter::write_Gai(IniPath, *iniData);//保存
+
+		delete iniData;
 	}
 
 	char* IniPath;//储存文件路径
@@ -64,5 +100,9 @@ namespace Variable {
 	std::string Replacekey;//替换
 	
 	std::string Model;//模型
-	float DisplayTime;//显示时间
+	int DisplayTime;//显示时间
+	float FontSize;//字体大小
+	int ReplaceLanguage;//替换为什么语言
+	bool FontBool;//是否开启自定义字体
+	std::string FontFilePath;//字体文件路径
 }

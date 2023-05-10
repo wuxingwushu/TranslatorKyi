@@ -17,6 +17,21 @@ namespace TOOL {
 		logger->set_level(spdlog::level::debug);//设置日志警报保存等级
 	}
 
+
+	void CtrlAndC() {
+		keybd_event(17, 0, 0, 0);//按下 ctrl
+		keybd_event(67, 0, 0, 0);//按下 c
+		keybd_event(17, 0, KEYEVENTF_KEYUP, 0);//松开 ctrl 
+		keybd_event(67, 0, KEYEVENTF_KEYUP, 0);//松开 c
+	}
+
+	void CtrlAndV() {
+		keybd_event(17, 0, 0, 0);//按下 ctrl
+		keybd_event(86, 0, 0, 0);//按下 v
+		keybd_event(17, 0, KEYEVENTF_KEYUP, 0);//松开 ctrl
+		keybd_event(86, 0, KEYEVENTF_KEYUP, 0);//松开 v
+	}
+
 	//ostringstream对象用来进行格式化的输出，常用于将各种类型转换为string类型
 	//ostringstream只支持<<操作符
 	template<typename T>std::string toString(const T& t)
@@ -222,6 +237,10 @@ namespace TOOL {
 		Variable::windows_Width = re.right;
 		Variable::windows_Heigth = re.bottom;
 
+		if (buf == nullptr) {
+			buf = new char[Variable::windows_Heigth * Variable::windows_Width * 4];
+		}
+			
 		void* buff = buf;
 		HBITMAP bm = CreateCompatibleBitmap(_dc, Variable::windows_Width, Variable::windows_Heigth);//建立和屏幕兼容的bitmap
 		SelectObject(dc, bm);//将memBitmap选入内存DC

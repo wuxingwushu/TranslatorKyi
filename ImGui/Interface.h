@@ -7,6 +7,7 @@
 #include "../Vulkan/commandBuffer.h"
 #include "../Function/tesseract.h"
 #include "../Function/Translate.h"
+#include <filesystem>
 
 namespace GAME {
 	class ImGuiInterFace
@@ -24,9 +25,6 @@ namespace GAME {
 		~ImGuiInterFace();
 
 		bool InterFace();
-
-		void ImGuiShowFPS();
-		void ImGuiShowTiming();
 
 		bool GetInterFaceBool() {
 			return InterFaceBool;
@@ -49,21 +47,24 @@ namespace GAME {
 			{
 			case 0:
 				TranslateBool = true;
+				TranslateTime = clock();//获取显示时间戳
 				break;
 			case 1:
 				ScreenshotBool = true;
 				break;
 			case 2:
+				SetBool = true;
 				break;
 			case 3:
 				MenuBool = true;
+				TranslateTime = clock();//获取显示时间戳
 				break;
 			default:
 				break;
 			}
 		}
 
-		bool qingBool = false;
+		bool EndDisplayBool = false;//结束显示开关（给外界一个信号，结束显示）
 
 		const VkCommandBuffer GetCommandBuffer(int i, VkCommandBufferInheritanceInfo info);
 
@@ -83,34 +84,40 @@ namespace GAME {
 		ImGui_ImplVulkan_InitInfo ImGuiVulkanInfo;
 
 		int InterfaceIndexes = 0;
-		bool InterFaceBool = false;
+		bool InterFaceBool = false;//
 
 		VulKan::CommandPool** ImGuiCommandPoolS;
 		VulKan::CommandBuffer** ImGuiCommandBufferS;
 
 		
+		void InputTextMultilineText();//向翻译窗口粘贴文本
 
 		bool TranslateInterface();//翻译内容显示界面
-		bool TranslateBool;
+		bool TranslateBool;//翻译界面是否是刚显示
+		bool ChildWindowBool = false;//右侧窗口是否显示
+		bool WhoBool;//右侧窗口显示 From 还是 To
+		bool WindowRenewBool = true;
+		int BeginWindowSizeX = 280, BeginWindowSizeY = 148;//翻译窗口的宽高
+		int RowsNumber = 4;//文本显示多行
+		int kuangshu = 200;//文本有多少像素宽度
 		ImGuiInputTextFlags flags = ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_CallbackAlways;
 	public:
-		clock_t TranslateTime;
+		clock_t TranslateTime;//显示时间
 		char eng[1024 * 1024];
 		char zhong[1024 * 1024];
 
 	private:
 		void ScreenshotInterface();//截图操作界面
-		int windows_Width = 1920;
-		int windows_Heigth = 1080;
-		POINT MousePosition_1;
-		POINT MousePosition_2;
-		bool ScreenshotBool = true;
-		int x, y, w, h;
+		POINT MousePosition_1;//鼠标点击位置
+		POINT MousePosition_2;//鼠标松开位置
+		bool ScreenshotBool = true;//界面是否是刚显示
+		int x, y, w, h;//框的位置，大小
 
 		void SetUpInterface();//设置界面
+		bool SetBool = true;//界面是否是刚显示
 
 		void MenuInterface();//菜单界面
-		int MenuBool = true;
+		int MenuBool = true;//界面是否是刚显示
 
 	public:
 		char* TData;

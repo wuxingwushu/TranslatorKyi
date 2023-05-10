@@ -44,5 +44,9 @@ namespace Variable {
 	extern std::string Model;//模型
 
 	//设置
-	extern float DisplayTime;//显示时间
+	extern int DisplayTime;//显示时间
+	extern float FontSize;//字体大小
+	extern int ReplaceLanguage;//替换为什么语言
+	extern bool FontBool;//是否引用字体
+	extern std::string FontFilePath;//字体文件路径
 }

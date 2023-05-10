@@ -17,6 +17,14 @@ namespace TOOL {
 
 	void SpdLogInit();
 
+
+
+	
+	void CtrlAndC();
+	void CtrlAndV();
+
+
+
 	template<typename T>std::string toString(const T& t); //数据转字符串
 
 	std::string ws2s(const std::wstring& ws);//string 转 wstring

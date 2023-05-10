@@ -43,9 +43,14 @@ namespace GAME {
 		// 设置字体
 		ImFontConfig Font_cfg;
 		Font_cfg.FontDataOwnedByAtlas = false;
-		ImFont* Font = io.Fonts->AddFontFromMemoryTTF((void*)Font_data, Font_size, 16.0f, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
-
-
+		ImFont* Font;
+		if (Variable::FontBool) {
+			Font = io.Fonts->AddFontFromFileTTF(Variable::FontFilePath.c_str(), Variable::FontSize, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
+		}
+		else {
+			Font = io.Fonts->AddFontFromMemoryTTF((void*)Font_data, Font_size, Variable::FontSize, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
+		}
+		
 		
 
 
@@ -156,14 +161,19 @@ namespace GAME {
 
 		for (int i = 0; i < mFormatCount; i++)
 		{
-			ImGuiCommandBufferS[i]->~CommandBuffer();
-			ImGuiCommandPoolS[i]->~CommandPool();
+			delete ImGuiCommandBufferS[i];
+			delete ImGuiCommandPoolS[i];
 		}
+		delete ImGuiCommandBufferS;
+		delete ImGuiCommandPoolS;
+
+		delete mTesseract;
+		delete mTranslate;
 	}
 
 	bool ImGuiInterFace::InterFace()
 	{
-		bool kai = false;
+		bool kai = false;//下一帧是否要更新
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
@@ -175,7 +185,7 @@ namespace GAME {
 			break;
 		case 1:
 			ScreenshotInterface();
-			kai = true;
+			kai = true;//截图实时更新下一帧
 			break;
 		case 2:
 			SetUpInterface();
@@ -196,31 +206,83 @@ namespace GAME {
 		return ImGuiCommandBufferS[i]->getCommandBuffer();
 	}
 	
+	// InputTextMultiline 的 回调函数
+	int mCursorPos, mTextLen;//返回输入框的光标位置，文本长度
+	bool TranslateInputBool;//让 Ctrl + c 只作用于被翻译的文本框
 	int MyText(ImGuiInputTextCallbackData* data) {
+		if (!ImGui::IsItemDeactivated())
+		{
+			if (mCursorPos != 0) {
+				data->CursorPos = mCursorPos;
+				mCursorPos = 0;
+			}
+		}
 		if (data->HasSelection() && ((GetKeyState(VK_CONTROL) < 0) && (GetKeyState('C') < 0)))
 		{
 			char selected_text[10000];
 			if (data->SelectionEnd > data->SelectionStart) {
 				memcpy(selected_text, &data->Buf[data->SelectionStart], (data->SelectionEnd - data->SelectionStart));
+				selected_text[data->SelectionEnd + 1] = '\0';//加上终止符
 			}
 			else {
 				memcpy(selected_text, &data->Buf[data->SelectionEnd], (data->SelectionStart - data->SelectionEnd));
+				selected_text[data->SelectionStart + 1] = '\0';//加上终止符
 			}
 			TOOL::CopyToClipboard(TOOL::Utf8ToUnicode(selected_text));
+		}
+		else if(!ImGui::IsItemDeactivated() && (GetKeyState(VK_CONTROL) < 0) && (GetKeyState('V') < 0)){
+			if (TranslateInputBool) {
+				mCursorPos = data->CursorPos;
+				mTextLen = data->BufTextLen;
+			}
+			
 		}
 		return 0;
 	}
 
+	void ImGuiInterFace::InputTextMultilineText() {
+		if ((GetKeyState(VK_CONTROL) < 0) && (GetKeyState('V') < 0)) {
+			while ((GetKeyState(VK_CONTROL) < 0) && (GetKeyState('V') < 0))
+			{
+				mWindown->pollEvents();
+			}
+			std::string ClipboardText = TOOL::UnicodeToUtf8(TOOL::ClipboardTochar());
+			char selected_text[10000];
+			int Len = mTextLen - mCursorPos;
+			memcpy(selected_text, &eng[mCursorPos], Len);
+			ImGui::ClearActiveID();//失去焦点，粘贴的内容才会被保存
+			memcpy(&eng[mCursorPos], ClipboardText.c_str(), ClipboardText.size());
+			mCursorPos += ClipboardText.size();
+			memcpy(&eng[mCursorPos], selected_text, Len);
+			//Variable::eng = eng;
+			
+			//memcpy(eng, Variable::eng.c_str(), Variable::eng.size());
+		}
+	}
+
+	
+	
+
 	bool ImGuiInterFace::TranslateInterface()
 	{
 		if (TranslateBool) {
-			static POINT MousePos = { 0,0 };
+			POINT MousePos = { 0,0 };
 			GetCursorPos(&MousePos);//获取鼠标位置
 			ImGui::SetNextWindowPos({ float(MousePos.x), float(MousePos.y) });//设置窗口生成位置
 			TranslateBool = false;
 		}
-		ImGui::Begin(u8"翻译结果UI", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//创建窗口
-		ImGui::InputTextMultiline("##eng", eng, IM_ARRAYSIZE(eng), ImVec2(200, ImGui::GetTextLineHeight() * 4), flags, MyText);
+		int BeginWindowPosX, BeginWindowPosY;
+		ImGui::Begin(u8"TranslateUI", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//创建窗口
+		
+		if (mCursorPos != 0) {
+			// 在窗口打开时自动将焦点设置到多行文本输入框上
+			ImGui::SetKeyboardFocusHere();
+		}
+		TranslateInputBool = true;
+		ImGui::InputTextMultiline("##eng", eng, IM_ARRAYSIZE(eng), ImVec2(kuangshu, ImGui::GetTextLineHeight() * RowsNumber), flags, MyText);
+		if (mCursorPos != 0) {
+			InputTextMultilineText();//将剪贴板内容粘贴到输入光标位置
+		}
 		ImGui::SameLine();//让一个元素并排
 		ImGui::BeginGroup();
 		if (ImGui::Button(u8"翻译键")) {
@@ -228,58 +290,128 @@ namespace GAME {
 			memset(zhong, 0, sizeof(zhong));
 			memcpy(zhong, Variable::zhong.c_str(), Variable::zhong.size());
 		}
-		if (ImGui::BeginCombo("From", Variable::BaiduitemsName[mTranslate->mFrom].c_str(), ImGuiComboFlags_NoPreview | ImGuiComboFlags_PopupAlignLeft))
-		{
-			for (int n = 0; n < Variable::Baiduitems.size(); n++)
-			{
-				const bool is_selected = (mTranslate->mFrom == n);
-				if (ImGui::Selectable(Variable::BaiduitemsName[n].c_str(), is_selected))
-					mTranslate->mFrom = n;
-				if (is_selected)
-					ImGui::SetItemDefaultFocus();
-			}
-			ImGui::EndCombo();
+		if (ImGui::Button(u8"From")) {
+			ChildWindowBool = !ChildWindowBool;
+			WhoBool = true;
 		}
 		ImGui::EndGroup();
-		ImGui::InputTextMultiline("##zhong", zhong, IM_ARRAYSIZE(zhong), ImVec2(200, ImGui::GetTextLineHeight() * 4), flags, MyText);
+		TranslateInputBool = false;
+		ImGui::InputTextMultiline("##zhong", zhong, IM_ARRAYSIZE(zhong), ImVec2(kuangshu, ImGui::GetTextLineHeight() * RowsNumber), flags, MyText);
 		ImGui::SameLine();//让一个元素并排
 		ImGui::BeginGroup();
-		if (ImGui::BeginCombo("To", Variable::BaiduitemsName[mTranslate->mTo].c_str(), ImGuiComboFlags_NoPreview | ImGuiComboFlags_PopupAlignLeft))
-		{
-			for (int n = 0; n < Variable::Baiduitems.size() - 1; n++)
-			{
-				const bool is_selected = (mTranslate->mTo == n + 1);
-				if (ImGui::Selectable(Variable::BaiduitemsName[n + 1].c_str(), is_selected))
-					mTranslate->mTo = n + 1;
-				if (is_selected)
-					ImGui::SetItemDefaultFocus();
-			}
-			ImGui::EndCombo();
+		if (ImGui::Button(u8"To")) {
+			ChildWindowBool = !ChildWindowBool;
+			WhoBool = false;
 		}
-		if (ImGui::BeginCombo("引擎", mTranslate->TranslateName[mTranslate->mTranslate], ImGuiComboFlags_NoPreview | ImGuiComboFlags_PopupAlignLeft))
-		{
-			for (int n = 0; n < 2; n++)
-			{
-				const bool is_selected = (mTranslate->mTranslate == n);
-				if (ImGui::Selectable(mTranslate->TranslateName[n], is_selected))
-					mTranslate->mTranslate = n;
-				if (is_selected)
-					ImGui::SetItemDefaultFocus();
+		//翻译API更换
+		if (ImGui::Button(mTranslate->TranslateName[mTranslate->mTranslate])) {
+			if (mTranslate->mTranslate) {
+				mTranslate->mTranslate = 0;
 			}
-			ImGui::EndCombo();
+			else {
+				mTranslate->mTranslate = 1;
+			}
 		}
 		ImGui::EndGroup();
+		ImGui::SetWindowSize(ImVec2(BeginWindowSizeX, BeginWindowSizeY));
 		bool fanbool = false;
-		if ((m_io->MousePos.x > ImGui::GetWindowPos().x) && (m_io->MousePos.y > ImGui::GetWindowPos().y) && (m_io->MousePos.x < (ImGui::GetWindowPos().x + ImGui::GetWindowWidth())) && (m_io->MousePos.y < (ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
+		BeginWindowPosX = ImGui::GetWindowPos().x;
+		BeginWindowPosY = ImGui::GetWindowPos().y;
+		//当鼠标点击时更新窗口大小
+		if (GetKeyState(VK_LBUTTON) < 0) {
+			BeginWindowSizeX = ImGui::GetWindowWidth();
+			BeginWindowSizeY = ImGui::GetWindowHeight();
+			WindowRenewBool = true;
+		}
+		//判断鼠标是否在翻译界面上
+		if ((m_io->MousePos.x > BeginWindowPosX) && (m_io->MousePos.y > BeginWindowPosY) && (m_io->MousePos.x < (BeginWindowPosX + BeginWindowSizeX)) && (m_io->MousePos.y < (BeginWindowPosY + BeginWindowSizeY))) {
 			TranslateTime = clock();
 			fanbool = true;
 		}
 		else if ((clock() - TranslateTime) > Variable::DisplayTime) {
-			qingBool = true;
+			EndDisplayBool = true;
 			InterFaceBool = false;
+			ChildWindowBool = false;
 		}
 		ImGui::End();
+
 		
+		if (ChildWindowBool) {
+			ImGui::Begin(u8"ToFromUI", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);
+			ImGui::SetWindowPos(ImVec2(BeginWindowPosX + BeginWindowSizeX, BeginWindowPosY));
+			if (WhoBool) {
+				if (ImGui::BeginListBox("From", ImVec2(-FLT_MIN, RowsNumber * 2 * (ImGui::GetTextLineHeightWithSpacing() - 4))))
+				{
+					for (int n = 0; n < Variable::Baiduitems.size(); n++)
+					{
+						const bool is_selected = (mTranslate->mFrom == n);
+						if (ImGui::Selectable(Variable::BaiduitemsName[n].c_str(), is_selected))
+							mTranslate->mFrom = n;
+						if (is_selected)
+							ImGui::SetItemDefaultFocus();
+					}
+					ImGui::EndListBox();
+				}
+			}
+			else {
+				if (ImGui::BeginListBox("To", ImVec2(-FLT_MIN, RowsNumber * 2 * (ImGui::GetTextLineHeightWithSpacing() - 4))))
+				{
+					for (int n = 0; n < Variable::Baiduitems.size() - 1; n++)
+					{
+						const bool is_selected = (mTranslate->mTo == n + 1);
+						if (ImGui::Selectable(Variable::BaiduitemsName[n + 1].c_str(), is_selected))
+							mTranslate->mTo = n + 1;
+						if (is_selected)
+							ImGui::SetItemDefaultFocus();
+					}
+					ImGui::EndListBox();
+				}
+			}
+			ImGui::SetWindowSize(ImVec2(100, BeginWindowSizeY));
+			if ((m_io->MousePos.x > ImGui::GetWindowPos().x) && (m_io->MousePos.y > ImGui::GetWindowPos().y) && (m_io->MousePos.x < (ImGui::GetWindowPos().x + ImGui::GetWindowWidth())) && (m_io->MousePos.y < (ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
+				TranslateTime = clock();
+				fanbool = true;
+			}
+			else if ((clock() - TranslateTime) > Variable::DisplayTime) {
+				EndDisplayBool = true;
+				InterFaceBool = false;
+				ChildWindowBool = false;
+			}
+			else if ((GetKeyState(VK_LBUTTON) < 0) || (GetKeyState(VK_RBUTTON) < 0)) {//鼠标点击窗口之外的地方关闭窗口
+				ChildWindowBool = false;
+			}
+			ImGui::End();
+		}
+
+		//std::cout << "ImGui::GetTextLineHeight()" << ImGui::GetTextLineHeight() << std::endl;
+		//std::cout << "ImGui::GetTextLineHeightWithSpacing()" << ImGui::GetTextLineHeightWithSpacing() << std::endl;
+
+		//当鼠标松开时 将窗口大小更新到合适大小
+		if ((GetKeyState(VK_LBUTTON) >= 0) && WindowRenewBool) {
+			WindowRenewBool = false;
+			RowsNumber = (BeginWindowSizeY - ImGui::GetTextLineHeightWithSpacing()) / (int(ImGui::GetTextLineHeight()) * 2);
+			if (RowsNumber < 3) {
+				RowsNumber = 3;
+			}
+			BeginWindowSizeY = (RowsNumber * int(ImGui::GetTextLineHeight()) * 2) + ImGui::GetTextLineHeightWithSpacing();
+			kuangshu = BeginWindowSizeX - (ImGui::GetTextLineHeightWithSpacing() * 3 + 20);
+
+			if (kuangshu < ImGui::GetTextLineHeightWithSpacing()) {
+				RowsNumber = ImGui::GetTextLineHeightWithSpacing();
+				BeginWindowSizeX = ImGui::GetTextLineHeightWithSpacing() * 4 + 20;
+			}
+		}
+		
+
+		// 获取窗口句柄
+		HWND hwnd = FindWindow(NULL, "TranslateUI");
+		if (hwnd) {
+			SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+		}
+		hwnd = FindWindow(NULL, "ToFromUI");
+		if (hwnd) {
+			SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+		}
 		return fanbool;
 	}
 
@@ -297,7 +429,7 @@ namespace GAME {
 			//右键点击事件
 			if (GetKeyState(VK_RBUTTON) < 0) {
 				//获取鼠标右键点击事件，取消截图
-				qingBool = true;
+				EndDisplayBool = true;
 				ScreenshotBool = true;
 			}
 		}
@@ -342,15 +474,16 @@ namespace GAME {
 				TranslateTime = clock();
 				InterfaceIndexes = 0;
 				ScreenshotBool = true;
+				TranslateBool = true;
 			}
 		}
 
-		ImGui::Begin("截图界面UI", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_NoScrollbar);
+		ImGui::Begin("ScreenshotUI", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_NoScrollbar);
 		
 		ImGui::SetWindowPos({ -8, -8 });//设置显示位置
-		ImGui::SetWindowSize(ImVec2(1920 + 16, 1080 + 16));//设置显示大小
+		ImGui::SetWindowSize(ImVec2(Variable::windows_Width + 16, Variable::windows_Heigth + 16));//设置显示大小
 		//显示图片
-		ImGui::Image((ImTextureID)mTextureData.DS, ImVec2(1920, 1080), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(0, 0, 0, 0));
+		ImGui::Image((ImTextureID)mTextureData.DS, ImVec2(Variable::windows_Width, Variable::windows_Heigth), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(0, 0, 0, 0));
 
 		//创建画布,用于把框选之外的画面变暗。
 		ImDrawList* draw_list = ImGui::GetWindowDrawList();
@@ -367,8 +500,8 @@ namespace GAME {
 		draw_list->AddQuadFilled(
 			//矩形框的四个点（顺时针）
 			ImVec2(x + w, 0),
-			ImVec2(windows_Width, 0),
-			ImVec2(windows_Width, y + h),
+			ImVec2(Variable::windows_Width, 0),
+			ImVec2(Variable::windows_Width, y + h),
 			ImVec2(x + w, y + h),
 			//颜色
 			IM_COL32(0, 0, 0, 100));
@@ -376,9 +509,9 @@ namespace GAME {
 		draw_list->AddQuadFilled(
 			//矩形框的四个点（顺时针）
 			ImVec2(x, y + h),
-			ImVec2(windows_Width, y + h),
-			ImVec2(windows_Width, windows_Heigth),
-			ImVec2(x, windows_Heigth),
+			ImVec2(Variable::windows_Width, y + h),
+			ImVec2(Variable::windows_Width, Variable::windows_Heigth),
+			ImVec2(x, Variable::windows_Heigth),
 			//颜色
 			IM_COL32(0, 0, 0, 100));
 
@@ -386,8 +519,8 @@ namespace GAME {
 			//矩形框的四个点（顺时针）
 			ImVec2(0, y),
 			ImVec2(x, y),
-			ImVec2(x, windows_Heigth),
-			ImVec2(0, windows_Heigth),
+			ImVec2(x, Variable::windows_Heigth),
+			ImVec2(0, Variable::windows_Heigth),
 			//颜色
 			IM_COL32(0, 0, 0, 100));
 
@@ -398,8 +531,8 @@ namespace GAME {
 		ImGui::SetCursorPosY(pt.y - 56);
 		//显示放大位置
 		ImGui::Image((ImTextureID)mTextureData.DS, ImVec2(64, 64),
-			ImVec2(float(pt.x - 16) / float(windows_Width), float(pt.y - 16) / float(windows_Heigth)),
-			ImVec2(float(pt.x + 16) / float(windows_Width), float(pt.y + 16) / float(windows_Heigth)));
+			ImVec2(float(pt.x - 16) / float(Variable::windows_Width), float(pt.y - 16) / float(Variable::windows_Heigth)),
+			ImVec2(float(pt.x + 16) / float(Variable::windows_Width), float(pt.y + 16) / float(Variable::windows_Heigth)));
 		//画十字准心
 		draw_list->AddQuadFilled(
 			//矩形框的四个点（顺时针）
@@ -420,13 +553,221 @@ namespace GAME {
 			IM_COL32(255, 0, 0, 100));
 
 		ImGui::End();
+		// 获取窗口句柄
+		HWND hwnd = FindWindow(NULL, "ScreenshotUI");
+		if (hwnd) {
+			SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+		}
 	}
+
+	struct InputBoxInfo {
+		char* Text;
+		int Pos;
+		int Len;
+		bool FFO;
+		char* LText;
+	};
+	InputBoxInfo InputInfo;
+
+	void InputText() {
+		if (!((GetKeyState(VK_CONTROL) < 0) && (GetKeyState('V') < 0)) && InputInfo.FFO) {
+			std::string ClipboardText = TOOL::UnicodeToUtf8(TOOL::ClipboardTochar());
+			char selected_text[10000];
+			int Len = InputInfo.Len - InputInfo.Pos;
+			memcpy(selected_text, &InputInfo.Text[InputInfo.Pos], Len);
+			ImGui::ClearActiveID();//失去焦点，粘贴的内容才会被保存
+			memcpy(&InputInfo.Text[InputInfo.Pos], ClipboardText.c_str(), ClipboardText.size());
+			InputInfo.Pos += ClipboardText.size();
+			memcpy(&InputInfo.Text[InputInfo.Pos], selected_text, Len);
+			InputInfo.FFO = false;
+		}
+	}
+
+	int InputKeyEvent(ImGuiInputTextCallbackData* data) {
+		InputBoxInfo* i = static_cast<InputBoxInfo*>(data->UserData);
+		if ((GetKeyState(VK_CONTROL) < 0) && (GetKeyState('V') < 0)) {
+			InputInfo.Text = InputInfo.LText;
+			InputInfo.Len = data->BufTextLen;
+			InputInfo.Pos = data->CursorPos;
+			InputInfo.FFO = true;
+		}
+		return 0;
+	}
+
 
 	void ImGuiInterFace::SetUpInterface()
 	{
-		ImGui::Begin(u8"设置UI", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//创建窗口
+		static char SetBaiduID[128];
+		static char SetBaiduKey[128];
+		static char SetYoudaoID[128];
+		static char SetYoudaoKey[128];
+
+		static char SetScreenshotkey[2];
+		static char SetChoicekey[2];
+		static char SetReplacekey[2];
+
+		static int ModelIndex;
+		static std::vector<std::string> ModelS;
+
+		static int FontIndex;
+		static std::vector<std::string> FontS;
+
+		if (SetBool) {
+			SetBool = false;
+
+			memcpy(SetBaiduID, Variable::BaiduAppid.c_str(), Variable::BaiduAppid.size());
+			memcpy(SetBaiduKey, Variable::BaiduSecret_key.c_str(), Variable::BaiduSecret_key.size());
+			memcpy(SetYoudaoID, Variable::YoudaoAppid.c_str(), Variable::YoudaoAppid.size());
+			memcpy(SetYoudaoKey, Variable::YoudaoSecret_key.c_str(), Variable::YoudaoSecret_key.size());
+
+			memcpy(SetScreenshotkey, Variable::Screenshotkey.c_str(), 1);
+			memcpy(SetChoicekey, Variable::Choicekey.c_str(), 1);
+			memcpy(SetReplacekey, Variable::Replacekey.c_str(), 1);
+
+			ModelS.clear();
+			ModelIndex = 0;
+			std::string Modelpath = "./TessData";
+			std::string ModelFileName;
+			for (const auto& entry : std::filesystem::directory_iterator(Modelpath)) {
+				ModelFileName = entry.path().filename().string();//获取文件名字
+				for (size_t i = 0; i < ModelFileName.size(); i++)
+				{
+					if ((ModelFileName[i] == '.') && (ModelFileName.substr(i + 1, ModelFileName.size() - i - 1) == "traineddata")) {
+						ModelFileName = ModelFileName.substr(0, i);
+						ModelS.push_back(ModelFileName);
+						if (ModelFileName == Variable::Model) {
+							ModelIndex = ModelS.size() - 1;
+						}
+					}
+				}
+			}
+
+			FontS.clear();
+			FontIndex = 0;
+			std::string Fontpath = "./TTF";
+			std::string FontFileName;
+			for (const auto& entry : std::filesystem::directory_iterator(Fontpath)) {
+				FontFileName = entry.path().filename().string();//获取文件名字
+				for (size_t i = 0; i < FontFileName.size(); i++)
+				{
+					if ((FontFileName[i] == '.') && (FontFileName.substr(i + 1, FontFileName.size() - i - 1) == "ttf")) {
+						FontFileName = FontFileName.substr(0, i);
+						FontS.push_back(FontFileName);
+						if (FontFileName == Variable::Model) {
+							FontIndex = ModelS.size() - 1;
+						}
+					}
+				}
+			}
+
+			//ImGui::InputTextWithHint("input text (w/ hint)", "enter text here", str1, IM_ARRAYSIZE(str1));
+		}
+
+		ImGui::Begin("SetUI", &SetBool, ImGuiWindowFlags_NoTitleBar);
+		InputInfo.LText = SetBaiduID;
+		ImGui::InputText(u8"百度ID", SetBaiduID, IM_ARRAYSIZE(SetBaiduID), flags, &InputKeyEvent, &InputInfo);
+		InputInfo.LText = SetBaiduKey;
+		ImGui::InputText(u8"百度Key", SetBaiduKey, IM_ARRAYSIZE(SetBaiduKey), flags, &InputKeyEvent, &InputInfo);
+		InputInfo.LText = SetYoudaoID;
+		ImGui::InputText(u8"有道ID", SetYoudaoID, IM_ARRAYSIZE(SetYoudaoID), flags, &InputKeyEvent, &InputInfo);
+		InputInfo.LText = SetYoudaoKey;
+		ImGui::InputText(u8"有道Key", SetYoudaoKey, IM_ARRAYSIZE(SetYoudaoKey), flags, &InputKeyEvent, &InputInfo);
+		ImGui::Text(u8"快捷键");
+		ImGui::InputText(u8"截图翻译", SetScreenshotkey, IM_ARRAYSIZE(SetScreenshotkey));
+		ImGui::InputText(u8"选择翻译", SetChoicekey, IM_ARRAYSIZE(SetChoicekey));
+		ImGui::InputText(u8"替换翻译", SetReplacekey, IM_ARRAYSIZE(SetReplacekey));
 		ImGui::Text(u8"设置");
-		ImGui::SetWindowSize(ImVec2(900, 600));
+		ImGui::InputInt(u8"滞留时间（ms）", &Variable::DisplayTime);
+		ImGui::InputFloat(u8"字体大小", &Variable::FontSize, 0.1f, 1.0f);
+		InputText();
+
+		if (ModelS.size() != 0) {
+			if (ImGui::BeginCombo(u8"Tesseract模型", ModelS[ModelIndex].c_str(), flags))
+			{
+				for (int n = 0; n < ModelS.size(); n++)
+				{
+					const bool is_selected = (ModelIndex == n);
+					if (ImGui::Selectable(ModelS[n].c_str(), is_selected))
+						ModelIndex = n;
+					if (is_selected)
+						ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
+		}
+		else {
+			ImGui::Text(u8"你没有Tesseract模型，模型放在当前程序位置的TessData");
+		}
+		ImGui::Checkbox("使用TTF字体", &Variable::FontBool);
+		if (Variable::FontBool) {
+			if (FontS.size() != 0) {
+				if (ImGui::BeginCombo(u8"TTF字体", FontS[FontIndex].c_str(), flags))
+				{
+					for (int n = 0; n < FontS.size(); n++)
+					{
+						const bool is_selected = (FontIndex == n);
+						if (ImGui::Selectable(FontS[n].c_str(), is_selected))
+							FontIndex = n;
+						if (is_selected)
+							ImGui::SetItemDefaultFocus();
+					}
+					ImGui::EndCombo();
+				}
+			}
+			else {
+				ImGui::Text(u8"你没有TTF字体，字体放在当前程序位置的TTF");
+			}
+		}
+
+		if (ImGui::BeginCombo(u8"替换语言", Variable::BaiduitemsName[Variable::ReplaceLanguage].c_str(), flags))
+		{
+			for (int n = 0; n < Variable::BaiduitemsName.size()-1; n++)
+			{
+				const bool is_selected = (Variable::ReplaceLanguage == n);
+				if (ImGui::Selectable(Variable::BaiduitemsName[n].c_str(), is_selected))
+					Variable::ReplaceLanguage = n;
+				if (is_selected)
+					ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
+
+
+		if (ImGui::Button(u8"保存")) {
+			Variable::BaiduAppid = SetBaiduID;
+			Variable::BaiduSecret_key = SetBaiduKey;
+			Variable::YoudaoAppid = SetYoudaoID;
+			Variable::YoudaoSecret_key = SetYoudaoKey;
+
+			//转为大写
+			Variable::Screenshotkey = toupper(SetScreenshotkey[0]);
+			Variable::Choicekey = toupper(SetChoicekey[0]);
+			Variable::Replacekey = toupper(SetReplacekey[0]);
+
+			if (ModelS.size() != 0) {
+				Variable::Model = ModelS[ModelIndex];
+			}
+
+
+
+			if (FontS.size() != 0) {
+				Variable::FontFilePath = "./TTF/" + FontS[FontIndex] + ".ttf";
+			}
+			else {
+				Variable::FontBool = false;
+			}
+
+			Variable::SaveFile();
+			EndDisplayBool = true;
+			SetBool = true;
+		}
+
+		if (ImGui::Button(u8"关闭")) {
+			EndDisplayBool = true;
+			SetBool = true;
+		}
+
+		//ImGui::SetWindowSize(ImVec2(600, 400));
 		ImGui::End();
 	}
 
@@ -436,94 +777,37 @@ namespace GAME {
 		if (MenuBool) {
 			static POINT pt = { 0,0 };
 			GetCursorPos(&pt);//获取鼠标位置
-			ImGui::SetNextWindowPos({ float(pt.x), float(pt.y) - 90 });//设置窗口生成位置
+			ImGui::SetNextWindowPos({ float(pt.x), float(pt.y) - 60 });//设置窗口生成位置
 			MenuBool = false;
 		}
-
-		ImGui::Begin(u8"菜单UI", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
+		ImGui::Begin("MenuUI", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
 		//设置按键
 		if (ImGui::Button(u8"设置")) {
-			InterfaceIndexes = 2;
+			SetInterFace(2);
 		}
-
-		if (1) {
-			if (ImGui::Button(u8"百度")) {
-			}
-		}
-		else {
-			if (ImGui::Button(u8"有道")) {
-			}
-		}
-
 		if (ImGui::Button(u8"退出")) {
+			exit(0);
+		}
+		bool fanbool = false;
+		if ((m_io->MousePos.x > ImGui::GetWindowPos().x) && (m_io->MousePos.y > ImGui::GetWindowPos().y) && (m_io->MousePos.x < (ImGui::GetWindowPos().x + ImGui::GetWindowWidth())) && (m_io->MousePos.y < (ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
+			TranslateTime = clock();
+			fanbool = true;
+		}
+		else if ((clock() - TranslateTime) > Variable::DisplayTime) {
+			EndDisplayBool = true;
+			InterFaceBool = false;
+		}
+		else if ((GetKeyState(VK_LBUTTON) < 0) || (GetKeyState(VK_RBUTTON) < 0)) {//鼠标点击窗口之外的地方关闭窗口
+			EndDisplayBool = true;
+			InterFaceBool = false;
 		}
 		ImGui::End();
-	}
-
-
-
-	void ImGuiInterFace::ImGuiShowFPS() {
-		ImGui::Text(u8"FPS: %f", TOOL::FPStime);
-		static int values_offset = 0;
-		static char overlay[32];
-		sprintf(overlay, u8"平均: %f", TOOL::Mean_values);
-		ImGui::PlotLines("FPS", TOOL::values, IM_ARRAYSIZE(TOOL::values), values_offset, overlay, TOOL::Min_values - 10, TOOL::Max_values + 10, ImVec2(0, 100.0f));
-	}
-
-	void ImGuiInterFace::ImGuiShowTiming() {
-		if (ImGui::BeginTable("table1", 3))//横排有三个元素
-		{
-			ImGui::TableNextRow();
-			ImGui::TableNextColumn();
-			ImGui::Text(u8"名字");
-			ImGui::TableNextColumn();
-			ImGui::Text(u8"耗时");
-			ImGui::TableNextColumn();
-			ImGui::Text(u8"百分比");
-			ImGui::SameLine();//让一个元素并排
-			HelpMarker(u8"相对与一帧时间的占比");
-
-			ImGui::TableNextRow();
-			ImGui::TableNextColumn();
-			ImGui::Text(u8"帧时间");
-			ImGui::TableNextColumn();
-			ImGui::Text(u8"%f", (1.0f / TOOL::FPStime));
-			for (int i = 0; i < TOOL::Quantity; i++)
-			{
-				ImGui::TableNextRow();
-				ImGui::TableNextColumn();
-				ImGui::Text(TOOL::Consume_name[i]);
-				ImGui::TableNextColumn();
-				if (TOOL::SecondVectorBool[i]) {
-					ImGui::PlotLines("",
-						TOOL::Consume_SecondVector[i],
-						TOOL::SecondVectorNumber,
-						TOOL::SecondVectorIndex[i],
-						nullptr,
-						TOOL::Min_Secondvalues[i],
-						TOOL::Max_Secondvalues[i],
-						ImVec2(0, 25.0f)
-					);
-				}
-				else {
-					ImGui::Text(u8"%1.6f 秒", TOOL::Consume_Second[i]);
-				}
-				if (i < TOOL::ConsumeNumber) {
-					ImGui::TableNextColumn();
-					ImGui::Text("%3.3f %%", TOOL::Consume_time[i]);
-				}
-
-			}
-			ImGui::EndTable();
+		// 获取窗口句柄
+		HWND hwnd = FindWindow(NULL, "MenuUI");
+		if (hwnd) {
+			SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 		}
 	}
-
-
-
-
-
-
-
 
 
 
@@ -551,8 +835,8 @@ namespace GAME {
 
 		// Specifying 4 channels forces stb to load the image in RGBA which is an easy format for Vulkan
 		tex_data->Channels = 4;
-		tex_data->Width = 1920;
-		tex_data->Height = 1080;
+		tex_data->Width = Variable::windows_Width;
+		tex_data->Height = Variable::windows_Heigth;
 
 		// Calculate allocation size (in number of bytes)
 		size_t image_size = tex_data->Width * tex_data->Height * tex_data->Channels;
