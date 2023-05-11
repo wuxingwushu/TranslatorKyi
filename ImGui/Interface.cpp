@@ -804,7 +804,7 @@ namespace GAME {
 		}
 		ImGui::SameLine();
 		if (ImGui::Button(u8"GitHub")) {
-			ShellExecute(NULL, "open", "https://github.com/wuxingwushu/Translate-miku", NULL, NULL, SW_SHOWMAXIMIZED);//打开链接
+			ShellExecute(NULL, "open", "https://github.com/wuxingwushu/TranslatorKyi", NULL, NULL, SW_SHOWMAXIMIZED);//打开链接
 		}
 		ImGui::SameLine();
 		if (ImGui::Button(u8"关闭")) {
