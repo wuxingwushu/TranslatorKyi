@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(TranslatorWoman)
+project(TranslatorKyi)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -67,7 +67,7 @@ add_subdirectory(ImGui)
 add_subdirectory(Tool)
 add_subdirectory(Function)
 
-add_executable(TranslatorWoman  ${DIRSRCS}
+add_executable(TranslatorKyi  ${DIRSRCS}
 	resource.rc#设置exe程序图标
 )
 
@@ -84,7 +84,7 @@ add_executable(TranslatorWoman  ${DIRSRCS}
 
 if(CMAKE_BUILD_TYPE AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
 	target_link_libraries(
-		TranslatorWoman 
+		TranslatorKyi 
 		vulkanLib 
 		textureLib 
 		imguiLib 
@@ -107,7 +107,7 @@ else()
 	set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")#关闭控制台
 
 	target_link_libraries(
-		TranslatorWoman 
+		TranslatorKyi 
 		vulkanLib
 		textureLib
 		imguiLib 

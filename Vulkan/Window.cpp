@@ -44,7 +44,7 @@ namespace GAME::VulKan {
 		glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);//窗口显示
 		//glfwWindowHint(GLFW_FLOATING, GLFW_TRUE);//窗口置顶
 		GLFWmonitor* pMonitor = FullScreen ? glfwGetPrimaryMonitor() : NULL;
-		mWindow = glfwCreateWindow(mWidth, mHeight, "TranslatorWoman", pMonitor, nullptr);//创建一个窗口
+		mWindow = glfwCreateWindow(mWidth, mHeight, "TranslatorKyi", pMonitor, nullptr);//创建一个窗口
 		if (!mWindow) {//判断窗口是否创建成功
 			std::cerr << "Error: failed to create window" << std::endl;
 		}

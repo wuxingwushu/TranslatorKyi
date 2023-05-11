@@ -1,8 +1,13 @@
 #include "application.h"
-
+/*
+  ／l、
+（ﾟ､ 。７
+　l、  ~ヽ
+　じしf_, )ノ 
+*/
 int main() {
 	//防止软件多开
-	if (FindWindow(NULL, "TranslatorWoman"))
+	if (FindWindow(NULL, "TranslatorKyi"))
 	{
 		MessageBoxEx(NULL, TEXT("ヽ(*。>Д<)o゜"), TEXT("已经启动啦！"), MB_OK, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
 		return FALSE;

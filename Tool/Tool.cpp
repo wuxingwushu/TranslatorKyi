@@ -17,6 +17,66 @@ namespace TOOL {
 		logger->set_level(spdlog::level::debug);//设置日志警报保存等级
 	}
 
+	std::string StrTolower(std::string Str) {
+		std::string str;
+		for (size_t i = 0; i < Str.size(); i++)
+		{
+			str += tolower(Str[i]);
+		}
+		return str;
+	}
+
+	std::string StrName(std::string Str) {
+		size_t dianI = Str.size();
+		size_t xieI = 0;
+		for (size_t i = Str.size() - 1; i > 0; i--) {
+			if (Str[i] == '.') {
+				dianI = i - 1;
+			}
+			if (Str[i] == '\\') {
+				dianI -= i;
+				xieI = i + 1;
+				break;
+			}
+		}
+		return Str.substr(xieI, dianI);
+	}
+
+	void FilePath(const char* path, std::vector<std::string>* strS, const char* Suffix, const char* Name, int* Index) {
+		std::string ModelFileName;
+		for (const auto& entry : std::filesystem::directory_iterator(path)) {
+			ModelFileName = entry.path().filename().string();//获取文件名字
+			for (size_t i = 0; i < ModelFileName.size(); i++)
+			{
+				if ((ModelFileName[i] == '.') && (StrTolower(ModelFileName.substr(i + 1, ModelFileName.size() - i - 1)) == StrTolower(Suffix))) {
+					ModelFileName = ModelFileName.substr(0, i);
+					strS->push_back(ModelFileName);
+					if (ModelFileName == Name) {
+						Index[0] = strS->size() - 1;
+					}
+				}
+			}
+		}
+	}
+
+	bool SetModifyRegedit(const char* Name, bool Bool) {
+		char pFileName[MAX_PATH] = { 0 };
+		DWORD dwRet = GetModuleFileName(NULL, (LPSTR)pFileName, MAX_PATH);
+
+		HKEY hKey;
+		LPCTSTR lpRun = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+		long lRet = RegOpenKeyEx(HKEY_LOCAL_MACHINE, lpRun, 0, KEY_WRITE, &hKey);
+		if (lRet != ERROR_SUCCESS)
+			return false;
+
+		if (Bool)
+			RegSetValueEx(hKey, Name, 0, REG_SZ, (const BYTE*)(LPCSTR)pFileName, MAX_PATH);//添加一个Key
+		else
+			RegDeleteValueA(hKey, Name);//删除一个Key
+		RegCloseKey(hKey);//关闭注册表
+		return true;
+	}
+
 
 	void CtrlAndC() {
 		keybd_event(17, 0, 0, 0);//按下 ctrl

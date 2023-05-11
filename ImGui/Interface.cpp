@@ -209,12 +209,14 @@ namespace GAME {
 	// InputTextMultiline 的 回调函数
 	int mCursorPos, mTextLen;//返回输入框的光标位置，文本长度
 	bool TranslateInputBool;//让 Ctrl + c 只作用于被翻译的文本框
+	bool InputCursorBool;
 	int MyText(ImGuiInputTextCallbackData* data) {
 		if (!ImGui::IsItemDeactivated())
 		{
-			if (mCursorPos != 0) {
+			if (InputCursorBool) {
 				data->CursorPos = mCursorPos;
 				mCursorPos = 0;
+				InputCursorBool = false;
 			}
 		}
 		if (data->HasSelection() && ((GetKeyState(VK_CONTROL) < 0) && (GetKeyState('C') < 0)))
@@ -234,6 +236,7 @@ namespace GAME {
 			if (TranslateInputBool) {
 				mCursorPos = data->CursorPos;
 				mTextLen = data->BufTextLen;
+				InputCursorBool = true;
 			}
 			
 		}
@@ -274,13 +277,13 @@ namespace GAME {
 		int BeginWindowPosX, BeginWindowPosY;
 		ImGui::Begin(u8"TranslateUI", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//创建窗口
 		
-		if (mCursorPos != 0) {
+		if (InputCursorBool) {
 			// 在窗口打开时自动将焦点设置到多行文本输入框上
 			ImGui::SetKeyboardFocusHere();
 		}
 		TranslateInputBool = true;
 		ImGui::InputTextMultiline("##eng", eng, IM_ARRAYSIZE(eng), ImVec2(kuangshu, ImGui::GetTextLineHeight() * RowsNumber), flags, MyText);
-		if (mCursorPos != 0) {
+		if (InputCursorBool) {
 			InputTextMultilineText();//将剪贴板内容粘贴到输入光标位置
 		}
 		ImGui::SameLine();//让一个元素并排
@@ -367,7 +370,7 @@ namespace GAME {
 					ImGui::EndListBox();
 				}
 			}
-			ImGui::SetWindowSize(ImVec2(100, BeginWindowSizeY));
+			ImGui::SetWindowSize(ImVec2(ImGui::GetTextLineHeightWithSpacing()*5+20, BeginWindowSizeY));
 			if ((m_io->MousePos.x > ImGui::GetWindowPos().x) && (m_io->MousePos.y > ImGui::GetWindowPos().y) && (m_io->MousePos.x < (ImGui::GetWindowPos().x + ImGui::GetWindowWidth())) && (m_io->MousePos.y < (ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
 				TranslateTime = clock();
 				fanbool = true;
@@ -394,11 +397,11 @@ namespace GAME {
 				RowsNumber = 3;
 			}
 			BeginWindowSizeY = (RowsNumber * int(ImGui::GetTextLineHeight()) * 2) + ImGui::GetTextLineHeightWithSpacing();
-			kuangshu = BeginWindowSizeX - (ImGui::GetTextLineHeightWithSpacing() * 3 + 20);
+			kuangshu = BeginWindowSizeX - (ImGui::GetTextLineHeightWithSpacing() * 3 + 16);
 
 			if (kuangshu < ImGui::GetTextLineHeightWithSpacing()) {
 				RowsNumber = ImGui::GetTextLineHeightWithSpacing();
-				BeginWindowSizeX = ImGui::GetTextLineHeightWithSpacing() * 4 + 20;
+				BeginWindowSizeX = ImGui::GetTextLineHeightWithSpacing() * 4 + 16;
 			}
 		}
 		
@@ -597,6 +600,8 @@ namespace GAME {
 
 	void ImGuiInterFace::SetUpInterface()
 	{
+		static std::string Hitokoto;
+
 		static char SetBaiduID[128];
 		static char SetBaiduKey[128];
 		static char SetYoudaoID[128];
@@ -610,10 +615,16 @@ namespace GAME {
 		static std::vector<std::string> ModelS;
 
 		static int FontIndex;
+		static int MyFontSize;
 		static std::vector<std::string> FontS;
+
+		static float LFontSize;
+		static bool LFontBool;
 
 		if (SetBool) {
 			SetBool = false;
+
+			Hitokoto = GetHitokoto();
 
 			memcpy(SetBaiduID, Variable::BaiduAppid.c_str(), Variable::BaiduAppid.size());
 			memcpy(SetBaiduKey, Variable::BaiduSecret_key.c_str(), Variable::BaiduSecret_key.size());
@@ -624,46 +635,25 @@ namespace GAME {
 			memcpy(SetChoicekey, Variable::Choicekey.c_str(), 1);
 			memcpy(SetReplacekey, Variable::Replacekey.c_str(), 1);
 
+			LFontSize = Variable::FontSize;
+			LFontBool = Variable::FontBool;
+
 			ModelS.clear();
 			ModelIndex = 0;
-			std::string Modelpath = "./TessData";
-			std::string ModelFileName;
-			for (const auto& entry : std::filesystem::directory_iterator(Modelpath)) {
-				ModelFileName = entry.path().filename().string();//获取文件名字
-				for (size_t i = 0; i < ModelFileName.size(); i++)
-				{
-					if ((ModelFileName[i] == '.') && (ModelFileName.substr(i + 1, ModelFileName.size() - i - 1) == "traineddata")) {
-						ModelFileName = ModelFileName.substr(0, i);
-						ModelS.push_back(ModelFileName);
-						if (ModelFileName == Variable::Model) {
-							ModelIndex = ModelS.size() - 1;
-						}
-					}
-				}
-			}
+			TOOL::FilePath("./TessData", &ModelS, "traineddata", TOOL::StrName(Variable::Model).c_str(), &ModelIndex);
 
 			FontS.clear();
 			FontIndex = 0;
-			std::string Fontpath = "./TTF";
-			std::string FontFileName;
-			for (const auto& entry : std::filesystem::directory_iterator(Fontpath)) {
-				FontFileName = entry.path().filename().string();//获取文件名字
-				for (size_t i = 0; i < FontFileName.size(); i++)
-				{
-					if ((FontFileName[i] == '.') && (FontFileName.substr(i + 1, FontFileName.size() - i - 1) == "ttf")) {
-						FontFileName = FontFileName.substr(0, i);
-						FontS.push_back(FontFileName);
-						if (FontFileName == Variable::Model) {
-							FontIndex = ModelS.size() - 1;
-						}
-					}
-				}
-			}
+			TOOL::FilePath("./TTF", &FontS, "ttf", TOOL::StrName(Variable::FontFilePath).c_str(), &FontIndex);
+			MyFontSize = FontS.size();
+			TOOL::FilePath("C:\\Windows\\Fonts", &FontS, "ttf", TOOL::StrName(Variable::FontFilePath).c_str(), &FontIndex);
 
 			//ImGui::InputTextWithHint("input text (w/ hint)", "enter text here", str1, IM_ARRAYSIZE(str1));
 		}
 
+		
 		ImGui::Begin("SetUI", &SetBool, ImGuiWindowFlags_NoTitleBar);
+		ImGui::Text(u8"翻译密钥");
 		InputInfo.LText = SetBaiduID;
 		ImGui::InputText(u8"百度ID", SetBaiduID, IM_ARRAYSIZE(SetBaiduID), flags, &InputKeyEvent, &InputInfo);
 		InputInfo.LText = SetBaiduKey;
@@ -677,6 +667,7 @@ namespace GAME {
 		ImGui::InputText(u8"选择翻译", SetChoicekey, IM_ARRAYSIZE(SetChoicekey));
 		ImGui::InputText(u8"替换翻译", SetReplacekey, IM_ARRAYSIZE(SetReplacekey));
 		ImGui::Text(u8"设置");
+		ImGui::Checkbox("开机启动", &Variable::Startup);
 		ImGui::InputInt(u8"滞留时间（ms）", &Variable::DisplayTime);
 		ImGui::InputFloat(u8"字体大小", &Variable::FontSize, 0.1f, 1.0f);
 		InputText();
@@ -699,6 +690,20 @@ namespace GAME {
 			ImGui::Text(u8"你没有Tesseract模型，模型放在当前程序位置的TessData");
 		}
 		ImGui::Checkbox("使用TTF字体", &Variable::FontBool);
+		ImGui::SameLine();
+		if (ImGui::Button(u8"TTF文件夹")) {
+			TCHAR buffer[MAX_PATH] = { 0 };
+			GetCurrentDirectory(MAX_PATH, buffer);//获取启动器路径
+			//拼接为绝对路径
+			ShellExecute(NULL, "open", (std::string(buffer) + "\\TTF").c_str(), NULL, NULL, SW_SHOWDEFAULT);//打开文件夹
+		}
+		ImGui::SameLine();
+		if (ImGui::Button(u8"TessData文件夹")) {
+			TCHAR buffer[MAX_PATH] = { 0 };
+			GetCurrentDirectory(MAX_PATH, buffer);//获取启动器路径
+			//拼接为绝对路径
+			ShellExecute(NULL, "open", (std::string(buffer) + "\\TessData").c_str(), NULL, NULL, SW_SHOWDEFAULT);//打开文件夹
+		}
 		if (Variable::FontBool) {
 			if (FontS.size() != 0) {
 				if (ImGui::BeginCombo(u8"TTF字体", FontS[FontIndex].c_str(), flags))
@@ -745,29 +750,70 @@ namespace GAME {
 			Variable::Replacekey = toupper(SetReplacekey[0]);
 
 			if (ModelS.size() != 0) {
+				if (Variable::Model != ModelS[ModelIndex]) {
+					mTesseract->~Tesseract();
+					mTesseract->Tesseract::Tesseract(ModelS[ModelIndex].c_str());
+				}
 				Variable::Model = ModelS[ModelIndex];
 			}
 
-
-
-			if (FontS.size() != 0) {
-				Variable::FontFilePath = "./TTF/" + FontS[FontIndex] + ".ttf";
+			bool updata = false;//判断是否要重启软件
+			if ((FontS.size() != 0) && Variable::FontBool) {
+				std::string LFontFilePath;
+				if (MyFontSize > FontIndex) {
+					LFontFilePath = "./TTF/" + FontS[FontIndex] + ".ttf";
+				}
+				else {
+					LFontFilePath = "C:\\Windows\\Fonts\\" + FontS[FontIndex] + ".ttf";
+				}
+				
+				if (LFontFilePath != Variable::FontFilePath) {//更换字体
+					updata = true;
+				}
+				Variable::FontFilePath = LFontFilePath;
 			}
 			else {
 				Variable::FontBool = false;
 			}
 
+			if ((Variable::FontBool != LFontBool) || Variable::FontSize != LFontSize) {//更换字体或字体大小
+				updata = true;
+			}
+
+			TOOL::SetModifyRegedit("TranslatorKyi", Variable::Startup);
+
+			
 			Variable::SaveFile();
+
+			if (updata) {
+				delete mWindown;
+				char path[MAX_PATH];
+				GetModuleFileName(NULL, path, MAX_PATH);
+				ShellExecute(NULL, NULL, path, NULL, NULL, SW_SHOWDEFAULT);
+				exit(0);
+			}
+
+			mTranslate->SetBaiduAppID(Variable::BaiduAppid.c_str());
+			mTranslate->SetBaiduSecretkey(Variable::BaiduSecret_key.c_str());
+				
+			mTranslate->SetYoudaoAppID(Variable::YoudaoAppid.c_str());
+			mTranslate->SetYoudaoSecretkey(Variable::YoudaoSecret_key.c_str());
+
 			EndDisplayBool = true;
 			SetBool = true;
 		}
-
+		ImGui::SameLine();
+		if (ImGui::Button(u8"GitHub")) {
+			ShellExecute(NULL, "open", "https://github.com/wuxingwushu/Translate-miku", NULL, NULL, SW_SHOWMAXIMIZED);//打开链接
+		}
+		ImGui::SameLine();
 		if (ImGui::Button(u8"关闭")) {
 			EndDisplayBool = true;
 			SetBool = true;
 		}
 
-		//ImGui::SetWindowSize(ImVec2(600, 400));
+		ImGui::Text(Hitokoto.c_str());
+
 		ImGui::End();
 	}
 
@@ -777,7 +823,7 @@ namespace GAME {
 		if (MenuBool) {
 			static POINT pt = { 0,0 };
 			GetCursorPos(&pt);//获取鼠标位置
-			ImGui::SetNextWindowPos({ float(pt.x), float(pt.y) - 60 });//设置窗口生成位置
+			ImGui::SetNextWindowPos({ float(pt.x), float(pt.y) - (ImGui::GetTextLineHeightWithSpacing() * 2) - 24 });//设置窗口生成位置
 			MenuBool = false;
 		}
 		ImGui::Begin("MenuUI", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
@@ -1032,4 +1078,3 @@ namespace GAME {
 		ImGui_ImplVulkan_RemoveTexture(tex_data->DS);
 	}
 }
-

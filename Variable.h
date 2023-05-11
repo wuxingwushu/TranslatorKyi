@@ -49,4 +49,5 @@ namespace Variable {
 	extern int ReplaceLanguage;//替换为什么语言
 	extern bool FontBool;//是否引用字体
 	extern std::string FontFilePath;//字体文件路径
+	extern bool Startup;//开机启动
 }

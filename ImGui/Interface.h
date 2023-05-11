@@ -8,6 +8,7 @@
 #include "../Function/tesseract.h"
 #include "../Function/Translate.h"
 #include <filesystem>
+#include "../Function/Hitokoto.h"
 
 namespace GAME {
 	class ImGuiInterFace

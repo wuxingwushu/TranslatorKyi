@@ -185,7 +185,9 @@ namespace GAME {
 	//主循环main
 	void Application::mainLoop() {
 		while (!mWindow->shouldClose()) {//窗口被关闭结束循环
-			Sleep(10);
+
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
 			mWindow->pollEvents();
 			KeyBoardEvents();//监听键盘
 			

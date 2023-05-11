@@ -1,6 +1,13 @@
 #include "Translate.h"
 
 
+size_t TranslateWrite_data(char* ptr, size_t size, size_t nmemb, void* userdata)
+{
+    std::string* str = (std::string*)userdata;
+    str->append(ptr, size * nmemb);
+    return size * nmemb;
+}
+
 Translate::Translate()
 {   
     Baidu_items = new const char* [Variable::Baiduitems.size()];
@@ -100,8 +107,7 @@ std::string Translate::Translate_Baidu(std::string English) {
 
     CURL* curl;
     CURLcode res;
-    FILE* fp;
-    fp = fopen("TemporaryData", "w+");
+    std::string readBuffer;
 
     curl = curl_easy_init();
     if (curl) {
@@ -139,31 +145,21 @@ std::string Translate::Translate_Baidu(std::string English) {
         //printf("%s\n", myurl);
         //设置访问的地址
         curl_easy_setopt(curl, CURLOPT_URL, &myurl);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, TranslateWrite_data);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
         res = curl_easy_perform(curl);
         /* Check for errors */
         if (res != CURLE_OK) {
             fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
         }
-        /* always cleanup */
-        curl_easy_cleanup(curl);
-        fseek(fp, 0, SEEK_END);//将文件内部的指针指向文件末尾
-        long lsize = ftell(fp);//获取文件长度，（得到文件位置指针当前位置相对于文件首的偏移字节数）
-        fseek(fp, NULL, SEEK_SET);//将文件内部的指针重新指向一个流的开头
-        char* kaox = new char[lsize];//申请内存空间，lsize*sizeof(char)是为了更严谨，16位上char占一个字符，其他机器上可能变化
-        fread(kaox, 1, lsize, fp);//将pfile中内容读入pread指向内存中
-        fclose(fp);
-
 
         Json::Value value;
         Json::Reader reader;
-        if (!reader.parse(kaox, value)) {
+        if (!reader.parse(readBuffer, value)) {
             printf("parse json error!");
-            delete[] kaox;
             return "错误";
         }
         std::string Chinese = value["trans_result"][0]["dst"].asString();
-        delete[] kaox;
         return Chinese;
     }
     return "错误";
@@ -185,8 +181,7 @@ std::string Translate::Translate_Youdao(std::string English)
 
     CURL* curl;
     CURLcode res;
-    FILE* fp;
-    fp = fopen("TemporaryData", "w+");
+    std::string readBuffer;
 
     curl = curl_easy_init();
     if (curl) {
@@ -224,31 +219,21 @@ std::string Translate::Translate_Youdao(std::string English)
         //printf("%s\n", myurl);
         //设置访问的地址
         curl_easy_setopt(curl, CURLOPT_URL, &myurl);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, TranslateWrite_data);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
         res = curl_easy_perform(curl);
         /* Check for errors */
         if (res != CURLE_OK) {
             fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
         }
-        /* always cleanup */
-        curl_easy_cleanup(curl);
-        fseek(fp, 0, SEEK_END);//将文件内部的指针指向文件末尾
-        long lsize = ftell(fp);//获取文件长度，（得到文件位置指针当前位置相对于文件首的偏移字节数）
-        fseek(fp, NULL, SEEK_SET);//将文件内部的指针重新指向一个流的开头
-        char* kaox = new char[lsize];//申请内存空间，lsize*sizeof(char)是为了更严谨，16位上char占一个字符，其他机器上可能变化
-        fread(kaox, 1, lsize, fp);//将pfile中内容读入pread指向内存中
-        fclose(fp);
-
 
         Json::Value value;
         Json::Reader reader;
-        if (!reader.parse(kaox, value)) {
+        if (!reader.parse(readBuffer, value)) {
             printf("parse json error!");
-            delete[] kaox;
             return "错误";
         }
         std::string Chinese = value["web"][0]["value"][0].asString();
-        delete[] kaox;
         return Chinese;
     }
     return "错误";

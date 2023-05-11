@@ -3,7 +3,7 @@
 #include <string>
 #include <windows.h>
 #include "../Variable.h"
-
+#include <filesystem>
 
 #include "spdlog/spdlog.h"
 #include "spdlog/cfg/env.h"  // support for loading levels from the environment variable
@@ -18,6 +18,12 @@ namespace TOOL {
 	void SpdLogInit();
 
 
+	std::string StrTolower(std::string Str);
+	std::string StrName(std::string Str);
+	void FilePath(const char* path, std::vector<std::string>* strS, const char* Suffix, const char* Name, int* Index);
+
+
+	bool SetModifyRegedit(const char* Name, bool Bool);
 
 	
 	void CtrlAndC();
