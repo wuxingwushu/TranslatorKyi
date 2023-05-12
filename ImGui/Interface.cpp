@@ -607,6 +607,9 @@ namespace GAME {
 		static char SetYoudaoID[128];
 		static char SetYoudaoKey[128];
 
+		static int SetMakeUp;
+		char* CharMakeUpS[2] = { "Alt","Ctrl" };
+		int MakeUpS[2] = { 18,17};
 		static char SetScreenshotkey[2];
 		static char SetChoicekey[2];
 		static char SetReplacekey[2];
@@ -631,6 +634,7 @@ namespace GAME {
 			memcpy(SetYoudaoID, Variable::YoudaoAppid.c_str(), Variable::YoudaoAppid.size());
 			memcpy(SetYoudaoKey, Variable::YoudaoSecret_key.c_str(), Variable::YoudaoSecret_key.size());
 
+			if (Variable::MakeUp == 17) { SetMakeUp = 1; }
 			memcpy(SetScreenshotkey, Variable::Screenshotkey.c_str(), 1);
 			memcpy(SetChoicekey, Variable::Choicekey.c_str(), 1);
 			memcpy(SetReplacekey, Variable::Replacekey.c_str(), 1);
@@ -663,6 +667,18 @@ namespace GAME {
 		InputInfo.LText = SetYoudaoKey;
 		ImGui::InputText(u8"有道Key", SetYoudaoKey, IM_ARRAYSIZE(SetYoudaoKey), flags, &InputKeyEvent, &InputInfo);
 		ImGui::Text(u8"快捷键");
+		if (ImGui::BeginCombo(u8"组合键", CharMakeUpS[SetMakeUp], flags))
+		{
+			for (int n = 0; n < 2; n++)
+			{
+				const bool is_selected = (SetMakeUp == n);
+				if (ImGui::Selectable(CharMakeUpS[n], is_selected))
+					SetMakeUp = n;
+				if (is_selected)
+					ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
 		ImGui::InputText(u8"截图翻译", SetScreenshotkey, IM_ARRAYSIZE(SetScreenshotkey));
 		ImGui::InputText(u8"选择翻译", SetChoicekey, IM_ARRAYSIZE(SetChoicekey));
 		ImGui::InputText(u8"替换翻译", SetReplacekey, IM_ARRAYSIZE(SetReplacekey));
@@ -745,6 +761,7 @@ namespace GAME {
 			Variable::YoudaoSecret_key = SetYoudaoKey;
 
 			//转为大写
+			Variable::MakeUp = MakeUpS[SetMakeUp];
 			Variable::Screenshotkey = toupper(SetScreenshotkey[0]);
 			Variable::Choicekey = toupper(SetChoicekey[0]);
 			Variable::Replacekey = toupper(SetReplacekey[0]);
