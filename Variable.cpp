@@ -29,9 +29,9 @@ namespace Variable {
 		DisplayTime = iniData->Get<int>("Set", "DisplayTime");
 		FontSize = iniData->Get<float>("Set", "FontSize");
 		ReplaceLanguage = iniData->Get<int>("Set", "ReplaceLanguage");
-		FontBool = iniData->Get<int>("Set", "FontBool") ? true : false;
+		FontBool = iniData->Get<bool>("Set", "FontBool");
 		FontFilePath = iniData->Get<std::string>("Set", "FontFilePath");
-		Startup = iniData->Get<int>("Set", "Startup") ? true : false;
+		Startup = iniData->Get<bool>("Set", "Startup");
 
 		delete iniData;
 	}
@@ -62,11 +62,11 @@ namespace Variable {
 		//保存 替换语言
 		iniData->UpdateEntry("Set", "ReplaceLanguage", ReplaceLanguage);
 		//保存 是否开启自定义字体
-		iniData->UpdateEntry("Set", "FontBool", FontBool ? "1" : "0");
+		iniData->UpdateEntry("Set", "FontBool", FontBool);
 		//保存 字体文件路径
 		iniData->UpdateEntry("Set", "FontFilePath", FontFilePath);
 		//保存 开机启动
-		iniData->UpdateEntry("Set", "Startup", Startup ? "1" : "0");
+		iniData->UpdateEntry("Set", "Startup", Startup);
 
 		inih::INIWriter::write_Gai(IniPath, *iniData);//保存
 

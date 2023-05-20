@@ -17,6 +17,33 @@ namespace TOOL {
 		logger->set_level(spdlog::level::debug);//设置日志警报保存等级
 	}
 
+	template <typename T>
+	inline T Converter(const std::string& s) {
+		try {
+			T v{};
+			std::istringstream _{ s };
+			_.exceptions(std::ios::failbit);
+			_ >> v;
+			return v;
+		}
+		catch (std::exception& e) {
+			throw std::runtime_error("cannot parse value '" + s + "' to type<T>.");
+		};
+	}
+
+	bool BoolConverter(std::string s){
+		std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+		static const std::unordered_map<std::string, bool> s2b{
+			{"1", true},  {"true", true},   {"yes", true}, {"on", true},
+			{"0", false}, {"false", false}, {"no", false}, {"off", false},
+		};
+		auto const value = s2b.find(s);
+		if (value == s2b.end()) {
+			throw std::runtime_error("'" + s + "' is not a valid boolean value.");
+		}
+		return value->second;
+	}
+
 	std::string StrTolower(std::string Str) {
 		std::string str;
 		for (size_t i = 0; i < Str.size(); i++)
