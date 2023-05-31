@@ -17,8 +17,10 @@ namespace TOOL {
 
 	void SpdLogInit();
 
+	
 	template <typename T>
 	T Converter(const std::string& s);
+
 	bool BoolConverter(std::string s);
 
 	std::string StrTolower(std::string Str);

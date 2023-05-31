@@ -122,7 +122,6 @@ else()
 		libssl_static.lib 
 		libcrypto.lib
 		spdlog.lib
-		#vld.lib
 
 		leptonica-1.83.1.lib
 		tesseract53.lib

@@ -1,5 +1,5 @@
 #include "Tool.h"
-#include <iostream>
+
 
 namespace TOOL {
 
@@ -18,7 +18,7 @@ namespace TOOL {
 	}
 
 	template <typename T>
-	inline T Converter(const std::string& s) {
+	T Converter(const std::string& s){
 		try {
 			T v{};
 			std::istringstream _{ s };

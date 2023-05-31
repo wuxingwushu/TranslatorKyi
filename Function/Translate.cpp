@@ -116,7 +116,7 @@ std::string Translate::Translate_Baidu(std::string English) {
         char salt[60];
         int a = rand();
         sprintf(salt, "%d", a);
-        char sign[120] = "";
+        char sign[100000] = "";
         strcat(sign, mBaiduAppid);
         strcat(sign, English.c_str());//获取加密MD5时 English 不要进行 Url_Encode 处理  （ 详细详细查看百度翻译API文档：https://fanyi-api.baidu.com/product/113 ）
         strcat(sign, salt);
@@ -190,7 +190,7 @@ std::string Translate::Translate_Youdao(std::string English)
         char salt[60];
         int a = rand();
         sprintf(salt, "%d", a);
-        char sign[120] = "";
+        char sign[100000] = "";
         strcat(sign, mYoudaoAppid);
         strcat(sign, English.c_str());//获取加密MD5时 English 不要进行 Url_Encode 处理  （ 详细详细查看百度翻译API文档：https://fanyi-api.baidu.com/product/113 ）
         strcat(sign, salt);

@@ -1,7 +1,11 @@
 #include "../base.h"
 #include <regex>//正则表达式
+#include "PileUp.h"
 
+template <typename T>
+T Converter(const std::string& s);
 
+bool BoolConverter(std::string s);
 
 
 std::string Replacement(std::string str, std::string Replace, std::string Change, std::string Ftext, std::string Rtext, bool F, bool R);//对符合条件的字符串替换
@@ -22,7 +26,35 @@ std::string LeaveOnlyLetters(std::string str);//把字母数字以外的符号�
 std::string WordSeparation(std::string str);//将符合条件的大写字母前面加空格
 std::string RemoveExcessiveSpaces(std::string str);//删除多余的空格
 
-extern std::map<std::string, int>Control_Param;//函数库枚举
-void InitParam();
+
+enum Fenum {
+    Bool,
+    Char,
+    Int,
+    Float,
+    Double,
+    String,
+    F_Replacement,
+    F_TextReplacement,
+    F_TextDeletion,
+    F_LeaveOnlyLetters,
+    F_WordSeparation,
+    F_RemoveExcessiveSpaces,
+    NewDLL,
+    DLL,
+    DeleteDLL,
+    New,
+    Set,
+    Get,
+    Delete,
+};
+
+extern std::map<std::string, Fenum>Control_Param;
+
+extern Stu* STu;
+extern HINSTANCE Dll;
+typedef void (*MyFunction)(Stu*);
+extern MyFunction myFunction;
+void InitOpcode(unsigned int Max);
 std::string Opcode(std::string str, const char* CodeMod);//操作码读取
 std::string CodeExplain(std::string str, std::vector<std::string> Code);//操作码解释器

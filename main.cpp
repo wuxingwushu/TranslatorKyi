@@ -1,4 +1,5 @@
 #include "application.h"
+#include "Function/opcode.h"
 /*
   ／l、
 （ﾟ､ 。７

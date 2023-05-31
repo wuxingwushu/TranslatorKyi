@@ -1,6 +1,31 @@
 #include "opcode.h"
 
+template <typename T>
+T Converter(const std::string& s) {
+	try {
+		T v{};
+		std::istringstream _{ s };
+		_.exceptions(std::ios::failbit);
+		_ >> v;
+		return v;
+	}
+	catch (std::exception& e) {
+		throw std::runtime_error("cannot parse value '" + s + "' to type<T>.");
+	};
+}
 
+bool BoolConverter(std::string s) {
+	std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+	static const std::unordered_map<std::string, bool> s2b{
+		{"1", true},  {"true", true},   {"yes", true}, {"on", true},
+		{"0", false}, {"false", false}, {"no", false}, {"off", false},
+	};
+	auto const value = s2b.find(s);
+	if (value == s2b.end()) {
+		throw std::runtime_error("'" + s + "' is not a valid boolean value.");
+	}
+	return value->second;
+}
 
 
 std::string Replacement(std::string str, std::string Replace, std::string Change, std::string Ftext, std::string Rtext, bool F, bool R) {
@@ -210,36 +235,67 @@ std::string WordSeparation(std::string str){
 	return str;
 }
 
+
 std::string RemoveExcessiveSpaces(std::string str) {
 	int jie;
 	for (size_t i = 0; i < str.size() - 1; i++)
 	{
 		if (str[i] == ' ') {
-			i++;
 			for (size_t x = i; x < str.size(); x++) {
 				if (str[x] != ' ') {
+                    i++;
 					jie = x;
 					break;
 				}
 				if (x == (str.size() - 1)) {
-					jie = x;
+					jie = str.size();
 				}
 			}
 			str = str.substr(0, i) + str.substr(jie, str.size() - jie);
 		}
 	}
+    if (str[0] == ' ')
+    {
+        str = str.substr(1, str.size() - 1);
+    }
 	return str;
 }
 
-std::map<std::string, int>Control_Param;
-void InitParam() {
+Stu* STu;
+HINSTANCE Dll;
+MyFunction myFunction;
+std::map<std::string, Fenum>Control_Param;
+
+void InitOpcode(unsigned int Max) {
+
+	STu = new Stu;
+	STu->boolS = new PileUp<bool>(Max);
+	STu->charS = new PileUp<char>(Max);
+	STu->intS = new PileUp<int>(Max);
+	STu->floatS = new PileUp<float>(Max);
+	STu->doubleS = new PileUp<double>(Max);
+	STu->stringS = new PileUp<std::string>(Max);
+
 	Control_Param = {
-		{ "Replacement", 0 },
-		{ "TextReplacement", 1 },
-		{ "TextDeletion",2 },
-		{ "LeaveOnlyLetters", 3 },
-		{ "WordSeparation", 4 },
-		{ "RemoveExcessiveSpaces", 5 },
+		{ "Bool", Bool },
+		{ "Char", Char },
+		{ "Int",Int },
+		{ "Float", Float },
+		{ "Double", Double },
+		{ "String", String },
+		{ "Replacement", F_Replacement },
+		{ "TextReplacement", F_TextReplacement },
+		{ "TextDeletion",F_TextDeletion },
+		{ "LeaveOnlyLetters", F_LeaveOnlyLetters },
+		{ "WordSeparation", F_WordSeparation },
+		{ "RemoveExcessiveSpaces", F_RemoveExcessiveSpaces },
+		{ "NewDLL", NewDLL },
+		{ "DLL", DLL },
+		{ "DeleteDLL", DeleteDLL },
+		{ "New", New },
+		{ "Set", Set },
+		{ "Get",Get },
+		{ "Delete", Delete },
 	};
 }
 
@@ -248,6 +304,8 @@ std::string Opcode(std::string str, const char* CodeMod) {
 	// 检查文件是否成功打开
 	if (!infile.is_open()) {
 		std::cout << "文件打开失败！" << std::endl;
+		// 关闭文件
+		infile.close();
 		return str;
 	}
 	// 逐行读取文件内容并输出
@@ -263,35 +321,77 @@ std::string Opcode(std::string str, const char* CodeMod) {
 					line = line.substr(i+1, line.size()-1-i);//把已经提取的内容出除
 					i = 0;//从头开始处理
 				}
-			}
+			}	
 			lineS.push_back(line);//把最后的指令加入
 			str = CodeExplain(str, lineS);//执行这行指令
 			lineS.clear();//清空指令参数
 		}
 	}
+	// 关闭文件
+    infile.close();
 	return str;
 }
 
 std::string CodeExplain(std::string str, std::vector<std::string> Code) {
 	switch (Control_Param[Code[0]])
 	{
-		case 0:
-			str = Replacement(str, Code[1], Code[2], Code[3], Code[4], TOOL::BoolConverter(Code[5]), TOOL::BoolConverter(Code[6]));
+		case Bool:
+			STu->boolS->add(BoolConverter(Code[1]));
 			break;
-		case 1:
+		case Char:
+			STu->charS->add(Converter<char>(Code[1]));
+			break;
+		case Int:
+			STu->intS->add(Converter<int>(Code[1]));
+			break;
+		case Float:
+			STu->floatS->add(Converter<float>(Code[1]));
+			break;
+		case Double:
+			STu->doubleS->add(Converter<double>(Code[1]));
+			break;
+		case String:
+			STu->stringS->add(Code[1]);
+			break;
+		case F_Replacement:
+			str = Replacement(str, Code[1], Code[2], Code[3], Code[4], BoolConverter(Code[5]), BoolConverter(Code[6]));
+			break;
+		case F_TextReplacement:
 			str = TextReplacement(str, Code[1], Code[2]);
 			break;
-		case 2:
+		case F_TextDeletion:
 			str = TextDeletion(str, Code[1]);
 			break;
-		case 3:
+		case F_LeaveOnlyLetters:
 			str = LeaveOnlyLetters(str);
 			break;
-		case 4:
+		case F_WordSeparation:
 			str = WordSeparation(str);
 			break;
-		case 5:
+		case F_RemoveExcessiveSpaces:
 			str = RemoveExcessiveSpaces(str);
+			break;
+		case NewDLL:
+			std::cout << Code[1] << std::endl;
+			Dll = LoadLibrary(Code[1].c_str());
+			if (!Dll) {
+				std::cout << "打开" << Code[1] << "失败！" << std::endl;
+			}
+			break;
+		case DLL:
+			myFunction = (MyFunction)GetProcAddress(Dll, Code[1].c_str());
+			if (myFunction != NULL) {
+				myFunction(STu);
+			}
+			else {
+				std::cout << "DLL" << Code[1] << "Error" << std::endl;
+			}
+			break;
+		case DeleteDLL:
+			if (Dll) {
+				FreeLibrary(Dll);
+				Dll = NULL;
+			}
 			break;
 		default:
 			break;
