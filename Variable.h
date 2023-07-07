@@ -50,4 +50,48 @@ namespace Variable {
 	extern bool FontBool;//是否引用字体
 	extern std::string FontFilePath;//字体文件路径
 	extern bool Startup;//开机启动
+	extern std::string Language;//语言
+}
+
+namespace Language {
+	extern void ReadFile(std::string FilePath);//读取
+
+	//翻译界面
+	extern std::string TranslationKey;			//翻译键
+	extern std::string From;					//From
+	extern std::string To;						//To
+
+	//设置界面
+	extern std::string AccountKey;				//翻译密钥
+	extern std::string BaiduID;					//百度ID
+	extern std::string BaiduKey;				//百度Key
+	extern std::string YoudaoID;				//有道ID
+	extern std::string YoudaoKey;				//有道Key
+	extern std::string ShortcutKeys;			//快捷键
+	extern std::string KeyCombination;			//组合键
+	extern std::string ScreenshotTranslation;	//截图翻译
+	extern std::string SelectTranslation;		//选择翻译
+	extern std::string ReplaceTranslation;		//替换翻译
+	extern std::string Startup;					//开机启动
+	extern std::string ResidenceTime;			//滞留时间（ms）
+	extern std::string FontSize;				//字体大小
+	extern std::string TesseractModel;			//Tesseract模型
+	extern std::string NotTesseractModelText;	//你没有Tesseract模型，模型放在当前程序位置的TessData
+	extern std::string UseTTF_Typeface;			//使用TTF字体
+	extern std::string TTF_Folder;				//TTF文件夹
+	extern std::string TessDataFolder;			//TessData文件夹
+	extern std::string TTF_Typeface;			//TTF字体
+	extern std::string NotTTF_TypefaceText;		//你没有TTF字体，字体放在当前程序位置的TTF
+	extern std::string ReplaceLanguage;			//替换语言
+	extern std::string Save;					//保存
+	extern std::string Close;					//关闭
+	extern std::string Language;				//语言
+
+	//系统托盘
+	extern std::string Set;						//设置
+	extern std::string Exit;					//退出
+	extern std::string strncpy;					//人家叫翻译姬！
+
+	//Error
+	extern std::string FindWin;					//已经启动啦！
 }

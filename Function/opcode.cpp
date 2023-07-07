@@ -238,6 +238,9 @@ std::string WordSeparation(std::string str){
 
 std::string RemoveExcessiveSpaces(std::string str) {
 	int jie;
+	if (str.size() < 1) {
+		return str;
+	}
 	for (size_t i = 0; i < str.size() - 1; i++)
 	{
 		if (str[i] == ' ') {
@@ -258,6 +261,31 @@ std::string RemoveExcessiveSpaces(std::string str) {
     {
         str = str.substr(1, str.size() - 1);
     }
+	return str;
+}
+
+std::string UppercaseStart(std::string str) {
+	if ((str[0] >= 'a') && (str[0] <= 'z')) {
+		str[0] = toupper(str[0]);//转为大写
+	}
+	for (size_t i = 0; i < str.size(); i++)
+	{
+		if (str[i] == ' ') {
+			if (i < str.size()-1) {
+				if ((str[i + 1] >= 'a') && (str[i + 1] <= 'z')) {
+					str[i + 1] = toupper(str[i + 1]);//转为大写
+				}
+			}
+		}
+	}
+	return str;
+}
+
+std::string DeletionSpaces(std::string str) {
+	while (TextExists(str, " "))
+	{
+		str = TextDeletion(str, " ");
+	}
 	return str;
 }
 
@@ -289,6 +317,8 @@ void InitOpcode(unsigned int Max) {
 		{ "LeaveOnlyLetters", F_LeaveOnlyLetters },
 		{ "WordSeparation", F_WordSeparation },
 		{ "RemoveExcessiveSpaces", F_RemoveExcessiveSpaces },
+		{ "UppercaseStart", F_UppercaseStart },
+		{ "DeletionSpaces", F_DeletionSpaces },
 		{ "NewDLL", NewDLL },
 		{ "DLL", DLL },
 		{ "DeleteDLL", DeleteDLL },
@@ -370,6 +400,12 @@ std::string CodeExplain(std::string str, std::vector<std::string> Code) {
 			break;
 		case F_RemoveExcessiveSpaces:
 			str = RemoveExcessiveSpaces(str);
+			break;
+		case F_UppercaseStart:
+			str = UppercaseStart(str);
+			break;
+		case F_DeletionSpaces:
+			str = DeletionSpaces(str);
 			break;
 		case NewDLL:
 			std::cout << Code[1] << std::endl;

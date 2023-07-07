@@ -38,7 +38,7 @@ namespace GAME {
 	//初始化Vulkan
 	//1 rendePass 加入pipeline 2 生成FrameBuffer
 	void Application::initVulkan() {
-		mInstance = new VulKan::Instance(false);//实列化需要的VulKan功能APi
+		mInstance = new VulKan::Instance(false);//实列化需要的VulKan功能APi （还是不知道哪里错了，开始检测就一直报错，所以只可以关掉了。修不好 （；´д｀）ゞ  ）
 		mWindowSurface = new VulKan::WindowSurface(mInstance, mWindow);//获取你在什么平台运行调用不同的API（比如：Window，Android）
 		mDevice = new VulKan::Device(mInstance, mWindowSurface);//获取电脑的硬件设备
 		mCommandPool = new VulKan::CommandPool(mDevice);//创建指令池，给CommandBuffer用的
@@ -57,6 +57,8 @@ namespace GAME {
 			mCommandBuffers[i] = new VulKan::CommandBuffer(mDevice, mCommandPool);//创建主指令缓存
 		}
 		createSyncObjects();
+
+		InitOpcode(20);//初始化 操作码 解释器
 	}
 	
 	void GAME::Application::initImGui()
@@ -230,6 +232,7 @@ namespace GAME {
 				Sleep(5);//等待上面的内容复制到剪切板上
 				
 				Variable::eng = TOOL::UnicodeToUtf8(TOOL::ClipboardTochar());//获取选中的文本
+				Variable::eng = Opcode(Variable::eng, "./Opcode/Select.Opcode");//执行操作码
 				Variable::zhong = InterFace->mTranslate->TranslateAPI(Variable::eng);//翻译内容
 
 				memset(InterFace->eng, 0, sizeof(InterFace->eng));
@@ -259,6 +262,8 @@ namespace GAME {
 				Variable::zhong = InterFace->mTranslate->TranslateAPI(Variable::eng);//翻译内容
 				InterFace->mTranslate->mTo = LTo;
 				
+				Variable::zhong = Opcode(Variable::zhong, "./Opcode/Replace.Opcode");//执行操作码
+
 				TOOL::CopyToClipboard(TOOL::Utf8ToUnicode(Variable::zhong.c_str()));
 				//粘贴出去 ctrl + v
 				TOOL::CtrlAndV();

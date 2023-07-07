@@ -32,6 +32,7 @@ namespace Variable {
 		FontBool = iniData->Get<bool>("Set", "FontBool");
 		FontFilePath = iniData->Get<std::string>("Set", "FontFilePath");
 		Startup = iniData->Get<bool>("Set", "Startup");
+		Language = iniData->Get<std::string>("Set", "Language");
 
 		delete iniData;
 	}
@@ -67,6 +68,8 @@ namespace Variable {
 		iniData->UpdateEntry("Set", "FontFilePath", FontFilePath);
 		//保存 开机启动
 		iniData->UpdateEntry("Set", "Startup", Startup);
+		//保存 语言
+		iniData->UpdateEntry("Set", "Language", Language);
 
 		inih::INIWriter::write_Gai(IniPath, *iniData);//保存
 
@@ -108,4 +111,87 @@ namespace Variable {
 	bool FontBool;//是否开启自定义字体
 	std::string FontFilePath;//字体文件路径
 	bool Startup;//开机启动
+	std::string Language;//语言
+}
+
+
+namespace Language {
+
+	void ReadFile(std::string FilePath) {
+		inih::INIReader iniData = inih::INIReader("./Language/" + FilePath + ".ini");
+
+		TranslationKey = iniData.Get<std::string>("Translate","TranslationKey");
+		From = iniData.Get<std::string>("Translate", "From");
+		To = iniData.Get<std::string>("Translate", "To");
+
+		AccountKey = iniData.Get<std::string>("Set", "AccountKey");
+		BaiduID = iniData.Get<std::string>("Set", "BaiduID");
+		BaiduKey = iniData.Get<std::string>("Set", "BaiduKey");
+		YoudaoID = iniData.Get<std::string>("Set", "YoudaoID");
+		YoudaoKey = iniData.Get<std::string>("Set", "YoudaoKey");
+		ShortcutKeys = iniData.Get<std::string>("Set", "ShortcutKeys");
+		KeyCombination = iniData.Get<std::string>("Set", "KeyCombination");
+		ScreenshotTranslation = iniData.Get<std::string>("Set", "ScreenshotTranslation");
+		SelectTranslation = iniData.Get<std::string>("Set", "SelectTranslation");
+		ReplaceTranslation = iniData.Get<std::string>("Set", "ReplaceTranslation");
+		Startup = iniData.Get<std::string>("Set", "Startup");
+		ResidenceTime = iniData.Get<std::string>("Set", "ResidenceTime");
+		FontSize = iniData.Get<std::string>("Set", "FontSize");
+		TesseractModel = iniData.Get<std::string>("Set", "TesseractModel");
+		NotTesseractModelText = iniData.Get<std::string>("Set", "NotTesseractModelText");
+		UseTTF_Typeface = iniData.Get<std::string>("Set", "UseTTF_Typeface");
+		TTF_Folder = iniData.Get<std::string>("Set", "TTF_Folder");
+		TessDataFolder = iniData.Get<std::string>("Set", "TessDataFolder");
+		TTF_Typeface = iniData.Get<std::string>("Set", "TTF_Typeface");
+		NotTTF_TypefaceText = iniData.Get<std::string>("Set", "NotTTF_TypefaceText");
+		ReplaceLanguage = iniData.Get<std::string>("Set", "ReplaceLanguage");
+		Save = iniData.Get<std::string>("Set", "Save");
+		Close = iniData.Get<std::string>("Set", "Close");
+		Language = iniData.Get<std::string>("Set", "Language");
+
+		Set = iniData.Get<std::string>("tray", "Set");
+		Exit = iniData.Get<std::string>("tray", "Exit");
+		strncpy = iniData.Get<std::string>("tray", "strncpy");
+
+		FindWin = iniData.Get<std::string>("error", "FindWin");
+	}
+
+	//翻译界面
+	std::string TranslationKey;			//翻译键
+	std::string From;					//From
+	std::string To;						//To
+
+	//设置界面
+	std::string AccountKey;				//翻译密钥
+	std::string BaiduID;				//百度ID
+	std::string BaiduKey;				//百度Key
+	std::string YoudaoID;				//有道ID
+	std::string YoudaoKey;				//有道Key
+	std::string ShortcutKeys;			//快捷键
+	std::string KeyCombination;			//组合键
+	std::string ScreenshotTranslation;	//截图翻译
+	std::string SelectTranslation;		//选择翻译
+	std::string ReplaceTranslation;		//替换翻译
+	std::string Startup;				//开机启动
+	std::string ResidenceTime;			//滞留时间（ms）
+	std::string FontSize;				//字体大小
+	std::string TesseractModel;			//Tesseract模型
+	std::string NotTesseractModelText;	//你没有Tesseract模型，模型放在当前程序位置的TessData
+	std::string UseTTF_Typeface;		//使用TTF字体
+	std::string TTF_Folder;				//TTF文件夹
+	std::string TessDataFolder;			//TessData文件夹
+	std::string TTF_Typeface;			//TTF字体
+	std::string NotTTF_TypefaceText;	//你没有TTF字体，字体放在当前程序位置的TTF
+	std::string ReplaceLanguage;		//替换语言
+	std::string Save;					//保存
+	std::string Close;					//关闭
+	std::string Language;				//语言
+
+	//系统托盘
+	std::string Set;					//设置
+	std::string Exit;					//退出
+	std::string strncpy;					//人家叫翻译姬！
+
+	//Error
+	std::string FindWin;				//已经启动啦！
 }

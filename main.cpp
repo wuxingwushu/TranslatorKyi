@@ -1,5 +1,9 @@
 #include "application.h"
-#include "Function/opcode.h"
+/*
+* 换了电脑编译说有语法错误：
+*		目前知道的是：中文输出的问题。
+*		解决方法：在中文结尾后加一个 “空格” 或  字母  。
+*/
 /*
   ／l、
 （ﾟ､ 。７
@@ -7,16 +11,17 @@
 　じしf_, )ノ 
 */
 int main() {
+	Variable::ReadFile(iniData);
+	Language::ReadFile(Variable::Language);
+
 	//防止软件多开
 	if (FindWindow(NULL, "TranslatorKyi"))
 	{
-		MessageBoxEx(NULL, TEXT("ヽ(*。>Д<)o゜"), TEXT("已经启动啦！"), MB_OK, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
+		MessageBoxEx(NULL, TEXT("ヽ(*。>Д<)o゜"), TEXT(Language::FindWin.c_str()), MB_OK, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
 		return FALSE;
 	}
 
 	TOOL::SpdLogInit();
-
-	Variable::ReadFile(iniData);
 
 	GAME::Application* app = new GAME::Application();
 

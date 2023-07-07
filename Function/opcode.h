@@ -1,3 +1,4 @@
+#pragma once
 #include "../base.h"
 #include <regex>//正则表达式
 #include "PileUp.h"
@@ -25,6 +26,8 @@ bool TextExistsConditionFrontToRear(std::string str, std::string text, std::stri
 std::string LeaveOnlyLetters(std::string str);//把字母数字以外的符号删除
 std::string WordSeparation(std::string str);//将符合条件的大写字母前面加空格
 std::string RemoveExcessiveSpaces(std::string str);//删除多余的空格
+std::string UppercaseStart(std::string str);//开头字母大写化(空格后面那个字母大写化)
+std::string DeletionSpaces(std::string str);//删除所有空格
 
 
 enum Fenum {
@@ -40,6 +43,8 @@ enum Fenum {
     F_LeaveOnlyLetters,
     F_WordSeparation,
     F_RemoveExcessiveSpaces,
+    F_UppercaseStart,
+    F_DeletionSpaces,
     NewDLL,
     DLL,
     DeleteDLL,

@@ -1,4 +1,5 @@
 #include "Interface.h"
+
 namespace GAME {
 	ImGuiInterFace::ImGuiInterFace(
 		VulKan::Device* device, 
@@ -288,12 +289,12 @@ namespace GAME {
 		}
 		ImGui::SameLine();//让一个元素并排
 		ImGui::BeginGroup();
-		if (ImGui::Button(u8"翻译键")) {
+		if (ImGui::Button(Language::TranslationKey.c_str())) {
 			Variable::zhong = mTranslate->TranslateAPI(eng);
 			memset(zhong, 0, sizeof(zhong));
 			memcpy(zhong, Variable::zhong.c_str(), Variable::zhong.size());
 		}
-		if (ImGui::Button(u8"From")) {
+		if (ImGui::Button(Language::From.c_str())) {
 			ChildWindowBool = !ChildWindowBool;
 			WhoBool = true;
 		}
@@ -302,7 +303,7 @@ namespace GAME {
 		ImGui::InputTextMultiline("##zhong", zhong, IM_ARRAYSIZE(zhong), ImVec2(kuangshu, ImGui::GetTextLineHeight() * RowsNumber), flags, MyText);
 		ImGui::SameLine();//让一个元素并排
 		ImGui::BeginGroup();
-		if (ImGui::Button(u8"To")) {
+		if (ImGui::Button(Language::To.c_str())) {
 			ChildWindowBool = !ChildWindowBool;
 			WhoBool = false;
 		}
@@ -461,6 +462,9 @@ namespace GAME {
 			if (GetKeyState(VK_LBUTTON) >= 0) {
 
 				Variable::eng = mTesseract->IdentifyPictures(x, y, w, h, TData);
+
+				Variable::eng = Opcode(Variable::eng, "./Opcode/Screenshot.Opcode");//执行操作码
+
 				Variable::zhong = mTranslate->TranslateAPI(Variable::eng);
 
 				memset(eng, 0, sizeof(eng));
@@ -621,6 +625,9 @@ namespace GAME {
 		static int MyFontSize;
 		static std::vector<std::string> FontS;
 
+		static int LanguageIndex;
+		static std::vector<std::string> LanguageS;
+
 		static float LFontSize;
 		static bool LFontBool;
 
@@ -652,22 +659,25 @@ namespace GAME {
 			MyFontSize = FontS.size();
 			TOOL::FilePath("C:\\Windows\\Fonts", &FontS, "ttf", TOOL::StrName(Variable::FontFilePath).c_str(), &FontIndex);
 
+			LanguageS.clear();
+			LanguageIndex = 0;
+			TOOL::FilePath("./Language", &LanguageS, "ini", TOOL::StrName(Variable::Language).c_str(), &LanguageIndex);
 			//ImGui::InputTextWithHint("input text (w/ hint)", "enter text here", str1, IM_ARRAYSIZE(str1));
 		}
 
 		
 		ImGui::Begin("SetUI", &SetBool, ImGuiWindowFlags_NoTitleBar);
-		ImGui::Text(u8"翻译密钥");
+		ImGui::Text(Language::AccountKey.c_str());
 		InputInfo.LText = SetBaiduID;
-		ImGui::InputText(u8"百度ID", SetBaiduID, IM_ARRAYSIZE(SetBaiduID), flags, &InputKeyEvent, &InputInfo);
+		ImGui::InputText(Language::BaiduID.c_str(), SetBaiduID, IM_ARRAYSIZE(SetBaiduID), flags, &InputKeyEvent, &InputInfo);
 		InputInfo.LText = SetBaiduKey;
-		ImGui::InputText(u8"百度Key", SetBaiduKey, IM_ARRAYSIZE(SetBaiduKey), flags, &InputKeyEvent, &InputInfo);
+		ImGui::InputText(Language::BaiduKey.c_str(), SetBaiduKey, IM_ARRAYSIZE(SetBaiduKey), flags, &InputKeyEvent, &InputInfo);
 		InputInfo.LText = SetYoudaoID;
-		ImGui::InputText(u8"有道ID", SetYoudaoID, IM_ARRAYSIZE(SetYoudaoID), flags, &InputKeyEvent, &InputInfo);
+		ImGui::InputText(Language::YoudaoID.c_str(), SetYoudaoID, IM_ARRAYSIZE(SetYoudaoID), flags, &InputKeyEvent, &InputInfo);
 		InputInfo.LText = SetYoudaoKey;
-		ImGui::InputText(u8"有道Key", SetYoudaoKey, IM_ARRAYSIZE(SetYoudaoKey), flags, &InputKeyEvent, &InputInfo);
-		ImGui::Text(u8"快捷键");
-		if (ImGui::BeginCombo(u8"组合键", CharMakeUpS[SetMakeUp], flags))
+		ImGui::InputText(Language::YoudaoKey.c_str(), SetYoudaoKey, IM_ARRAYSIZE(SetYoudaoKey), flags, &InputKeyEvent, &InputInfo);
+		ImGui::Text(Language::ShortcutKeys.c_str());
+		if (ImGui::BeginCombo(Language::KeyCombination.c_str(), CharMakeUpS[SetMakeUp], flags))
 		{
 			for (int n = 0; n < 2; n++)
 			{
@@ -679,17 +689,17 @@ namespace GAME {
 			}
 			ImGui::EndCombo();
 		}
-		ImGui::InputText(u8"截图翻译", SetScreenshotkey, IM_ARRAYSIZE(SetScreenshotkey));
-		ImGui::InputText(u8"选择翻译", SetChoicekey, IM_ARRAYSIZE(SetChoicekey));
-		ImGui::InputText(u8"替换翻译", SetReplacekey, IM_ARRAYSIZE(SetReplacekey));
-		ImGui::Text(u8"设置");
-		ImGui::Checkbox("开机启动", &Variable::Startup);
-		ImGui::InputInt(u8"滞留时间（ms）", &Variable::DisplayTime);
-		ImGui::InputFloat(u8"字体大小", &Variable::FontSize, 0.1f, 1.0f);
+		ImGui::InputText(Language::ScreenshotTranslation.c_str(), SetScreenshotkey, IM_ARRAYSIZE(SetScreenshotkey));
+		ImGui::InputText(Language::SelectTranslation.c_str(), SetChoicekey, IM_ARRAYSIZE(SetChoicekey));
+		ImGui::InputText(Language::ReplaceTranslation.c_str(), SetReplacekey, IM_ARRAYSIZE(SetReplacekey));
+		ImGui::Text(Language::Set.c_str());
+		ImGui::Checkbox(Language::Startup.c_str(), &Variable::Startup);
+		ImGui::InputInt(Language::ResidenceTime.c_str(), &Variable::DisplayTime);
+		ImGui::InputFloat(Language::FontSize.c_str(), &Variable::FontSize, 0.1f, 1.0f);
 		InputText();
 
 		if (ModelS.size() != 0) {
-			if (ImGui::BeginCombo(u8"Tesseract模型", ModelS[ModelIndex].c_str(), flags))
+			if (ImGui::BeginCombo(Language::TesseractModel.c_str(), ModelS[ModelIndex].c_str(), flags))
 			{
 				for (int n = 0; n < ModelS.size(); n++)
 				{
@@ -703,18 +713,18 @@ namespace GAME {
 			}
 		}
 		else {
-			ImGui::Text(u8"你没有Tesseract模型，模型放在当前程序位置的TessData");
+			ImGui::Text(Language::NotTesseractModelText.c_str());
 		}
-		ImGui::Checkbox("使用TTF字体", &Variable::FontBool);
+		ImGui::Checkbox(Language::UseTTF_Typeface.c_str(), &Variable::FontBool);
 		ImGui::SameLine();
-		if (ImGui::Button(u8"TTF文件夹")) {
+		if (ImGui::Button(Language::TTF_Folder.c_str())) {
 			TCHAR buffer[MAX_PATH] = { 0 };
 			GetCurrentDirectory(MAX_PATH, buffer);//获取启动器路径
 			//拼接为绝对路径
 			ShellExecute(NULL, "open", (std::string(buffer) + "\\TTF").c_str(), NULL, NULL, SW_SHOWDEFAULT);//打开文件夹
 		}
 		ImGui::SameLine();
-		if (ImGui::Button(u8"TessData文件夹")) {
+		if (ImGui::Button(Language::TessDataFolder.c_str())) {
 			TCHAR buffer[MAX_PATH] = { 0 };
 			GetCurrentDirectory(MAX_PATH, buffer);//获取启动器路径
 			//拼接为绝对路径
@@ -722,7 +732,7 @@ namespace GAME {
 		}
 		if (Variable::FontBool) {
 			if (FontS.size() != 0) {
-				if (ImGui::BeginCombo(u8"TTF字体", FontS[FontIndex].c_str(), flags))
+				if (ImGui::BeginCombo(Language::TTF_Typeface.c_str(), FontS[FontIndex].c_str(), flags))
 				{
 					for (int n = 0; n < FontS.size(); n++)
 					{
@@ -736,11 +746,11 @@ namespace GAME {
 				}
 			}
 			else {
-				ImGui::Text(u8"你没有TTF字体，字体放在当前程序位置的TTF");
+				ImGui::Text(Language::NotTTF_TypefaceText.c_str());
 			}
 		}
 
-		if (ImGui::BeginCombo(u8"替换语言", Variable::BaiduitemsName[Variable::ReplaceLanguage].c_str(), flags))
+		if (ImGui::BeginCombo(Language::ReplaceLanguage.c_str(), Variable::BaiduitemsName[Variable::ReplaceLanguage].c_str(), flags))
 		{
 			for (int n = 0; n < Variable::BaiduitemsName.size()-1; n++)
 			{
@@ -754,7 +764,21 @@ namespace GAME {
 		}
 
 
-		if (ImGui::Button(u8"保存")) {
+		if (ImGui::BeginCombo(Language::Language.c_str(), LanguageS[LanguageIndex].c_str(), flags))
+		{
+			for (int n = 0; n < LanguageS.size(); n++)
+			{
+				const bool is_selected = (LanguageIndex == n);
+				if (ImGui::Selectable(LanguageS[n].c_str(), is_selected))
+					LanguageIndex = n;
+				if (is_selected)
+					ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
+
+
+		if (ImGui::Button(Language::Save.c_str())) {
 			Variable::BaiduAppid = SetBaiduID;
 			Variable::BaiduSecret_key = SetBaiduKey;
 			Variable::YoudaoAppid = SetYoudaoID;
@@ -772,6 +796,13 @@ namespace GAME {
 					mTesseract->Tesseract::Tesseract(ModelS[ModelIndex].c_str());
 				}
 				Variable::Model = ModelS[ModelIndex];
+			}
+
+			if (LanguageS.size() != 0) {
+				if (Variable::Language != LanguageS[LanguageIndex]) {
+					Language::ReadFile(LanguageS[LanguageIndex]);
+				}
+				Variable::Language = LanguageS[LanguageIndex];
 			}
 
 			bool updata = false;//判断是否要重启软件
@@ -824,7 +855,7 @@ namespace GAME {
 			ShellExecute(NULL, "open", "https://github.com/wuxingwushu/TranslatorKyi", NULL, NULL, SW_SHOWMAXIMIZED);//打开链接
 		}
 		ImGui::SameLine();
-		if (ImGui::Button(u8"关闭")) {
+		if (ImGui::Button(Language::Close.c_str())) {
 			EndDisplayBool = true;
 			SetBool = true;
 		}
@@ -845,10 +876,10 @@ namespace GAME {
 		}
 		ImGui::Begin("MenuUI", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
 		//设置按键
-		if (ImGui::Button(u8"设置")) {
+		if (ImGui::Button(Language::Set.c_str())) {
 			SetInterFace(2);
 		}
-		if (ImGui::Button(u8"退出")) {
+		if (ImGui::Button(Language::Exit.c_str())) {
 			exit(0);
 		}
 		bool fanbool = false;

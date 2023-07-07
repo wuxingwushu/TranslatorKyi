@@ -18,6 +18,8 @@
 
 #include "ImGui/Interface.h"
 
+#include "Function/opcode.h"
+
 
 namespace GAME {
 	class Application{
