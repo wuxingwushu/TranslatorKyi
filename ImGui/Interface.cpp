@@ -785,7 +785,7 @@ namespace GAME {
 			ImGui::EndCombo();
 		}
 
-		ImGui::ColorEdit4(Language::ScreenshotColor.c_str(), (float*)&ScreenshotColor, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_InputHSV | ImGuiColorEditFlags_Float);
+		ImGui::ColorEdit4(Language::ScreenshotColor.c_str(), (float*)&ScreenshotColor, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_Float);
 
 
 		if (ImGui::Button(Language::Save.c_str())) {
@@ -802,7 +802,7 @@ namespace GAME {
 
 			for (size_t i = 0; i < 4; i++)
 			{
-				Variable::ScreenshotColor[i] = unsigned int(ScreenshotColor[i] * 255);
+				Variable::ScreenshotColor[i] = int(ScreenshotColor[i] * 255);
 			}
 
 			if (ModelS.size() != 0) {

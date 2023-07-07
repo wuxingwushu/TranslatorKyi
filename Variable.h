@@ -3,7 +3,7 @@
 #include "ini.h"//软件数据
 using namespace inih;//启用 ini 读取
 
-template<typename T>std::string toString(const T& t)
+template<typename T>std::string toString(const T t)
 {
 	std::ostringstream oss;  //创建一个格式化输出流
 	oss << t;             //把值传递如流中
@@ -15,9 +15,9 @@ std::string VectorToString(T* v, unsigned int size) {
 	std::string str = "";
 	for (size_t i = 0; i < size-1; i++)
 	{
-		str += toString(v[i]) + " ";
+		str = str + toString(int(v[i])) + " ";
 	}
-	str += toString(v[size - 1]);
+	str = str + toString(int(v[size - 1]));
 	return str;
 }
 
