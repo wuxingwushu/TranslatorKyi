@@ -3,6 +3,24 @@
 #include "ini.h"//软件数据
 using namespace inih;//启用 ini 读取
 
+template<typename T>std::string toString(const T& t)
+{
+	std::ostringstream oss;  //创建一个格式化输出流
+	oss << t;             //把值传递如流中
+	return oss.str();
+}
+
+template <typename T>
+std::string VectorToString(T* v, unsigned int size) {
+	std::string str = "";
+	for (size_t i = 0; i < size-1; i++)
+	{
+		str += toString(v[i]) + " ";
+	}
+	str += toString(v[size - 1]);
+	return str;
+}
+
 namespace Variable {
 
 	// ini 配置信息处理
@@ -51,6 +69,7 @@ namespace Variable {
 	extern std::string FontFilePath;//字体文件路径
 	extern bool Startup;//开机启动
 	extern std::string Language;//语言
+	extern unsigned char ScreenshotColor[4];//截图颜色
 }
 
 namespace Language {
@@ -86,6 +105,7 @@ namespace Language {
 	extern std::string Save;					//保存
 	extern std::string Close;					//关闭
 	extern std::string Language;				//语言
+	extern std::string ScreenshotColor;			//截图颜色
 
 	//系统托盘
 	extern std::string Set;						//设置

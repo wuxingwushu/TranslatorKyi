@@ -502,7 +502,7 @@ namespace GAME {
 			ImVec2(x + w, y),
 			ImVec2(x + w, 0),
 			//颜色
-			IM_COL32(0, 0, 0, 100));
+			IM_COL32(Variable::ScreenshotColor[0], Variable::ScreenshotColor[1], Variable::ScreenshotColor[2], Variable::ScreenshotColor[3]));
 
 		draw_list->AddQuadFilled(
 			//矩形框的四个点（顺时针）
@@ -511,7 +511,7 @@ namespace GAME {
 			ImVec2(Variable::windows_Width, y + h),
 			ImVec2(x + w, y + h),
 			//颜色
-			IM_COL32(0, 0, 0, 100));
+			IM_COL32(Variable::ScreenshotColor[0], Variable::ScreenshotColor[1], Variable::ScreenshotColor[2], Variable::ScreenshotColor[3]));
 
 		draw_list->AddQuadFilled(
 			//矩形框的四个点（顺时针）
@@ -520,7 +520,7 @@ namespace GAME {
 			ImVec2(Variable::windows_Width, Variable::windows_Heigth),
 			ImVec2(x, Variable::windows_Heigth),
 			//颜色
-			IM_COL32(0, 0, 0, 100));
+			IM_COL32(Variable::ScreenshotColor[0], Variable::ScreenshotColor[1], Variable::ScreenshotColor[2], Variable::ScreenshotColor[3]));
 
 		draw_list->AddQuadFilled(
 			//矩形框的四个点（顺时针）
@@ -529,7 +529,7 @@ namespace GAME {
 			ImVec2(x, Variable::windows_Heigth),
 			ImVec2(0, Variable::windows_Heigth),
 			//颜色
-			IM_COL32(0, 0, 0, 100));
+			IM_COL32(Variable::ScreenshotColor[0], Variable::ScreenshotColor[1], Variable::ScreenshotColor[2], Variable::ScreenshotColor[3]));
 
 
 		static POINT pt = { 0,0 };
@@ -631,6 +631,8 @@ namespace GAME {
 		static float LFontSize;
 		static bool LFontBool;
 
+		static float ScreenshotColor[4];
+
 		if (SetBool) {
 			SetBool = false;
 
@@ -663,6 +665,12 @@ namespace GAME {
 			LanguageIndex = 0;
 			TOOL::FilePath("./Language", &LanguageS, "ini", TOOL::StrName(Variable::Language).c_str(), &LanguageIndex);
 			//ImGui::InputTextWithHint("input text (w/ hint)", "enter text here", str1, IM_ARRAYSIZE(str1));
+
+			for (size_t i = 0; i < 4; i++)
+			{
+				ScreenshotColor[i] = float(Variable::ScreenshotColor[i]) / 255.0f;
+			}
+			
 		}
 
 		
@@ -777,6 +785,8 @@ namespace GAME {
 			ImGui::EndCombo();
 		}
 
+		ImGui::ColorEdit4(Language::ScreenshotColor.c_str(), (float*)&ScreenshotColor, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_InputHSV | ImGuiColorEditFlags_Float);
+
 
 		if (ImGui::Button(Language::Save.c_str())) {
 			Variable::BaiduAppid = SetBaiduID;
@@ -789,6 +799,11 @@ namespace GAME {
 			Variable::Screenshotkey = toupper(SetScreenshotkey[0]);
 			Variable::Choicekey = toupper(SetChoicekey[0]);
 			Variable::Replacekey = toupper(SetReplacekey[0]);
+
+			for (size_t i = 0; i < 4; i++)
+			{
+				Variable::ScreenshotColor[i] = unsigned int(ScreenshotColor[i] * 255);
+			}
 
 			if (ModelS.size() != 0) {
 				if (Variable::Model != ModelS[ModelIndex]) {

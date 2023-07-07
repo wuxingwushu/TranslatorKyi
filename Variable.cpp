@@ -33,6 +33,11 @@ namespace Variable {
 		FontFilePath = iniData->Get<std::string>("Set", "FontFilePath");
 		Startup = iniData->Get<bool>("Set", "Startup");
 		Language = iniData->Get<std::string>("Set", "Language");
+		std::vector<unsigned int> LScreenshotColor = iniData->GetVector<unsigned int>("Set", "ScreenshotColor");
+		for (size_t i = 0; i < LScreenshotColor.size(); i++)
+		{
+			ScreenshotColor[i] = LScreenshotColor[i];
+		}
 
 		delete iniData;
 	}
@@ -70,6 +75,8 @@ namespace Variable {
 		iniData->UpdateEntry("Set", "Startup", Startup);
 		//保存 语言
 		iniData->UpdateEntry("Set", "Language", Language);
+		//保存 截图颜色
+		iniData->UpdateEntry("Set", "ScreenshotColor", VectorToString<unsigned char>(ScreenshotColor, 4));
 
 		inih::INIWriter::write_Gai(IniPath, *iniData);//保存
 
@@ -112,6 +119,7 @@ namespace Variable {
 	std::string FontFilePath;//字体文件路径
 	bool Startup;//开机启动
 	std::string Language;//语言
+	unsigned char ScreenshotColor[4];//截图颜色
 }
 
 
@@ -148,6 +156,7 @@ namespace Language {
 		Save = iniData.Get<std::string>("Set", "Save");
 		Close = iniData.Get<std::string>("Set", "Close");
 		Language = iniData.Get<std::string>("Set", "Language");
+		ScreenshotColor = iniData.Get<std::string>("Set", "ScreenshotColor");
 
 		Set = iniData.Get<std::string>("tray", "Set");
 		Exit = iniData.Get<std::string>("tray", "Exit");
@@ -186,6 +195,7 @@ namespace Language {
 	std::string Save;					//保存
 	std::string Close;					//关闭
 	std::string Language;				//语言
+	std::string ScreenshotColor;		//截图颜色
 
 	//系统托盘
 	std::string Set;					//设置

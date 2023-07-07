@@ -34,7 +34,7 @@ namespace TOOL {
 	void CtrlAndC();
 	void CtrlAndV();
 
-
+	
 
 	template<typename T>std::string toString(const T& t); //数据转字符串
 
