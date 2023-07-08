@@ -272,16 +272,12 @@ namespace GAME {
 				return;
 			}
 
-			if ((GetKeyState(Variable::Screenshotkey[0]) < 0)) {
-				while ((GetKeyState(Variable::MakeUp) < 0) || (GetKeyState(Variable::Screenshotkey[0]) < 0)) {
-					mWindow->pollEvents();
-					Sleep(20);
-				}
+			if ((GetKeyState(Variable::Screenshotkey[0]) < 0) && ((GetKeyState(Variable::Screenshotkey[0]) < 0) != mButton)) {
 				buffer = TOOL::screen(buffer);//获取截图数据
 				InterFace->LoadTextureFromFile(buffer, &InterFace->mTextureData);//生成图片ID
 				InterFace->SetInterFace(1);//设置显示类
-				return;
 			}
+			mButton = (GetKeyState(Variable::Screenshotkey[0]) < 0);
 		}
 	}
 
