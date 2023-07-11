@@ -333,7 +333,7 @@ std::string Opcode(std::string str, const char* CodeMod) {
 	std::ifstream infile(CodeMod);//打开指令文本
 	// 检查文件是否成功打开
 	if (!infile.is_open()) {
-		std::cout << "文件打开失败！" << std::endl;
+		std::cout << "File Open Failed!" << std::endl;
 		// 关闭文件
 		infile.close();
 		return str;
@@ -411,7 +411,7 @@ std::string CodeExplain(std::string str, std::vector<std::string> Code) {
 			std::cout << Code[1] << std::endl;
 			Dll = LoadLibrary(Code[1].c_str());
 			if (!Dll) {
-				std::cout << "打开" << Code[1] << "失败！" << std::endl;
+				std::cout << "Open" << Code[1] << "Fail!" << std::endl;
 			}
 			break;
 		case DLL:

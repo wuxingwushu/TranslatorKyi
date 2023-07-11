@@ -161,8 +161,6 @@ namespace Language {
 		Set = iniData.Get<std::string>("tray", "Set");
 		Exit = iniData.Get<std::string>("tray", "Exit");
 		strncpy = iniData.Get<std::string>("tray", "strncpy");
-
-		FindWin = iniData.Get<std::string>("error", "FindWin");
 	}
 
 	//翻译界面
@@ -200,8 +198,5 @@ namespace Language {
 	//系统托盘
 	std::string Set;					//设置
 	std::string Exit;					//退出
-	std::string strncpy;					//人家叫翻译姬！
-
-	//Error
-	std::string FindWin;				//已经启动啦！
+	std::string strncpy;				//人家叫翻译姬！
 }

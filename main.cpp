@@ -11,15 +11,15 @@
 　じしf_, )ノ 
 */
 int main() {
-	Variable::ReadFile(iniData);
-	Language::ReadFile(Variable::Language);
-
 	//防止软件多开
 	if (FindWindow(NULL, "TranslatorKyi"))
 	{
-		MessageBoxEx(NULL, TEXT("ヽ(*。>Д<)o゜"), TEXT(Language::FindWin.c_str()), MB_OK, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
+		MessageBoxEx(NULL, TEXT("Software Started"), TEXT("Error"), MB_OK, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
 		return FALSE;
 	}
+
+	Variable::ReadFile(iniData);
+	Language::ReadFile(Variable::Language);
 
 	TOOL::SpdLogInit();
 

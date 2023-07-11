@@ -97,7 +97,7 @@ namespace GAME::VulKan {
 		NOTIFYICONDATA nidApp = { sizeof(nidApp) };
 		nidApp.hWnd = hwnd;
 		nidApp.uID = 1;
-		strncpy_s(nidApp.szTip, TEXT("人家叫翻译姬！"), sizeof(TEXT("人家叫翻译姬！")));//鼠标停止系统托盘上的提示
+		//strncpy_s(nidApp.szTip, TEXT("MyNameIsTranslatorJi!"), sizeof(TEXT("MyNameIsTranslatorJi!")));//鼠标停止系统托盘上的提示
 		nidApp.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_SHOWTIP | NIF_GUID;
 		nidApp.uCallbackMessage = WM_USER + 1;
 		nidApp.hIcon = (HICON)LoadImage(NULL, TEXT("product.ico"), IMAGE_ICON, 0, 0, LR_LOADFROMFILE);//ico 图片 只支持32x32  ,  16x16

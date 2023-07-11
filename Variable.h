@@ -112,6 +112,4 @@ namespace Language {
 	extern std::string Exit;					//退出
 	extern std::string strncpy;					//人家叫翻译姬！
 
-	//Error
-	extern std::string FindWin;					//已经启动啦！
 }

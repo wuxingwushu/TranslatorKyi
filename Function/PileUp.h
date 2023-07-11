@@ -22,7 +22,7 @@ public:
     void add(T Parameter) {
         if (Index >= Max)
         {
-            std::cout << "超出" << std::endl;
+            std::cout << "add: GoBeyond" << std::endl;
             return;
         }
         mPileUp[Index] = Parameter;
@@ -32,7 +32,7 @@ public:
     T pop() {
         if (Index == 0)
         {
-            std::cout << "空" << std::endl;
+            std::cout << "pop: Empty" << std::endl;
             return 0;
         }
         Index--;

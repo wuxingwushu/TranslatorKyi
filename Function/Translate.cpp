@@ -101,7 +101,7 @@ std::string Translate::Translate_Baidu(std::string English) {
 
     //不存在单词取消翻译
     if (strlen(English.c_str()) <= 1) {
-        return std::string(u8"不存在单词");
+        return std::string(u8"No Words Present");
     }
 
 
@@ -176,7 +176,7 @@ std::string Translate::Translate_Youdao(std::string English)
 
     //不存在单词取消翻译
     if (strlen(English.c_str()) <= 1) {
-        return std::string(u8"不存在单词");
+        return std::string(u8"No Words Present");
     }
 
     CURL* curl;
