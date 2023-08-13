@@ -3,7 +3,7 @@
 #include "../base.h"
 #include "device.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 	/*
 	* fence是控制一次队列提交的标志，与semaphore区别，semaphore控制单一命令提交信息内的
 	* 不同执行阶段之间的依赖关系，semaphore无法手动用API去激发的
@@ -22,7 +22,7 @@ namespace GAME::VulKan {
 		//调用此函数，如果fence没有被激发，那么阻塞在这里，等待激发
 		void block(uint64_t timeout = UINT64_MAX);
 
-		[[nodiscard]] auto getFence() const { return mFence; }
+		[[nodiscard]] auto getFence() const noexcept { return mFence; }
 	private:
 		VkFence mFence{ VK_NULL_HANDLE };
 		Device* mDevice{ nullptr };

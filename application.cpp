@@ -1,5 +1,5 @@
 #include "application.h"
-
+#include "AngelScript/AngelScriptCode.h"
 
 
 
@@ -57,8 +57,6 @@ namespace GAME {
 			mCommandBuffers[i] = new VulKan::CommandBuffer(mDevice, mCommandPool);//创建主指令缓存
 		}
 		createSyncObjects();
-
-		InitOpcode(20);//初始化 操作码 解释器
 	}
 	
 	void GAME::Application::initImGui()
@@ -81,6 +79,8 @@ namespace GAME {
 
 
 		InterFace = new ImGuiInterFace(mDevice, mWindow, init_info, mRenderPass, mCommandBuffers[0], mSwapChain->getImageCount());
+
+		AngelScriptTranslate = InterFace->mTranslate;
 	}
 
 
@@ -232,9 +232,17 @@ namespace GAME {
 				Sleep(5);//等待上面的内容复制到剪切板上
 				
 				Variable::eng = TOOL::UnicodeToUtf8(TOOL::ClipboardTochar());//获取选中的文本
-				Variable::eng = Opcode(Variable::eng, "./Opcode/Select.Opcode");//执行操作码
-				Variable::zhong = InterFace->mTranslate->TranslateAPI(Variable::eng);//翻译内容
-
+				if (AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->GetOpenBool() && Variable::ScriptBool) {
+					//执行脚本
+					AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->RunFunction(
+						AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->ChoiceFunction
+					);
+				}
+				else
+				{
+					Variable::zhong = InterFace->mTranslate->TranslateAPI(Variable::eng);//翻译内容
+				}
+				
 				memset(InterFace->eng, 0, sizeof(InterFace->eng));
 				memset(InterFace->zhong, 0, sizeof(InterFace->zhong));
 				memcpy(InterFace->eng, Variable::eng.c_str(), Variable::eng.size());
@@ -257,12 +265,22 @@ namespace GAME {
 				Sleep(5);//等待上面的内容复制到剪切板上
 
 				Variable::eng = TOOL::UnicodeToUtf8(TOOL::ClipboardTochar());//获取选中的文本
+
+
 				int LTo = InterFace->mTranslate->mTo;
 				InterFace->mTranslate->mTo = Variable::ReplaceLanguage;
-				Variable::zhong = InterFace->mTranslate->TranslateAPI(Variable::eng);//翻译内容
+				if (AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->GetOpenBool() && Variable::ScriptBool) {
+					//执行脚本
+					AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->RunFunction(
+						AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->ReplaceFunction
+					);
+				}
+				else
+				{
+					Variable::zhong = InterFace->mTranslate->TranslateAPI(Variable::eng);//翻译内容
+				}
 				InterFace->mTranslate->mTo = LTo;
-				
-				Variable::zhong = Opcode(Variable::zhong, "./Opcode/Replace.Opcode");//执行操作码
+
 
 				TOOL::CopyToClipboard(TOOL::Utf8ToUnicode(Variable::zhong.c_str()));
 				//粘贴出去 ctrl + v

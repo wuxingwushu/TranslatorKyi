@@ -5,7 +5,7 @@
 #include "shader.h"
 #include "renderPass.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	class Pipeline {
 	public:
@@ -26,6 +26,8 @@ namespace GAME::VulKan {
 		//构建渲染管线
 		void build();
 
+		void ReconfigurationPipeline();
+
 	public:
 		VkPipelineVertexInputStateCreateInfo mVertexInputState{};//描述模型顶点的
 		VkPipelineInputAssemblyStateCreateInfo mAssemblyState{};//图元组装的
@@ -38,8 +40,8 @@ namespace GAME::VulKan {
 		VkPipelineLayoutCreateInfo mLayoutState{};//创建管线布局
 
 	public:
-		[[nodiscard]] auto getPipeline() const { return mPipeline; }
-		[[nodiscard]] auto getLayout() const { return mLayout; }
+		[[nodiscard]] auto getPipeline() const noexcept { return mPipeline; }
+		[[nodiscard]] auto getLayout() const noexcept { return mLayout; }
 
 		VkDescriptorSetLayout DescriptorSetLayout{ VK_NULL_HANDLE };
 

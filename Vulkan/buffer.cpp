@@ -2,7 +2,7 @@
 //#include "../vk_mem_alloc.h"
 
 
-namespace GAME::VulKan {
+namespace VulKan {
 	Buffer* Buffer::createVertexBuffer(Device* device, VkDeviceSize size, void* pData, bool ThreadBool) {
 		Buffer* buffer = new Buffer(
 			device, size,
@@ -66,7 +66,7 @@ namespace GAME::VulKan {
 	}
 
 
-	Buffer::Buffer(Device* device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) {
+	Buffer::Buffer(Device* device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkSharingMode Mode) {
 		mDevice = device;
 
 		VkBufferCreateInfo createInfo{};
@@ -78,7 +78,7 @@ namespace GAME::VulKan {
 		VmaAllocationCreateInfo VmaallocInfo = {};
 
 
-		if (VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT == properties) {
+		if (VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT & properties) {
 			VmaallocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 		}
 		else {
@@ -86,7 +86,7 @@ namespace GAME::VulKan {
 		}
 
 		
-		
+
 		//vkCreateBuffer(device->getDevice(), &createInfo, nullptr, &mBuffer)
 		if (vmaCreateBuffer(device->getAllocator(), &createInfo, &VmaallocInfo, &mBuffer, &mAllocation, nullptr) != VK_SUCCESS) {
 			throw std::runtime_error("Error:failed to create buffer");
@@ -125,11 +125,21 @@ namespace GAME::VulKan {
 	}
 
 	Buffer::~Buffer() {
+		if (BuffercommandBuffer != VK_NULL_HANDLE) {
+			delete BuffercommandBuffer;
+			BuffercommandBuffer = VK_NULL_HANDLE;
+		}
+		if (BuffercommandPool != VK_NULL_HANDLE) {
+			delete BuffercommandPool;
+			BuffercommandPool = VK_NULL_HANDLE;
+		}
 		if (BufferstageBuffer != VK_NULL_HANDLE) {
-			BufferstageBuffer->~Buffer();
+			delete BufferstageBuffer;
+			BufferstageBuffer = VK_NULL_HANDLE;
 		}
 		if (mBuffer != VK_NULL_HANDLE) {
 			vmaDestroyBuffer(mDevice->getAllocator(), mBuffer, mAllocation);
+			mBuffer = VK_NULL_HANDLE;
 			//vkDestroyBuffer(mDevice->getDevice(), mBuffer, nullptr);
 		}
 		/*
@@ -163,30 +173,43 @@ namespace GAME::VulKan {
 		vmaUnmapMemory(mDevice->getAllocator(), mAllocation);
 	}
 
+	void* Buffer::getupdateBufferByMap() {
+		void* memPtr = nullptr;
+
+		//vkMapMemory(mDevice->getDevice(), mBufferMemory, 0, size, 0, &memPtr);
+		vmaMapMemory(mDevice->getAllocator(), mAllocation, &memPtr);
+		return memPtr;
+	}
+	void Buffer::endupdateBufferByMap() {
+		//vkUnmapMemory(mDevice->getDevice(), mBufferMemory);
+		vmaUnmapMemory(mDevice->getAllocator(), mAllocation);
+	}
+
 	void Buffer::updateImageByStage(const VkImage& dstImage, VkImageLayout dstImageLayout, uint32_t width, uint32_t height, void* data, size_t size) {
+		if (BufferstageBuffer != VK_NULL_HANDLE) {
+			delete BufferstageBuffer;
+			BufferstageBuffer = VK_NULL_HANDLE;
+		}
+		
 		BufferstageBuffer = new Buffer(mDevice, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 		BufferstageBuffer->updateBufferByMap(data, size);
 
 		copyImage(BufferstageBuffer->getBuffer(), dstImage, dstImageLayout, width, height);
 
-		if (BuffercommandBuffer != VK_NULL_HANDLE) {
-			BuffercommandBuffer->~CommandBuffer();
-			BuffercommandBuffer = VK_NULL_HANDLE;
-		}
-		if (BuffercommandPool != VK_NULL_HANDLE) {
-			BuffercommandPool->~CommandPool();
-			BuffercommandPool = VK_NULL_HANDLE;
-		}
 		if (BufferstageBuffer != VK_NULL_HANDLE) {
-			BufferstageBuffer->~Buffer();
+			delete BufferstageBuffer;
 			BufferstageBuffer = VK_NULL_HANDLE;
 		}
 	}
 
 	void Buffer::copyImage(const VkBuffer& srcBuffer, const VkImage& dstImage, VkImageLayout dstImageLayout, uint32_t width, uint32_t height) {
-		BuffercommandPool = new CommandPool(mDevice);
-		BuffercommandBuffer = new CommandBuffer(mDevice, BuffercommandPool);
+		if (BuffercommandPool == VK_NULL_HANDLE) {
+			BuffercommandPool = new CommandPool(mDevice);
+		}
+		if (BuffercommandBuffer == VK_NULL_HANDLE) {
+			BuffercommandBuffer = new CommandBuffer(mDevice, BuffercommandPool);
+		}
 
 		BuffercommandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);//这个命令只提交一次
 
@@ -198,29 +221,30 @@ namespace GAME::VulKan {
 	}
 
 	void Buffer::updateBufferByStage(void* data, size_t size) {
+		if (BufferstageBuffer != VK_NULL_HANDLE) {
+			delete BufferstageBuffer;
+			BufferstageBuffer = VK_NULL_HANDLE;
+		}
+		
 		BufferstageBuffer = new Buffer(mDevice, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 		BufferstageBuffer->updateBufferByMap(data, size);
 
 		copyBuffer(BufferstageBuffer->getBuffer(), mBuffer, static_cast<VkDeviceSize>(size));
 
-		if (BuffercommandBuffer != VK_NULL_HANDLE) { 
-			BuffercommandBuffer->~CommandBuffer(); 
-			BuffercommandBuffer = VK_NULL_HANDLE;
-		}
-		if (BuffercommandPool != VK_NULL_HANDLE) {
-			BuffercommandPool->~CommandPool();
-			BuffercommandPool = VK_NULL_HANDLE;
-		}
 		if (BufferstageBuffer != VK_NULL_HANDLE) { 
-			BufferstageBuffer->~Buffer();
+			delete BufferstageBuffer;
 			BufferstageBuffer = VK_NULL_HANDLE;
 		}
 	}
 
 	void Buffer::copyBuffer(const VkBuffer& srcBuffer, const VkBuffer& dstBuffer, VkDeviceSize size) {
-		BuffercommandPool = new CommandPool(mDevice);
-		BuffercommandBuffer = new CommandBuffer(mDevice, BuffercommandPool);
+		if (BuffercommandPool == VK_NULL_HANDLE) {
+			BuffercommandPool = new CommandPool(mDevice);
+		}
+		if (BuffercommandBuffer == VK_NULL_HANDLE) {
+			BuffercommandBuffer = new CommandBuffer(mDevice, BuffercommandPool);
+		}
 
 		BuffercommandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);//这个命令只提交一次
 
@@ -241,7 +265,7 @@ namespace GAME::VulKan {
 
 	void Buffer::ThreadUpDateImageByStage(const VkImage& dstImage, VkImageLayout dstImageLayout, uint32_t width, uint32_t height, void* data, size_t size) {
 		if (BufferstageBuffer != VK_NULL_HANDLE) {
-			BufferstageBuffer->~Buffer();
+			delete BufferstageBuffer;
 			BufferstageBuffer = VK_NULL_HANDLE;
 		}
 		BufferstageBuffer = new Buffer(mDevice, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -254,7 +278,7 @@ namespace GAME::VulKan {
 
 	void Buffer::ThreadUpDateBufferByStage(void* data, size_t size) {
 		if (BufferstageBuffer != VK_NULL_HANDLE) {
-			BufferstageBuffer->~Buffer();
+			delete BufferstageBuffer;
 			BufferstageBuffer = VK_NULL_HANDLE;
 		}
 		BufferstageBuffer = new Buffer(mDevice, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);

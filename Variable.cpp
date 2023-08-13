@@ -38,6 +38,8 @@ namespace Variable {
 		{
 			ScreenshotColor[i] = LScreenshotColor[i];
 		}
+		Script = iniData->Get<std::string>("Set", "Script");
+		ScriptBool = iniData->Get<bool>("Set", "ScriptBool");
 
 		delete iniData;
 	}
@@ -77,6 +79,9 @@ namespace Variable {
 		iniData->UpdateEntry("Set", "Language", Language);
 		//保存 截图颜色
 		iniData->UpdateEntry("Set", "ScreenshotColor", VectorToString<unsigned char>(ScreenshotColor, 4));
+		//保存 脚本设置
+		iniData->UpdateEntry("Set", "Script", Script);
+		iniData->UpdateEntry("Set", "ScriptBool", ScriptBool);
 
 		inih::INIWriter::write_Gai(IniPath, *iniData);//保存
 
@@ -107,19 +112,21 @@ namespace Variable {
 
 	//快捷键
 	int MakeUp;//组合
-	std::string Screenshotkey;//截图
-	std::string Choicekey;//选择
-	std::string Replacekey;//替换
+	std::string Screenshotkey;		//截图
+	std::string Choicekey;			//选择
+	std::string Replacekey;			//替换
 	
-	std::string Model;//模型
-	int DisplayTime;//显示时间
-	float FontSize;//字体大小
-	int ReplaceLanguage;//替换为什么语言
-	bool FontBool;//是否开启自定义字体
-	std::string FontFilePath;//字体文件路径
-	bool Startup;//开机启动
-	std::string Language;//语言
-	unsigned char ScreenshotColor[4];//截图颜色
+	std::string Model;					//模型
+	int DisplayTime;					//显示时间
+	float FontSize;						//字体大小
+	int ReplaceLanguage;				//替换为什么语言
+	bool FontBool;						//是否开启自定义字体
+	std::string FontFilePath;			//字体文件路径
+	bool Startup;						//开机启动
+	std::string Language;				//语言
+	unsigned char ScreenshotColor[4];	//截图颜色
+	std::string Script;					//脚本
+	bool ScriptBool;					//是否开启脚本
 }
 
 
@@ -157,6 +164,8 @@ namespace Language {
 		Close = iniData.Get<std::string>("Set", "Close");
 		Language = iniData.Get<std::string>("Set", "Language");
 		ScreenshotColor = iniData.Get<std::string>("Set", "ScreenshotColor");
+		Script = iniData.Get<std::string>("Set", "Script");
+		NotScript = iniData.Get<std::string>("Set", "NotScript");
 
 		Set = iniData.Get<std::string>("tray", "Set");
 		Exit = iniData.Get<std::string>("tray", "Exit");
@@ -194,6 +203,8 @@ namespace Language {
 	std::string Close;					//关闭
 	std::string Language;				//语言
 	std::string ScreenshotColor;		//截图颜色
+	std::string Script;					//脚本
+	std::string NotScript;				//没有脚本
 
 	//系统托盘
 	std::string Set;					//设置

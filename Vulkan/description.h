@@ -2,7 +2,7 @@
 #include "buffer.h"
 #include "../texture/texture.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	struct UniformParameter {
 		size_t					mSize{ 0 };
@@ -15,7 +15,7 @@ namespace GAME::VulKan {
 		VkShaderStageFlagBits	mStage;
 
 		std::vector<Buffer*> mBuffers{};
-		Texture* mTexture{ nullptr };
+		GAME::Texture* mTexture{ nullptr };
 	};
 
 }

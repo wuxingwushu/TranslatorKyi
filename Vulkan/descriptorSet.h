@@ -6,7 +6,7 @@
 #include "descriptorSetLayout.h"
 #include "descriptorPool.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 	/*
 	* 对于每一个模型的渲染，都需要绑定一个DescriptorSet，绑定的位置就是在CommandBuffer
 	* 一个DescriptorSet里面，都对应着一个vp矩阵使用的buffer，一个model矩阵使用的buffer，等等,其中也包括
@@ -31,6 +31,7 @@ namespace GAME::VulKan {
 		[[nodiscard]] auto getDescriptorSet(int frameCount) const { return mDescriptorSets[frameCount]; }
 
 	private:
+		const DescriptorPool* mDescriptorPool;
 		std::vector<VkDescriptorSet> mDescriptorSets{};
 		Device* mDevice{ nullptr };
 	};

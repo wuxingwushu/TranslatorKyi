@@ -148,11 +148,16 @@ std::string Translate::Translate_Baidu(std::string English) {
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, TranslateWrite_data);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
         res = curl_easy_perform(curl);
+        curl_easy_cleanup(curl);
         /* Check for errors */
         if (res != CURLE_OK) {
             fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+            return "错误";
         }
 
+        if (readBuffer.size() == 0) {
+            return "错误";
+        }
         Json::Value value;
         Json::Reader reader;
         if (!reader.parse(readBuffer, value)) {
@@ -222,11 +227,15 @@ std::string Translate::Translate_Youdao(std::string English)
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, TranslateWrite_data);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
         res = curl_easy_perform(curl);
-        /* Check for errors */
+        curl_easy_cleanup(curl);
         if (res != CURLE_OK) {
             fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+            return "错误";
         }
 
+        if (readBuffer.size() == 0) {
+            return "错误";
+        }
         Json::Value value;
         Json::Reader reader;
         if (!reader.parse(readBuffer, value)) {

@@ -6,7 +6,7 @@
 
 
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	const std::vector<const char*> deviceRequiredExtensions = {
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
@@ -40,16 +40,16 @@ namespace GAME::VulKan {
 
 		VkSampleCountFlagBits getMaxUsableSampleCount();
 
-		[[nodiscard]] VmaAllocator getAllocator() const { return mAllocator; }//获取内存分配器
+		[[nodiscard]] VmaAllocator getAllocator() const noexcept { return mAllocator; }//获取内存分配器
 
-		[[nodiscard]] VkDevice getDevice() const { return mDevice; }
-		[[nodiscard]] VkPhysicalDevice getPhysicalDevice() const { return mPhysicalDevice; }
+		[[nodiscard]] VkDevice getDevice() const noexcept { return mDevice; }
+		[[nodiscard]] VkPhysicalDevice getPhysicalDevice() const noexcept { return mPhysicalDevice; }
 
-		[[nodiscard]] std::optional<uint32_t> getGraphicQueueFamily() const { return mGraphicQueueFamily; }
-		[[nodiscard]] std::optional<uint32_t> getPresentQueueFamily() const { return mPresentQueueFamily; }
+		[[nodiscard]] std::optional<uint32_t> getGraphicQueueFamily() const noexcept { return mGraphicQueueFamily; }
+		[[nodiscard]] std::optional<uint32_t> getPresentQueueFamily() const noexcept { return mPresentQueueFamily; }
 
-		[[nodiscard]] VkQueue getGraphicQueue() const { return mGraphicQueue; }
-		[[nodiscard]] VkQueue getPresentQueue() const { return mPresentQueue; }
+		[[nodiscard]] VkQueue getGraphicQueue() const noexcept { return mGraphicQueue; }
+		[[nodiscard]] VkQueue getPresentQueue() const noexcept { return mPresentQueue; }
 
 	private:
 		VkPhysicalDevice mPhysicalDevice{ VK_NULL_HANDLE };//获得的详细设备信息

@@ -2,7 +2,7 @@
 
 #include "../base.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 	
 	class Instance {
 	public:
@@ -22,14 +22,14 @@ namespace GAME::VulKan {
 		//设置调试器的返回那些信息
 		void setupDebugger();
 		//判断是否开启了检测
-		[[nodiscard]] bool getEnableValidationLayer() const { return mEnableValidationLayer; }
+		[[nodiscard]] bool getEnableValidationLayer() const noexcept { return mEnableValidationLayer; }
 
 		
 
 		//获取VulKan的实列
-		[[nodiscard]] VkInstance getInstance() const { return mInstance; }
+		[[nodiscard]] VkInstance getInstance() const noexcept { return mInstance; }
 
-		[[nodiscard]] std::vector<const char*> getextensions() const { return extensions; }
+		[[nodiscard]] std::vector<const char*> getextensions() const noexcept { return extensions; }
 
 		
 

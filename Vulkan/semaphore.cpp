@@ -1,6 +1,6 @@
 #include "semaphore.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	Semaphore::Semaphore(Device* device) {
 		mDevice = device;

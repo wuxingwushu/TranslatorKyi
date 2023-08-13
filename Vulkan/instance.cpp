@@ -1,6 +1,6 @@
 #include "instance.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 	//validation layer 回调函数
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallBack(
 		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,//消息等级
@@ -8,8 +8,10 @@ namespace GAME::VulKan {
 		const VkDebugUtilsMessengerCallbackDataEXT* pMessageData,//消息本体
 		void* pUserData) {
 
-		std::cout << "ValidationLayer: " << pMessageData->pMessage << std::endl;
-
+		if (messageSeverity > VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+			std::cout << "ValidationLayer: " << pMessageData->pMessage << std::endl;
+		}
+		
 		return VK_FALSE;
 	}
 
@@ -44,6 +46,7 @@ namespace GAME::VulKan {
 		mEnableValidationLayer = enableValidationLayer;//存储当前是否开启验证层
 
 		if (mEnableValidationLayer && !checkValidationLayerSupport()) {//判断测试功能开启成功没
+			mEnableValidationLayer = false;
 			throw std::runtime_error("Error: validation layer is not supported");
 		}
 
@@ -56,7 +59,7 @@ namespace GAME::VulKan {
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);//版本
 		appInfo.pEngineName = "NO ENGINE";//是否有引擎，对引擎优化
 		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);//引擎版本
-		appInfo.apiVersion = VK_API_VERSION_1_0;//API 版本
+		appInfo.apiVersion = VK_API_VERSION_1_3;//API 版本
 
 		VkInstanceCreateInfo instCreateInfo = {}; 
 		instCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -114,7 +117,9 @@ namespace GAME::VulKan {
 		std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
 		//添加校验层扩展
-		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME); //开启调试功能
+		if (mEnableValidationLayer) {
+			extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME); //开启调试功能
+		}
 
 		return extensions;
 	}
@@ -162,7 +167,7 @@ namespace GAME::VulKan {
 		createInfo.pUserData = nullptr;
 
 		if (CreateDebugUtilsMessengerEXT(mInstance, &createInfo, nullptr, &mDebugger) != VK_SUCCESS) {//创建返回错误信息或警告的信使
-			throw std::runtime_error("Error:failed to create debugger");
+			throw std::runtime_error("Error:VulKan Instance . failed to create debugger");
 		}
 	}
 }

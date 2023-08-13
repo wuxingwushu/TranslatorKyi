@@ -70,6 +70,8 @@ namespace Variable {
 	extern bool Startup;//开机启动
 	extern std::string Language;//语言
 	extern unsigned char ScreenshotColor[4];//截图颜色
+	extern std::string Script;					//脚本
+	extern bool ScriptBool;//是否开启脚本
 }
 
 namespace Language {
@@ -106,6 +108,8 @@ namespace Language {
 	extern std::string Close;					//关闭
 	extern std::string Language;				//语言
 	extern std::string ScreenshotColor;			//截图颜色
+	extern std::string Script;					//脚本
+	extern std::string NotScript;				//没有脚本
 
 	//系统托盘
 	extern std::string Set;						//设置

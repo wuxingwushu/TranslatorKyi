@@ -2,7 +2,7 @@
 //#include "../vk_mem_alloc.h"
 
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	Image* Image::createDepthImage(
 		Device* device,
@@ -99,7 +99,7 @@ namespace GAME::VulKan {
 		
 		VmaAllocationCreateInfo VmaallocInfo = {};
 		VmaallocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-		
+
 		//vkCreateImage(mDevice->getDevice(), &imageCreateInfo, nullptr, &mImage)
 		if (vmaCreateImage(mDevice->getAllocator(), &imageCreateInfo, &VmaallocInfo, &mImage, &mAllocation, nullptr) != VK_SUCCESS) {
 			throw std::runtime_error("Error:failed to create image");
@@ -138,6 +138,8 @@ namespace GAME::VulKan {
 		imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
 		imageViewCreateInfo.subresourceRange.layerCount = 1;
 
+		
+
 		if (vkCreateImageView(mDevice->getDevice(), &imageViewCreateInfo, nullptr, &mImageView) != VK_SUCCESS) {
 			throw std::runtime_error("Error: failed to create image view");
 		}
@@ -146,7 +148,7 @@ namespace GAME::VulKan {
 
 	Image::~Image() {
 		if (fillstageBuffer != VK_NULL_HANDLE) {
-			fillstageBuffer->~Buffer();
+			delete fillstageBuffer;
 			fillstageBuffer != VK_NULL_HANDLE;
 		}
 
@@ -289,8 +291,8 @@ namespace GAME::VulKan {
 		LayoutcommandBuffer->submitSync(mDevice->getGraphicQueue());//执行这个指令
 
 		if (LayoutcommandBuffer != VK_NULL_HANDLE) { 
-			LayoutcommandBuffer->~CommandBuffer(); 
-			LayoutcommandBuffer != VK_NULL_HANDLE; 
+			delete LayoutcommandBuffer; 
+			LayoutcommandBuffer = VK_NULL_HANDLE; 
 		}
 	}
 
@@ -364,17 +366,11 @@ namespace GAME::VulKan {
 		assert(size);
 
 		if (fillstageBuffer != VK_NULL_HANDLE) {
-			fillstageBuffer->~Buffer();
+			delete fillstageBuffer;
 			fillstageBuffer != VK_NULL_HANDLE;
 		}
 
 		fillstageBuffer = Buffer::createStageBuffer(mDevice, mImage, mLayout, mWidth, mHeight,size, pData);
-
-
-		if (fillcommandBuffer != VK_NULL_HANDLE) {
-			fillcommandBuffer->~CommandBuffer();
-			fillcommandBuffer != VK_NULL_HANDLE;
-		}
 	}
 
 	void Image::ThreadFillImageData(size_t size, void* pData) {
@@ -382,7 +378,7 @@ namespace GAME::VulKan {
 		assert(size);
 
 		if (fillstageBuffer != VK_NULL_HANDLE) {
-			fillstageBuffer->~Buffer();
+			delete fillstageBuffer;
 			fillstageBuffer != VK_NULL_HANDLE;
 		}
 
@@ -391,5 +387,15 @@ namespace GAME::VulKan {
 
 	void Image::ThreadGetImageCommandBuffer(CommandBuffer* commandbuffer) {
 		fillstageBuffer->getUpDateImageCommandBuffer(commandbuffer);
+	}
+
+	void Image::updateBufferByMap(void* data, size_t size) {
+		void* memPtr = nullptr;
+
+		//vkMapMemory(mDevice->getDevice(), mBufferMemory, 0, size, 0, &memPtr);
+		vmaMapMemory(mDevice->getAllocator(), mAllocation, &memPtr);
+		memcpy(memPtr, data, size);
+		//vkUnmapMemory(mDevice->getDevice(), mBufferMemory);
+		vmaUnmapMemory(mDevice->getAllocator(), mAllocation);
 	}
 }

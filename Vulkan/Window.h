@@ -6,7 +6,7 @@ namespace GAME {
 	class Application;
 }
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	class Window {
 	public:

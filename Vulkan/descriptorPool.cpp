@@ -1,6 +1,6 @@
 #include "descriptorPool.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	DescriptorPool::DescriptorPool(Device* device) {
 		mDevice = device;
@@ -12,7 +12,7 @@ namespace GAME::VulKan {
 		}
 	} 
 
-	void DescriptorPool::build(std::vector<UniformParameter*>& params, const int& frameCount) {
+	void DescriptorPool::build(std::vector<UniformParameter*>& params, const int& frameCount, unsigned int shuliang) {
 		//decriptor
 		//descriptorSet(decriptorA(Buffer), decriptorA, decriptorB)
 		//descriptorSet * N 因为描述符集当中，绑定了buffer,当前一帧提交的时候，其他的帧正在绘制当中，
@@ -32,20 +32,21 @@ namespace GAME::VulKan {
 
 		VkDescriptorPoolSize uniformBufferSize{};
 		uniformBufferSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		uniformBufferSize.descriptorCount = uniformBufferCount * frameCount;
+		uniformBufferSize.descriptorCount = uniformBufferCount * frameCount * shuliang;
 		poolSizes.push_back(uniformBufferSize);
 
 		VkDescriptorPoolSize textureSize{};
 		textureSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		textureSize.descriptorCount = textureCount * frameCount;//这边的size是指，有多少个descriptor
+		textureSize.descriptorCount = textureCount * frameCount * shuliang;//这边的size是指，有多少个descriptor
 		poolSizes.push_back(textureSize);
 
 		//创建pool
 		VkDescriptorPoolCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		createInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT; //这个标志的作用就是指示VkDescriptorPool可以释放包含VkDescriptorSet的内存。
 		createInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 		createInfo.pPoolSizes = poolSizes.data();
-		createInfo.maxSets = static_cast<uint32_t>(frameCount);
+		createInfo.maxSets = static_cast<uint32_t>(frameCount * shuliang);
 
 		if (vkCreateDescriptorPool(mDevice->getDevice(), &createInfo, nullptr, &mPool) != VK_SUCCESS) {
 			throw std::runtime_error("Error: failed to create Descriptor pool");

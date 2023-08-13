@@ -3,7 +3,7 @@
 #include "../base.h"
 #include "device.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	class Shader {
 	public:
@@ -11,9 +11,9 @@ namespace GAME::VulKan {
 
 		~Shader();
 
-		[[nodiscard]] auto getShaderStage() const { return mShaderStage; }
-		[[nodiscard]] auto& getShaderEntryPoint() const { return mEntryPoint; }
-		[[nodiscard]] auto getShaderModule() const { return mShaderModule; }
+		[[nodiscard]] auto getShaderStage() const noexcept { return mShaderStage; }
+		[[nodiscard]] auto& getShaderEntryPoint() const noexcept { return mEntryPoint; }
+		[[nodiscard]] auto getShaderModule() const noexcept { return mShaderModule; }
 
 	private:
 		VkShaderModule mShaderModule{ VK_NULL_HANDLE };

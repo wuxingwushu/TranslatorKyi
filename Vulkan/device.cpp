@@ -4,7 +4,7 @@
 #define VMA_IMPLEMENTATION
 #include "../vk_mem_alloc.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	Device::Device(Instance* instance, WindowSurface* surface) {
 		mInstance = instance;
@@ -158,10 +158,19 @@ namespace GAME::VulKan {
 
 		//内存分配器的信息
 		VmaAllocatorCreateInfo allocatorInfo = {};
-		allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_0;
+		allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
 		allocatorInfo.physicalDevice = mPhysicalDevice;
 		allocatorInfo.device = mDevice;
 		allocatorInfo.instance = mInstance->getInstance();
+		//allocatorInfo.flags = 
+
+#if VMA_DYNAMIC_VULKAN_FUNCTIONS
+		static VmaVulkanFunctions vulkanFunctions = {};
+		vulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+		vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+		allocatorInfo.pVulkanFunctions = &vulkanFunctions;
+#endif
+
 
 		//创建内存分配器
 		vmaCreateAllocator(&allocatorInfo, &mAllocator);

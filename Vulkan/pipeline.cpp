@@ -1,6 +1,6 @@
 #include "pipeline.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	Pipeline::Pipeline(Device* device, RenderPass* renderPass) {
 		mDevice = device;
@@ -17,7 +17,7 @@ namespace GAME::VulKan {
 	}
 
 	Pipeline::~Pipeline() {
-		if (mLayout != VK_NULL_HANDLE) {
+		if (DescriptorSetLayout != VK_NULL_HANDLE) {
 			vkDestroyDescriptorSetLayout(mDevice->getDevice(), DescriptorSetLayout, nullptr);
 		}
 
@@ -30,7 +30,7 @@ namespace GAME::VulKan {
 		}
 
 		for (auto sheder : mShaders) {
-			sheder->~Shader();
+			delete sheder;
 		}
 	}
 
@@ -100,5 +100,20 @@ namespace GAME::VulKan {
 		if (vkCreateGraphicsPipelines(mDevice->getDevice(), VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &mPipeline) != VK_SUCCESS) {
 			throw std::runtime_error("Error:failed to create pipeline");
 		}
+	}
+
+	void Pipeline::ReconfigurationPipeline() {
+		if (DescriptorSetLayout != VK_NULL_HANDLE) {
+			vkDestroyDescriptorSetLayout(mDevice->getDevice(), DescriptorSetLayout, nullptr);
+		}
+
+		for (auto sheder : mShaders) {
+			delete sheder;
+		}
+
+		mBlendAttachmentStates.clear();
+		mShaders.clear();
+		mViewports.clear();
+		mScissors.clear();
 	}
 }

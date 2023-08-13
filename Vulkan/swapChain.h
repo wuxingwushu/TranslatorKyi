@@ -8,7 +8,7 @@
 #include "image.h"
 #include "commandPool.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	struct SwapChainSupportInfo {
 		VkSurfaceCapabilitiesKHR mCapabilities;
@@ -26,6 +26,8 @@ namespace GAME::VulKan {
 			CommandPool* commandPool
 		);
 
+		void StructureSwapChain();
+
 		~SwapChain();
 
 		//查找交换链支持信息
@@ -40,18 +42,18 @@ namespace GAME::VulKan {
 		void createFrameBuffers(const RenderPass* renderPass);
 
 	public:
-		[[nodiscard]] VkFormat getFormat() const { return mSwapChainFormat; }
+		[[nodiscard]] VkFormat getFormat() const noexcept { return mSwapChainFormat; }
 
 		//获取GPU画布的数量
-		[[nodiscard]] auto getImageCount() const { return mImageCount; }
+		[[nodiscard]] auto getImageCount() const noexcept { return mImageCount; }
 
-		[[nodiscard]] auto getSwapChain() const { return mSwapChain; }
+		[[nodiscard]] auto getSwapChain() const noexcept { return mSwapChain; }
 
 		//获得是哪一个GPU画布
 		[[nodiscard]] auto getFrameBuffer(const int index) const { return mSwapChainFrameBuffers[index]; }
 
 		//获得屏幕的长宽
-		[[nodiscard]] auto getExtent() const { return mSwapChainExtent; }
+		[[nodiscard]] auto getExtent() const noexcept { return mSwapChainExtent; }
 
 	private:
 		//创建imageView
@@ -81,5 +83,6 @@ namespace GAME::VulKan {
 		Device* mDevice{ nullptr };
 		Window* mWindow{ nullptr };
 		WindowSurface* mSurface{ nullptr };
+		CommandPool* mCommandPool{ nullptr };
 	};
 }

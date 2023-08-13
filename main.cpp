@@ -25,7 +25,7 @@ int main() {
 
 	GAME::Application* app = new GAME::Application();
 
-	GAME::VulKan::Window* mWin = new GAME::VulKan::Window(app->mWidth, app->mHeight, 0, 0);
+	VulKan::Window* mWin = new VulKan::Window(app->mWidth, app->mHeight, 0, 0);
 
 	mWin->setApp(app);
 

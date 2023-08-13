@@ -1,7 +1,7 @@
 #include "swapChain.h"
 #include "renderPass.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	SwapChain::SwapChain(
 		Device* device, 
@@ -12,7 +12,11 @@ namespace GAME::VulKan {
 		mDevice = device;
 		mWindow = window;
 		mSurface = surface;
+		mCommandPool = commandPool;
+		StructureSwapChain();
+	}
 
+	void SwapChain::StructureSwapChain() {
 		SwapChainSupportInfo swapChainSupportInfo = querySwapChainSupportInfo();
 
 		//选择vkformat
@@ -92,7 +96,7 @@ namespace GAME::VulKan {
 		for (int i = 0; i < mImageCount; ++i) {
 			mSwapChainImageViews[i] = createImageView(mSwapChainImages[i], mSwapChainFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 		}
-		
+
 		//创建depth image
 		mDepthImages.resize(mImageCount);
 
@@ -106,17 +110,17 @@ namespace GAME::VulKan {
 		for (int i = 0; i < mImageCount; ++i) {
 			mDepthImages[i] = Image::createDepthImage(
 				mDevice,
-				mSwapChainExtent.width, 
+				mSwapChainExtent.width,
 				mSwapChainExtent.height,
 				mDevice->getMaxUsableSampleCount()
 			);
-			
+
 			mDepthImages[i]->setImageLayout(
 				VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 				VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
 				region,
-				commandPool
+				mCommandPool
 			);
 		}
 
@@ -143,7 +147,7 @@ namespace GAME::VulKan {
 				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 				regionMutiSample,
-				commandPool
+				mCommandPool
 			);
 		}
 	}
@@ -155,8 +159,10 @@ namespace GAME::VulKan {
 			//FrameBuffer 里面为一帧的数据，比如有n个ColorAttachment 1个DepthStencilAttachment，
 			//这些东西的集合为一个FrameBuffer，送入管线，就会形成一个GPU的集合，由上方的Attachments构成
 			//注意数组当中的顺序！！必须与RenderPass匹配
-			std::array<VkImageView, 1> attachments = { 
-				mSwapChainImageViews[i]
+			std::array<VkImageView, 3> attachments = { 
+				mSwapChainImageViews[i], 
+				mMutiSampleImages[i]->getImageView(),
+				mDepthImages[i]->getImageView() 
 			};
 
 			VkFramebufferCreateInfo frameBufferCreateInfo{};
@@ -176,8 +182,8 @@ namespace GAME::VulKan {
 
 	SwapChain::~SwapChain() {
 		for (int i = 0; i < mImageCount; ++i) {
-			mMutiSampleImages[i]->~Image();
-			mDepthImages[i]->~Image();
+			delete mMutiSampleImages[i];
+			delete mDepthImages[i];
 		}
 
 		for (auto& imageView : mSwapChainImageViews) {

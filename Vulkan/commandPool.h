@@ -3,7 +3,7 @@
 #include "../base.h"
 #include "device.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	class CommandPool {
 	public:
@@ -11,7 +11,7 @@ namespace GAME::VulKan {
 
 		~CommandPool();
 
-		[[nodiscard]] auto getCommandPool() const { return mCommandPool; }
+		[[nodiscard]] auto getCommandPool() const noexcept { return mCommandPool; }
 
 	private:
 		VkCommandPool mCommandPool{ VK_NULL_HANDLE };

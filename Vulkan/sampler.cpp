@@ -1,6 +1,6 @@
 #include "sampler.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	Sampler::Sampler(Device* device) {
 		mDevice = device;

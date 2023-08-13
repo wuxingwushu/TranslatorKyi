@@ -9,7 +9,7 @@
 #include "../Function/Translate.h"
 #include <filesystem>
 #include "../Function/Hitokoto.h"
-#include "../Function/opcode.h"
+//#include "../Function/opcode.h"
 
 namespace GAME {
 	class ImGuiInterFace

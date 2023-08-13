@@ -5,7 +5,7 @@
 
 //用于汇集所有要渲染的物体，然后一次性提交渲染
 
-namespace GAME::VulKan {
+namespace VulKan {
 	//思路
 	/*
 	* 1 attachment  
@@ -33,7 +33,7 @@ namespace GAME::VulKan {
 		//构建子描述
 		void buildSubPassDescription();
 
-		[[nodiscard]] auto getSubPassDescription() const { return mSubPassDescription; }
+		[[nodiscard]] auto getSubPassDescription() const noexcept { return mSubPassDescription; }
 
 	private:
 		VkSubpassDescription mSubPassDescription{};
@@ -60,7 +60,7 @@ namespace GAME::VulKan {
 		//构建渲染
 		void buildRenderPass();
 
-		[[nodiscard]] auto getRenderPass() const { return mRenderPass; }
+		[[nodiscard]] auto getRenderPass() const noexcept { return mRenderPass; }
 
 	private:
 		VkRenderPass mRenderPass{VK_NULL_HANDLE};

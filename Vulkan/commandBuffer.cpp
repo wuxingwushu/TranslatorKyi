@@ -1,6 +1,6 @@
 #include "commandBuffer.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 	CommandBuffer::CommandBuffer(Device* device, const CommandPool* commandPool, bool asSecondary) {
 		mDevice = device;
 		mCommandPool = commandPool;
@@ -28,6 +28,8 @@ namespace GAME::VulKan {
 		beginInfo.flags = flag;
 		beginInfo.pInheritanceInfo = &inheritance;
 
+		
+
 		if (vkBeginCommandBuffer(mCommandBuffer, &beginInfo) != VK_SUCCESS) {
 			throw std::runtime_error("Error:failed to begin commandBuffer");
 		}
@@ -40,8 +42,8 @@ namespace GAME::VulKan {
 		vkCmdBeginRenderPass(mCommandBuffer, &renderPassBeginInfo, subPassContents);
 	}
 
-	void CommandBuffer::bindGraphicPipeline(const VkPipeline& pipeline) {
-		vkCmdBindPipeline(mCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+	void CommandBuffer::bindGraphicPipeline(const VkPipeline& pipeline, VkPipelineBindPoint PipelineBindPoint) {
+		vkCmdBindPipeline(mCommandBuffer, PipelineBindPoint, pipeline);
 	}
 
 	void CommandBuffer::bindVertexBuffer(const std::vector<VkBuffer>& buffers) {
@@ -54,8 +56,8 @@ namespace GAME::VulKan {
 		vkCmdBindIndexBuffer(mCommandBuffer, buffer, 0, VK_INDEX_TYPE_UINT32);
 	}
 
-	void CommandBuffer::bindDescriptorSet(const VkPipelineLayout layout, const VkDescriptorSet &descriptorSet) {
-		vkCmdBindDescriptorSets(mCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &descriptorSet, 0, nullptr);
+	void CommandBuffer::bindDescriptorSet(const VkPipelineLayout layout, const VkDescriptorSet &descriptorSet, VkPipelineBindPoint PipelineBindPoint) {
+		vkCmdBindDescriptorSets(mCommandBuffer, PipelineBindPoint, layout, 0, 1, &descriptorSet, 0, nullptr);
 	}
 
 	void CommandBuffer::draw(size_t vertexCount) {

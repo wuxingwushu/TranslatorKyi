@@ -1,6 +1,6 @@
 #include"windowSurface.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 	//创建Surface，让VulKan和窗口链接起来（适配win,安卓,等等不同设备）
 	WindowSurface::WindowSurface(Instance* instance, Window* window) {
 		mInstance = instance;

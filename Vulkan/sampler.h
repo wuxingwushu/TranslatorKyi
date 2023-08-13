@@ -3,7 +3,7 @@
 #include "../base.h"
 #include "device.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	class Sampler {
 	public:
@@ -11,7 +11,7 @@ namespace GAME::VulKan {
 
 		~Sampler();
 
-		[[nodiscard]] auto getSampler() const { return mSampler; }
+		[[nodiscard]] auto getSampler() const noexcept { return mSampler; }
 
 	private:
 		Device* mDevice{ nullptr };

@@ -17,33 +17,33 @@ aux_source_directory(. DIRSRCS)
 include_directories(
 	SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/GLFW/include
 	SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/VulKan/Include
-	SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/Visual_Leak_Detector/Include
 	SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/tesseract-x64-windows/include
 	SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/curl-7.86.0/include
 	SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/jsoncpp/include
 	SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/OpenSSL-Win64/include
 	SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/spdlog/include
+	SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/AngelScript/include
 )
 
 if(CMAKE_BUILD_TYPE AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
 	link_directories(
 		SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/GLFW/lib
 		SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/VulKan/Lib
-		SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/Visual_Leak_Detector/lib/Win64
 		SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/OpenSSL-Win64/lib
 		SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/jsoncpp/lib/Debug
 		SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/tesseract-x64-windows/debug/lib
 		SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/spdlog/lib/Debug
+		SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/AngelScript/lib/Debug
 	)
 else()
 	link_directories(
 		SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/GLFW/lib
 		SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/VulKan/Lib
-		SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/Visual_Leak_Detector/lib/Win64
 		SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/OpenSSL-Win64/lib
 		SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/jsoncpp/lib/Release
 		SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/tesseract-x64-windows/lib
 		SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/spdlog/lib/Release
+		SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}./Environment/AngelScript/lib/Release
 	)
 endif()
 
@@ -59,8 +59,10 @@ execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOUR
 
 if(CMAKE_BUILD_TYPE AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
 	execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/Environment/tesseract-x64-windows/debug/bin ${CMAKE_CURRENT_BINARY_DIR}) # 拷贝文件夹
+	execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/Environment/AngelScript/bin/Debug ${CMAKE_CURRENT_BINARY_DIR}) # 拷贝文件夹
 else()
 	execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/Environment/tesseract-x64-windows/bin ${CMAKE_CURRENT_BINARY_DIR}) # 拷贝文件夹
+	execute_process( COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/Environment/AngelScript/bin/Release ${CMAKE_CURRENT_BINARY_DIR}) # 拷贝文件夹
 endif()
 
 add_subdirectory(Vulkan)
@@ -68,6 +70,7 @@ add_subdirectory(texture)
 add_subdirectory(ImGui)
 add_subdirectory(Tool)
 add_subdirectory(Function)
+add_subdirectory(AngelScript)
 
 add_executable(TranslatorKyi  ${DIRSRCS}
 	resource.rc#设置exe程序图标
@@ -91,7 +94,8 @@ if(CMAKE_BUILD_TYPE AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
 		textureLib 
 		imguiLib 
 		ToolLib 
-		FunctionLib 
+		FunctionLib
+		AngelScriptLib
 	
 		vulkan-1.lib
 		glfw3.lib
@@ -100,7 +104,7 @@ if(CMAKE_BUILD_TYPE AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
 		libssl_static.lib
 		libcrypto.lib
 		spdlogd.lib
-		#vld.lib
+		angelscript64d.lib
 
 		leptonica-1.83.1d.lib
 		tesseract53d.lib
@@ -109,12 +113,13 @@ else()
 	set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")#关闭控制台
 
 	target_link_libraries(
-		TranslatorKyi 
+		TranslatorKyi
 		vulkanLib
 		textureLib
 		imguiLib 
 		ToolLib 
-		FunctionLib 
+		FunctionLib
+		AngelScriptLib
 	
 		vulkan-1.lib 
 		glfw3.lib
@@ -123,6 +128,7 @@ else()
 		libssl_static.lib 
 		libcrypto.lib
 		spdlog.lib
+		angelscript64.lib
 
 		leptonica-1.83.1.lib
 		tesseract53.lib

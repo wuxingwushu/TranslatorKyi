@@ -4,7 +4,7 @@
 #include "commandPool.h"
 #include "device.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	class CommandBuffer {
 	public:
@@ -47,13 +47,13 @@ namespace GAME::VulKan {
 		void beginRenderPass(const VkRenderPassBeginInfo &renderPassBeginInfo, const VkSubpassContents &subPassContents = VK_SUBPASS_CONTENTS_INLINE);
 
 		//绑定渲染管线
-		void bindGraphicPipeline(const VkPipeline &pipeline);
+		void bindGraphicPipeline(const VkPipeline &pipeline, VkPipelineBindPoint PipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS);
 		//绑定顶点缓存
 		void bindVertexBuffer(const std::vector<VkBuffer> &buffers);
 		//绑定顶点索引缓存
 		void bindIndexBuffer(const VkBuffer& buffer);
 		//绑定描述符集
-		void bindDescriptorSet(const VkPipelineLayout layout, const VkDescriptorSet& descriptorSet);
+		void bindDescriptorSet(const VkPipelineLayout layout, const VkDescriptorSet& descriptorSet, VkPipelineBindPoint PipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS);
 
 		//画数量（有多少个点）
 		void draw(size_t vertexCount);//没有顶点索引时用这个
@@ -82,7 +82,7 @@ namespace GAME::VulKan {
 		void submitSync(VkQueue queue, VkFence fence = VK_NULL_HANDLE);//上传指令只可以再主线程运行
 		
 		// 获取录制好的 CommandBuffer
-		[[nodiscard]] VkCommandBuffer getCommandBuffer() const { return mCommandBuffer; }
+		[[nodiscard]] VkCommandBuffer getCommandBuffer() const noexcept { return mCommandBuffer; }
 	private:
 		VkCommandBuffer mCommandBuffer{ VK_NULL_HANDLE };
 		Device* mDevice{ nullptr };

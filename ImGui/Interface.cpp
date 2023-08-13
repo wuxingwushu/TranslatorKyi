@@ -1,4 +1,5 @@
 #include "Interface.h"
+#include "../AngelScript/AngelScriptCode.h"
 
 namespace GAME {
 	ImGuiInterFace::ImGuiInterFace(
@@ -463,9 +464,18 @@ namespace GAME {
 
 				Variable::eng = mTesseract->IdentifyPictures(x, y, w, h, TData);
 
-				Variable::eng = Opcode(Variable::eng, "./Opcode/Screenshot.Opcode");//执行操作码
+				
+				if (AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->GetOpenBool() && Variable::ScriptBool) {
+					//执行脚本
+					AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->RunFunction(
+						AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->ScreenshotFunction
+					);
+				}
+				else
+				{
+					Variable::zhong = mTranslate->TranslateAPI(Variable::eng);//翻译内容
+				}
 
-				Variable::zhong = mTranslate->TranslateAPI(Variable::eng);
 
 				memset(eng, 0, sizeof(eng));
 				memset(zhong, 0, sizeof(zhong));
@@ -633,6 +643,10 @@ namespace GAME {
 
 		static float ScreenshotColor[4];
 
+		static int ScriptIndex;
+		static std::vector<std::string> ScriptS;
+		static bool LScriptBool;
+
 		if (SetBool) {
 			SetBool = false;
 
@@ -671,6 +685,10 @@ namespace GAME {
 				ScreenshotColor[i] = float(Variable::ScreenshotColor[i]) / 255.0f;
 			}
 			
+			ScriptS.clear();
+			ScriptIndex = 0;
+			TOOL::FilePath("./Opcode", &ScriptS, "as", TOOL::StrName(Variable::Script).c_str(), &ScriptIndex);
+			LScriptBool = Variable::ScriptBool;
 		}
 
 		
@@ -787,13 +805,35 @@ namespace GAME {
 
 		ImGui::ColorEdit4(Language::ScreenshotColor.c_str(), (float*)&ScreenshotColor, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_Float);
 
+		
+		ImGui::Checkbox((Language::Script + " ").c_str(), &LScriptBool);//同名会出现冲突
+		if (LScriptBool) {
+			if (ScriptS.size() != 0) {
+				if (ImGui::BeginCombo(Language::Script.c_str(), ScriptS[ScriptIndex].c_str(), flags))
+				{
+					for (int n = 0; n < ScriptS.size(); n++)
+					{
+						const bool is_selected = (ScriptIndex == n);
+						if (ImGui::Selectable(ScriptS[n].c_str(), is_selected))
+							ScriptIndex = n;
+						if (is_selected)
+							ImGui::SetItemDefaultFocus();
+					}
+					ImGui::EndCombo();
+				}
+			}
+			else {
+				ImGui::Text(Language::NotScript.c_str());
+			}
+		}
+		
 
 		if (ImGui::Button(Language::Save.c_str())) {
 			Variable::BaiduAppid = SetBaiduID;
 			Variable::BaiduSecret_key = SetBaiduKey;
 			Variable::YoudaoAppid = SetYoudaoID;
 			Variable::YoudaoSecret_key = SetYoudaoKey;
-
+			
 			//转为大写
 			Variable::MakeUp = MakeUpS[SetMakeUp];
 			Variable::Screenshotkey = toupper(SetScreenshotkey[0]);
@@ -811,6 +851,14 @@ namespace GAME {
 					mTesseract->Tesseract::Tesseract(ModelS[ModelIndex].c_str());
 				}
 				Variable::Model = ModelS[ModelIndex];
+			}
+
+			Variable::ScriptBool = LScriptBool;
+			if (ScriptS.size() != 0) {
+				if (Variable::Script != ScriptS[ScriptIndex]) {
+					delete AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode();
+				}
+				Variable::Script = ScriptS[ScriptIndex];
 			}
 
 			if (LanguageS.size() != 0) {

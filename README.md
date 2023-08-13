@@ -2,7 +2,9 @@
 > 主要功能：
 
 + 选择翻译
++ 替换翻译
 + 截图翻译
++ 自定义脚本
 
 > 引用的技术
 
@@ -14,12 +16,13 @@
 + 解析数据：[JsonCpp](https://github.com/open-source-parsers/jsoncpp)
 + 数据加密：[OpenSSL](https://github.com/openssl/openssl)
 + 日志：[SpdLog](https://github.com/gabime/spdlog)
++ 脚本：[AngelScript](https://www.angelcode.com/angelscript/)
 
 > 文件结构
 
 ```
 Translate-miku
-    └ Environment ┐
+    └ Environment ┐环境
     │             DX11SDK
     │             jsoncpp
     │             OpenSSL-Win64
@@ -27,24 +30,27 @@ Translate-miku
     │             tesseract
     │             spdlog
     │             GLFW
-    └ TessData ┐
+    │             AngelScript
+    └ TessData ┐模型
     │          ...
-    └ TTF ┐
+    └ AngelScript ┐脚本
+    │             ...
+    └ TTF ┐字体
     │     ...
-    └ imgui ┐
+    └ imgui ┐UI
     │       ...
-    └ Function ┐
+    └ Function ┐功能
     │          ...
-    └ Tool ┐
+    └ Tool ┐工具
     │      ...
-    └ Vulkan ┐
+    └ Vulkan ┐图形API
     │        ...
     └ ...
 ```
 
 > 环境构建：
 
-> 我的使用的Environment文件下载： [百度网盘](https://pan.baidu.com/s/12bCmMmZBNSkOoNVyDw3j6g?pwd=sglz)
+> 我的使用的Environment文件下载： [百度网盘](https://pan.baidu.com/s/1jQSt2NMCDpvJEjL2n34P7Q?pwd=7cl0)提取码：7cl0
 
 + Tesseract-OCR
 	> [vcpkg](https://github.com/microsoft/vcpkg)

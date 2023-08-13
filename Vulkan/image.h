@@ -6,7 +6,7 @@
 #include "commandBuffer.h"
 #include "buffer.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 	/*
 	* 分析：如果我们需要做一张被用于纹理采样的图片，那么我们首先
 	* 需要从undefinedLayout变换成为TransferDst， 然后在数据拷贝
@@ -73,15 +73,17 @@ namespace GAME::VulKan {
 
 		void ThreadGetImageCommandBuffer(CommandBuffer* commandbuffer);
 
-		[[nodiscard]] auto getImage() const { return mImage; }
+		void updateBufferByMap(void* data, size_t size);
 
-		[[nodiscard]] auto getLayout() const { return mLayout; }
+		[[nodiscard]] auto getImage() const noexcept { return mImage; }
 
-		[[nodiscard]] auto getWidth() const { return mWidth; }
+		[[nodiscard]] auto getLayout() const noexcept { return mLayout; }
 
-		[[nodiscard]] auto getHeight() const { return mHeight; }
+		[[nodiscard]] auto getWidth() const noexcept { return mWidth; }
 
-		[[nodiscard]] auto getImageView() const { return mImageView; }
+		[[nodiscard]] auto getHeight() const noexcept { return mHeight; }
+
+		[[nodiscard]] auto getImageView() const noexcept { return mImageView; }
 
 		//[[nodiscard]] auto getImageBuffer() const { return fillstageBuffer; }
 
@@ -119,6 +121,5 @@ namespace GAME::VulKan {
 	private://这些数据是临时的，用来上传数据用的
 		CommandBuffer* LayoutcommandBuffer{ VK_NULL_HANDLE };
 		Buffer* fillstageBuffer{ VK_NULL_HANDLE };
-		CommandBuffer* fillcommandBuffer{ VK_NULL_HANDLE };
 	};
 }

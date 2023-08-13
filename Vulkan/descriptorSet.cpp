@@ -1,6 +1,6 @@
 #include "descriptorSet.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	DescriptorSet::DescriptorSet(
 		Device* device,
@@ -9,6 +9,7 @@ namespace GAME::VulKan {
 		const DescriptorPool* pool,
 		int frameCount
 	) {
+		mDescriptorPool = pool;
 		mDevice = device;
 
 		std::vector<VkDescriptorSetLayout> layouts(frameCount, layout);
@@ -40,9 +41,7 @@ namespace GAME::VulKan {
 				}
 
 				if (param->mDescriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
-					if (param->mTexture != nullptr) {
-						descriptorSetWrite.pImageInfo = &param->mTexture->getImageInfo();
-					}
+					descriptorSetWrite.pImageInfo = &param->mTexture->getImageInfo();
 				}
 
 				descriptorSetWrites.push_back(descriptorSetWrite);
@@ -52,6 +51,7 @@ namespace GAME::VulKan {
 		}
 	}
 
-		DescriptorSet::~DescriptorSet() {}
-
+	DescriptorSet::~DescriptorSet() {
+		vkFreeDescriptorSets(mDevice->getDevice(), mDescriptorPool->getPool(), mDescriptorSets.size(), mDescriptorSets.data());
+	}
 }

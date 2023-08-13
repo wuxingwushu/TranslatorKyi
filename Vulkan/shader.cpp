@@ -1,6 +1,6 @@
 #include "shader.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	static std::vector<char> readBinary(const std::string& fileName) {
 		std::ifstream file(fileName.c_str(), std::ios::ate | std::ios::binary | std::ios::in);

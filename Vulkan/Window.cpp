@@ -23,7 +23,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	//获取窗口大小是否改变
 	static void windowResized(GLFWwindow* window, int width, int height) {

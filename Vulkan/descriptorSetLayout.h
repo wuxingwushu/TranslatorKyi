@@ -4,7 +4,7 @@
 #include "device.h"
 #include "description.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	class DescriptorSetLayout {
 	public:
@@ -16,7 +16,7 @@ namespace GAME::VulKan {
 
 		void build(const std::vector<UniformParameter*>& params);
 
-		[[nodiscard]] VkDescriptorSetLayout getLayout() const { return mLayout; }
+		[[nodiscard]] VkDescriptorSetLayout getLayout() const noexcept { return mLayout; }
 
 	private:
 		VkDescriptorSetLayout mLayout{ VK_NULL_HANDLE };

@@ -1,9 +1,0 @@
-Replacement             Kyi         -MIKU       -          +        true           false
-LeaveOnlyLetters
-WordSeparation
-RemoveExcessiveSpaces
-Int 95
-Int 5
-NewDLL ./Opcode/D.dll
-DLL add
-DeleteDLL

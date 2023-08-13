@@ -4,7 +4,7 @@
 #include "instance.h"
 #include "window.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	class WindowSurface {
 	public:
@@ -14,7 +14,7 @@ namespace GAME::VulKan {
 		~WindowSurface();
 
 		//获取Surface的指针
-		[[nodiscard]] VkSurfaceKHR getSurface() const { return mWindowSurface; }
+		[[nodiscard]] VkSurfaceKHR getSurface() const noexcept { return mWindowSurface; }
 
 	private:
 		VkSurfaceKHR mWindowSurface{ VK_NULL_HANDLE };

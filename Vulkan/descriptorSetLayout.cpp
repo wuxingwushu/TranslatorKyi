@@ -1,6 +1,6 @@
 #include "descriptorSetLayout.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	DescriptorSetLayout::DescriptorSetLayout(Device* device) {
 		mDevice = device;

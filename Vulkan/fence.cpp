@@ -1,6 +1,6 @@
 #include "fence.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	Fence::Fence(Device* device, bool signaled) {
 		mDevice = device;

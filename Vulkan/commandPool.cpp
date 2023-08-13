@@ -1,6 +1,6 @@
 #include "commandPool.h"
 
-namespace GAME::VulKan {
+namespace VulKan {
 
 	CommandPool::CommandPool(Device* device, VkCommandPoolCreateFlagBits flag) {
 		mDevice = device;
