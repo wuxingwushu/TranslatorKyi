@@ -17,6 +17,7 @@ void ScreenshotFunction(){
     SetInput(Eng);
 
     string Zh = TranslateAPI(Eng);
+    Zh = Autowrap(Zh);
 
     SetOutput(Zh);
 }
@@ -30,6 +31,7 @@ void ChoiceFunction(){
     SetInput(Eng);
 
     string Zh = TranslateAPI(Eng);
+    Zh = Autowrap(Zh);
 
     SetOutput(Zh);
 }

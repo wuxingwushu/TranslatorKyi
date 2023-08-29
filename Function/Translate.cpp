@@ -247,3 +247,56 @@ std::string Translate::Translate_Youdao(std::string English)
     }
     return "错误";
 }
+
+// 回调函数处理服务器响应
+size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* output) {
+    size_t totalSize = size * nmemb;
+    output->append((char*)contents, totalSize);
+    return totalSize;
+}
+
+std::string Translate::Translate_ReptilesYoudao(std::string English) {
+    std::string url = "http://fanyi.youdao.com/translate?&doctype=json&type=AUTO&to=AUTO&i=" + UrlEncode(English);/*&to=ja*/
+    std::string result;
+
+    // 初始化 libcurl
+    curl_global_init(CURL_GLOBAL_ALL);
+    CURL* curl = curl_easy_init();
+
+    if (curl) {
+        // 设置 URL
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+
+        // 设置回调函数和缓冲区
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &result);
+
+        // 设置User-Agent头字段
+        std::string userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.203";
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, userAgent.c_str());
+
+        // 发起请求
+        CURLcode res = curl_easy_perform(curl);
+        if (res != CURLE_OK) {
+            std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+        }
+
+        // 清理资源
+        curl_easy_cleanup(curl);
+    }
+
+    // 清理 libcurl
+    curl_global_cleanup();
+
+    if (result.size() == 0) {
+        return "错误";
+    }
+    Json::Value value;
+    Json::Reader reader;
+    if (!reader.parse(result, value)) {
+        printf("parse json error!");
+        return "错误";
+    }
+    std::string Chinese = value["translateResult"][0][0]["tgt"].asString();
+    return Chinese;
+}

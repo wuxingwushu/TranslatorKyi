@@ -20,3 +20,4 @@ std::string WordSeparation(std::string str);//将符合条件的大写字母前�
 std::string RemoveExcessiveSpaces(std::string str);//删除多余的空格
 std::string UppercaseStart(std::string str);//开头字母大写化(空格后面那个字母大写化)
 std::string DeletionSpaces(std::string str);//删除所有空格
+std::string Autowrap(std::string str);//自动换行

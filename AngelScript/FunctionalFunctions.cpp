@@ -1,6 +1,7 @@
 #include "FunctionalFunctions.h"
 #include <regex>//正则表达式
 #include <iostream>
+#include "../Variable.h"
 
 void RegisterError(std::string str, int r) {
 	if (r < 0) {
@@ -80,6 +81,11 @@ void AngelScriptRegister(asIScriptEngine* Engine) {
 		Engine->RegisterGlobalFunction(
 			"string DeletionSpaces(string)",
 			asFUNCTION(DeletionSpaces), asCALL_CDECL)
+	); 
+	RegisterError("Autowrap",
+		Engine->RegisterGlobalFunction(
+			"string Autowrap(string)",
+			asFUNCTION(Autowrap), asCALL_CDECL)
 	);
 }
 
@@ -343,6 +349,31 @@ std::string DeletionSpaces(std::string str) {
 	while (TextExists(str, " "))
 	{
 		str = TextDeletion(str, " ");
+	}
+	return str;
+}
+
+std::string Autowrap(std::string str) {
+	unsigned int Cut = 0;
+
+	std::regex regexp("[a-zA-Z0-9!-/:-@[-`{-~]");
+	std::string input;
+	std::smatch result; // 保存匹配结果的容器
+	for (size_t i = 0; i < str.size(); i++)
+	{
+		input = str[i];
+		if (std::regex_search(input, result, regexp)) {
+			Cut++;
+		}
+		else {
+			Cut++;
+			i += 2;
+		}
+		if (Cut >= Variable::WrapSize) {
+			i++;
+			Cut = 0;
+			str = str.substr(0, i) + '\n' + str.substr(i, str.size());
+		}
 	}
 	return str;
 }

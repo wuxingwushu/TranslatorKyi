@@ -101,6 +101,7 @@ namespace GAME {
 		bool WindowRenewBool = true;
 		int BeginWindowSizeX = 280, BeginWindowSizeY = 148;//翻译窗口的宽高
 		int RowsNumber = 4;//文本显示多行
+	public:
 		int kuangshu = 200;//文本有多少像素宽度
 		ImGuiInputTextFlags flags = ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_CallbackAlways;
 	public:

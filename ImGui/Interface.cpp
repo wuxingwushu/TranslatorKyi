@@ -274,6 +274,7 @@ namespace GAME {
 			POINT MousePos = { 0,0 };
 			GetCursorPos(&MousePos);//获取鼠标位置
 			ImGui::SetNextWindowPos({ float(MousePos.x), float(MousePos.y) });//设置窗口生成位置
+			Variable::WrapSize = kuangshu / int(Variable::FontSize);
 			TranslateBool = false;
 		}
 		int BeginWindowPosX, BeginWindowPosY;
@@ -310,11 +311,9 @@ namespace GAME {
 		}
 		//翻译API更换
 		if (ImGui::Button(mTranslate->TranslateName[mTranslate->mTranslate])) {
-			if (mTranslate->mTranslate) {
+			mTranslate->mTranslate++;
+			if (mTranslate->mTranslate > 2) {
 				mTranslate->mTranslate = 0;
-			}
-			else {
-				mTranslate->mTranslate = 1;
 			}
 		}
 		ImGui::EndGroup();

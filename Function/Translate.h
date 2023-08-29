@@ -28,13 +28,16 @@ public:
 			return Translate_Baidu(English);
 			break;
 		case 1:
+			return Translate_ReptilesYoudao(English);
+			break;
+		case 2:
 			return Translate_Youdao(English);
 			break;
 		default:
 			break;
 		}
 	}
-	const char* TranslateName[2] = {"百度","有道"};
+	const char* TranslateName[3] = {"百度","爬虫","有道" };
 
 	const char** Baidu_items;
 	const char** Youdao_items;
@@ -64,4 +67,6 @@ private:
 	std::string Translate_Baidu(std::string English);
 
 	std::string Translate_Youdao(std::string English);
+
+	std::string Translate_ReptilesYoudao(std::string English);
 };

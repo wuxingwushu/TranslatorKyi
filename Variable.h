@@ -23,6 +23,9 @@ std::string VectorToString(T* v, unsigned int size) {
 
 namespace Variable {
 
+	extern unsigned int WrapSize;
+
+
 	// ini 配置信息处理
 	extern char* IniPath;//储存文件路径
 	//extern inih::INIReader* iniData;//读取文件工具

@@ -1,6 +1,8 @@
 #include "Variable.h"
 
 namespace Variable {
+	unsigned int WrapSize = 12;
+
 	extern void ReadFile(char* FilePath) {
 		IniPath = FilePath;
 		inih::INIReader* iniData = new inih::INIReader(IniPath);
