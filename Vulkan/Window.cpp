@@ -11,7 +11,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		switch (lParam)
 		{
 		case WM_RBUTTONUP:
-			mAppcpp->InterFace->SetInterFace(3);
+			mAppcpp->InterFace->SetInterFace(GAME::InterFaceEnum::MenuEnum);
 			break;
 		case WM_LBUTTONUP:
 			//exit(0);

@@ -7,6 +7,11 @@ namespace Variable {
 		IniPath = FilePath;
 		inih::INIReader* iniData = new inih::INIReader(IniPath);
 
+		WebDav_url = iniData->Get<std::string>("WebDav", "url");
+		WebDav_username = iniData->Get<std::string>("WebDav", "username");
+		WebDav_password = iniData->Get<std::string>("WebDav", "password");
+		WebDav_WebFile = iniData->Get<std::string>("WebDav", "WebFile");
+
 		BaiduAppid = iniData->Get<std::string>("BaiduAPI", "Baidu_ID");
 		BaiduSecret_key = iniData->Get<std::string>("BaiduAPI", "Baidu_Key");
 		Baiduitems = iniData->GetVector<std::string>("BaiduAPI", "Baidu_items");
@@ -48,6 +53,11 @@ namespace Variable {
 
 	extern void SaveFile() {
 		inih::INIReader* iniData = new inih::INIReader(IniPath);
+		//保存 WebDav
+		iniData->UpdateEntry("WebDav", "url", WebDav_url);
+		iniData->UpdateEntry("WebDav", "username", WebDav_username);
+		iniData->UpdateEntry("WebDav", "password", WebDav_password);
+		iniData->UpdateEntry("WebDav", "WebFile", WebDav_WebFile);
 		//保存 百度ID Key
 		iniData->UpdateEntry("BaiduAPI", "Baidu_ID", BaiduAppid);
 		iniData->UpdateEntry("BaiduAPI", "Baidu_Key", BaiduSecret_key);
@@ -111,6 +121,12 @@ namespace Variable {
 	int Translate;//翻译引擎
 	int From;//被翻译的语言
 	int To;//翻译成什么语言
+
+	//WebDav
+	std::string WebDav_url;
+	std::string WebDav_username;
+	std::string WebDav_password;
+	std::string WebDav_WebFile;
 
 	//快捷键
 	int MakeUp;//组合

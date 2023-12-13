@@ -12,6 +12,15 @@
 //#include "../Function/opcode.h"
 
 namespace GAME {
+	enum InterFaceEnum
+	{
+		No_Enum = 0,
+		TranslateEnum,
+		ScreenshotEnum,
+		SetUpEnum,
+		MenuEnum
+	};
+
 	class ImGuiInterFace
 	{
 	public:
@@ -42,22 +51,27 @@ namespace GAME {
 			}
 		}
 
-		void SetInterFace(int fi) {
+		InterFaceEnum GetInterFaceEnum() {
+			return InterfaceIndexes;
+		}
+
+		void SetInterFace(InterFaceEnum fi) {
 			InterfaceIndexes = fi;
 			SetInterFaceBool(true);
+			UpdateTheScreen = true;
 			switch (InterfaceIndexes)
 			{
-			case 0:
+			case TranslateEnum:
 				TranslateBool = true;
 				TranslateTime = clock();//获取显示时间戳
 				break;
-			case 1:
+			case ScreenshotEnum:
 				ScreenshotBool = true;
 				break;
-			case 2:
+			case SetUpEnum:
 				SetBool = true;
 				break;
-			case 3:
+			case MenuEnum:
 				MenuBool = true;
 				TranslateTime = clock();//获取显示时间戳
 				break;
@@ -74,7 +88,37 @@ namespace GAME {
 
 		Tesseract* mTesseract = nullptr;
 
-		Translate* mTranslate = nullptr;	
+		Translate* mTranslate = nullptr;
+
+		bool UpdateTheScreen = false;
+		bool GetUpdateTheScreen() {
+			if (UpdateTheScreen) {
+				UpdateTheScreen = false;
+				return true;
+			}
+			else {
+				return false;
+			}
+		}
+
+		bool DoYouWantToUpdateTheScreen() {
+			if ((clock() - TranslateTime) > Variable::DisplayTime) {
+				EndDisplayBool = true;
+				InterFaceBool = false;
+				ChildWindowBool = false;
+			}
+			if ((BeginWindowPosX - 1 < m_io->MousePos.x) &&
+				(m_io->MousePos.x < (BeginWindowPosX + BeginWindowSizeX + 1 + (ChildWindowBool ? BeginWindowSizeX_2 : 0))) &&
+				(BeginWindowPosY - 1 < m_io->MousePos.y) &&
+				(m_io->MousePos.y < (BeginWindowPosY + BeginWindowSizeY + 1))
+				) 
+			{
+				return true;
+			}
+			else {
+				return UpdateTheScreen;
+			}
+		}
 
 	private:
 
@@ -85,7 +129,7 @@ namespace GAME {
 		VulKan::Device* mDevice{ nullptr };
 		ImGui_ImplVulkan_InitInfo ImGuiVulkanInfo;
 
-		int InterfaceIndexes = 0;
+		InterFaceEnum InterfaceIndexes = No_Enum;
 		bool InterFaceBool = false;//
 
 		VulKan::CommandPool** ImGuiCommandPoolS;
@@ -99,7 +143,9 @@ namespace GAME {
 		bool ChildWindowBool = false;//右侧窗口是否显示
 		bool WhoBool;//右侧窗口显示 From 还是 To
 		bool WindowRenewBool = true;
+		int BeginWindowPosX = 0, BeginWindowPosY = 0;
 		int BeginWindowSizeX = 280, BeginWindowSizeY = 148;//翻译窗口的宽高
+		int BeginWindowSizeX_2 = 280;
 		int RowsNumber = 4;//文本显示多行
 	public:
 		int kuangshu = 200;//文本有多少像素宽度
@@ -121,6 +167,8 @@ namespace GAME {
 
 		void MenuInterface();//菜单界面
 		int MenuBool = true;//界面是否是刚显示
+
+		//void HitokotoSentence();
 
 	public:
 		char* TData;

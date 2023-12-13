@@ -1,5 +1,6 @@
 #include "Interface.h"
 #include "../AngelScript/AngelScriptCode.h"
+#include "../Function/WebDav.h"
 
 namespace GAME {
 	ImGuiInterFace::ImGuiInterFace(
@@ -182,17 +183,17 @@ namespace GAME {
 		//ImGui::ShowDemoWindow();
 		switch (InterfaceIndexes)
 		{
-		case 0:
+		case TranslateEnum:
 			kai = TranslateInterface();
 			break;
-		case 1:
+		case ScreenshotEnum:
 			ScreenshotInterface();
 			kai = true;//截图实时更新下一帧
 			break;
-		case 2:
+		case SetUpEnum:
 			SetUpInterface();
 			break;
-		case 3:
+		case MenuEnum:
 			MenuInterface();
 			break;
 		}
@@ -277,7 +278,6 @@ namespace GAME {
 			Variable::WrapSize = kuangshu / int(Variable::FontSize);
 			TranslateBool = false;
 		}
-		int BeginWindowPosX, BeginWindowPosY;
 		ImGui::Begin(u8"TranslateUI", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//创建窗口
 		
 		if (InputCursorBool) {
@@ -371,7 +371,8 @@ namespace GAME {
 					ImGui::EndListBox();
 				}
 			}
-			ImGui::SetWindowSize(ImVec2(ImGui::GetTextLineHeightWithSpacing()*5+20, BeginWindowSizeY));
+			BeginWindowSizeX_2 = ImGui::GetTextLineHeightWithSpacing() * 5 + 20;
+			ImGui::SetWindowSize(ImVec2(BeginWindowSizeX_2, BeginWindowSizeY));
 			if ((m_io->MousePos.x > ImGui::GetWindowPos().x) && (m_io->MousePos.y > ImGui::GetWindowPos().y) && (m_io->MousePos.x < (ImGui::GetWindowPos().x + ImGui::GetWindowWidth())) && (m_io->MousePos.y < (ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
 				TranslateTime = clock();
 				fanbool = true;
@@ -488,7 +489,7 @@ namespace GAME {
 
 				//开启翻译
 				TranslateTime = clock();
-				InterfaceIndexes = 0;
+				InterfaceIndexes = TranslateEnum;
 				ScreenshotBool = true;
 				TranslateBool = true;
 			}
@@ -615,6 +616,11 @@ namespace GAME {
 	{
 		static std::string Hitokoto;
 
+		static char SetWebDav_url[128];
+		static char SetWebDav_username[128];
+		static char SetWebDav_password[128];
+		static char SetWebDav_WebFile[128];
+
 		static char SetBaiduID[128];
 		static char SetBaiduKey[128];
 		static char SetYoudaoID[128];
@@ -646,10 +652,18 @@ namespace GAME {
 		static std::vector<std::string> ScriptS;
 		static bool LScriptBool;
 
+		static bool RecoveryWindow;//恢复窗口选项
+		static std::vector<std::string> RecoveryList;
+		static int RecoveryIndex = 0;
 		if (SetBool) {
 			SetBool = false;
 
 			Hitokoto = GetHitokoto();
+
+			memcpy(SetWebDav_url, Variable::WebDav_url.c_str(), Variable::WebDav_url.size());
+			memcpy(SetWebDav_username, Variable::WebDav_username.c_str(), Variable::WebDav_username.size());
+			memcpy(SetWebDav_password, Variable::WebDav_password.c_str(), Variable::WebDav_password.size());
+			memcpy(SetWebDav_WebFile, Variable::WebDav_WebFile.c_str(), Variable::WebDav_WebFile.size());
 
 			memcpy(SetBaiduID, Variable::BaiduAppid.c_str(), Variable::BaiduAppid.size());
 			memcpy(SetBaiduKey, Variable::BaiduSecret_key.c_str(), Variable::BaiduSecret_key.size());
@@ -688,10 +702,117 @@ namespace GAME {
 			ScriptIndex = 0;
 			TOOL::FilePath("./Opcode", &ScriptS, "as", TOOL::StrName(Variable::Script).c_str(), &ScriptIndex);
 			LScriptBool = Variable::ScriptBool;
+
+			RecoveryWindow = false;
+			RecoveryIndex = 0;
 		}
 
 		
 		ImGui::Begin("SetUI", &SetBool, ImGuiWindowFlags_NoTitleBar);
+
+		ImGui::Text(u8"坚果云WebDav");
+		InputInfo.LText = SetWebDav_url;
+		ImGui::InputText(u8"服务器地址", SetWebDav_url, IM_ARRAYSIZE(SetWebDav_url), flags, &InputKeyEvent, &InputInfo);
+		InputInfo.LText = SetWebDav_username;
+		ImGui::InputText(u8"账户", SetWebDav_username, IM_ARRAYSIZE(SetWebDav_username), flags, &InputKeyEvent, &InputInfo);
+		InputInfo.LText = SetWebDav_password;
+		ImGui::InputText(u8"密钥", SetWebDav_password, IM_ARRAYSIZE(SetWebDav_password), flags, &InputKeyEvent, &InputInfo);
+		InputInfo.LText = SetWebDav_WebFile;
+		ImGui::InputText(u8"应用名称", SetWebDav_WebFile, IM_ARRAYSIZE(SetWebDav_WebFile), flags, &InputKeyEvent, &InputInfo);
+
+		if (ImGui::Button(u8"备份")) {
+			
+			// 获取当前时间的时间戳
+			std::time_t now = std::time(nullptr);
+
+			// 使用本地时间进行格式化
+			std::tm* localTime = std::localtime(&now);
+
+			// 获取年份、月份和时间
+			int year = localTime->tm_year + 1900;  // 年份需要加上 1900
+			int month = localTime->tm_mon + 1;     // 月份从 0 开始，需要加上 1
+			int day = localTime->tm_mday;           // 当月的第几天
+			int hour = localTime->tm_hour;          // 小时
+			int minute = localTime->tm_min;         // 分钟
+			int second = localTime->tm_sec;         // 秒钟
+
+			char computerName[MAX_COMPUTERNAME_LENGTH + 1];
+			DWORD size = sizeof(computerName);
+
+			GetComputerNameA(computerName, &size);
+
+			std::string BackupsName = std::string(computerName) + "_" + toString(year) + "_" + toString(month) + "_" + toString(day)
+				/* + "_" + toString(hour) + "." + toString(minute) + "." + toString(second) */ ;
+			
+			std::cout << BackupsName << std::endl;
+
+			if (!WebDav_Directory(SetWebDav_WebFile, BackupsName)) {
+				WebDav_CreateFolder(BackupsName);
+			}
+
+			WebDav_Upload("./Data.ini", BackupsName);
+
+			char path_exe[MAX_PATH];
+			GetModuleFileName(NULL, path_exe, MAX_PATH);
+			std::string Exename = path_exe;
+			for (int i = Exename.size() - 1; i >= 0; i--)
+			{
+				if (Exename[i] == '\\') {
+					Exename = Exename.substr(0, i + 1);
+					break;
+				}
+			}
+			WebDav_UploadDirectory(Exename + "Opcode\\", BackupsName, "Opcode");
+		}
+		ImGui::SameLine(ImGui::GetWindowWidth() * 0.5f);
+		if (ImGui::Button(RecoveryWindow ? u8"返回" : u8"恢复")) {
+			if (RecoveryWindow) {
+				RecoveryWindow = false;
+			}
+			else {
+				RecoveryWindow = true;
+				RecoveryList = WebDav_List(Variable::WebDav_WebFile + "/");
+				RecoveryIndex = RecoveryList.size() - 1;
+
+				Variable::WebDav_url = SetWebDav_url;
+				Variable::WebDav_username = SetWebDav_username;
+				Variable::WebDav_password = SetWebDav_password;
+				Variable::WebDav_WebFile = SetWebDav_WebFile;
+			}
+		}
+
+		if (RecoveryWindow && (RecoveryList.size() != 0))
+		{
+			if (ImGui::BeginCombo(u8"恢复列表", RecoveryList[RecoveryIndex].c_str(), flags))
+			{
+				for (int n = 0; n < RecoveryList.size(); n++)
+				{
+					const bool is_selected = (RecoveryIndex == n);
+					if (ImGui::Selectable(RecoveryList[n].c_str(), is_selected))
+						RecoveryIndex = n;
+					if (is_selected)
+						ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
+
+			ImGui::SameLine();
+			if (ImGui::Button(u8"复原")) {
+				RecoveryWindow = false;
+				WebDav_DownloadDirectory(RecoveryList[RecoveryIndex]);
+
+				SetBool = true;
+				Variable::ReadFile(iniData);
+			}
+			ImGui::SameLine();
+			if (ImGui::Button(u8"删除")) {
+				WebDav_Delete(RecoveryList[RecoveryIndex].c_str());
+				RecoveryList[RecoveryIndex] = RecoveryList.back();
+				RecoveryList.pop_back();
+			}
+		}
+		
+
 		ImGui::Text(Language::AccountKey.c_str());
 		InputInfo.LText = SetBaiduID;
 		ImGui::InputText(Language::BaiduID.c_str(), SetBaiduID, IM_ARRAYSIZE(SetBaiduID), flags, &InputKeyEvent, &InputInfo);
@@ -939,7 +1060,7 @@ namespace GAME {
 		ImGui::Begin("MenuUI", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
 		//设置按键
 		if (ImGui::Button(Language::Set.c_str())) {
-			SetInterFace(2);
+			SetInterFace(SetUpEnum);
 		}
 		if (ImGui::Button(Language::Exit.c_str())) {
 			exit(0);

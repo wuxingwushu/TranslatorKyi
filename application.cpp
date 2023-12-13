@@ -192,16 +192,26 @@ namespace GAME {
 
 			mWindow->pollEvents();
 			KeyBoardEvents();//监听键盘
+
+			ImGuiIO& io = ImGui::GetIO();
+			double CursorPosX, CursorPosY;
+			glfwGetCursorPos(mWindow->getWindow(), &CursorPosX, &CursorPosY);
+			io.MousePos.x = CursorPosX;
+			io.MousePos.y = CursorPosY;
 			
 			if (InterFace->EndDisplayBool) {
 				InterFace->EndDisplayBool = false;
 				InterFace->SetInterFaceBool(false);
+				InterFace->SetInterFace(No_Enum);
 				render();
 			}
 
 			if (InterFace->GetInterFaceBool()) {
+				if ((InterFace->GetInterFaceEnum() == TranslateEnum) && !InterFace->DoYouWantToUpdateTheScreen()) {
+					continue;
+				}
 				//ImGui显示录制
-				if (InterFace->InterFace()) {
+				if (InterFace->InterFace() || InterFace->GetUpdateTheScreen()) {
 					render();//根据录制的主指令缓存显示画面
 				}
 				else {
@@ -247,7 +257,7 @@ namespace GAME {
 				memset(InterFace->zhong, 0, sizeof(InterFace->zhong));
 				memcpy(InterFace->eng, Variable::eng.c_str(), Variable::eng.size());
 				memcpy(InterFace->zhong, Variable::zhong.c_str(), Variable::zhong.size());
-				InterFace->SetInterFace(0);//设置显示类
+				InterFace->SetInterFace(TranslateEnum);//设置显示类
 
 				TOOL::CopyToClipboard(strS);//还原原来剪切板的内容
 				return;
@@ -293,7 +303,7 @@ namespace GAME {
 			if ((GetKeyState(Variable::Screenshotkey[0]) < 0) && ((GetKeyState(Variable::Screenshotkey[0]) < 0) != mButton)) {
 				buffer = TOOL::screen(buffer);//获取截图数据
 				InterFace->LoadTextureFromFile(buffer, &InterFace->mTextureData);//生成图片ID
-				InterFace->SetInterFace(1);//设置显示类
+				InterFace->SetInterFace(ScreenshotEnum);//设置显示类
 			}
 			mButton = (GetKeyState(Variable::Screenshotkey[0]) < 0);
 		}

@@ -38,6 +38,12 @@ namespace Variable {
 	extern std::string eng;//原文
 	extern std::string zhong;//翻译
 
+	//WebDav
+	extern std::string WebDav_url;
+	extern std::string WebDav_username;
+	extern std::string WebDav_password;
+	extern std::string WebDav_WebFile;
+
 	//快捷键
 	extern int MakeUp;//组合
 	extern std::string Screenshotkey;//截图
