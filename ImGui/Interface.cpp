@@ -655,6 +655,11 @@ namespace GAME {
 		static bool RecoveryWindow;//恢复窗口选项
 		static std::vector<std::string> RecoveryList;
 		static int RecoveryIndex = 0;
+		static unsigned char RecoveryChoice = 0;
+
+		static bool LDirectory_Opcode;
+		static bool LDirectory_Language;
+		static bool LDirectory_TessData;
 		if (SetBool) {
 			SetBool = false;
 
@@ -705,22 +710,37 @@ namespace GAME {
 
 			RecoveryWindow = false;
 			RecoveryIndex = 0;
+			RecoveryChoice = 0;
+
+			LDirectory_Opcode = Variable::OpcodeBool;
+			LDirectory_Language = Variable::LanguageBool;
+			LDirectory_TessData = Variable::TessDataBool;
 		}
 
 		
 		ImGui::Begin("SetUI", &SetBool, ImGuiWindowFlags_NoTitleBar);
 
-		ImGui::Text(u8"坚果云WebDav");
+		if (ImGui::Button(Language::jianguoyunWebDav.c_str())) {
+			ShellExecute(NULL, "open", "https://www.jianguoyun.com/", NULL, NULL, SW_SHOWMAXIMIZED);
+		}
 		InputInfo.LText = SetWebDav_url;
-		ImGui::InputText(u8"服务器地址", SetWebDav_url, IM_ARRAYSIZE(SetWebDav_url), flags, &InputKeyEvent, &InputInfo);
+		ImGui::InputText(Language::ServerAddress.c_str(), SetWebDav_url, IM_ARRAYSIZE(SetWebDav_url), flags, &InputKeyEvent, &InputInfo);
 		InputInfo.LText = SetWebDav_username;
-		ImGui::InputText(u8"账户", SetWebDav_username, IM_ARRAYSIZE(SetWebDav_username), flags, &InputKeyEvent, &InputInfo);
+		ImGui::InputText(Language::Account.c_str(), SetWebDav_username, IM_ARRAYSIZE(SetWebDav_username), flags, &InputKeyEvent, &InputInfo);
 		InputInfo.LText = SetWebDav_password;
-		ImGui::InputText(u8"密钥", SetWebDav_password, IM_ARRAYSIZE(SetWebDav_password), flags, &InputKeyEvent, &InputInfo);
+		ImGui::InputText(Language::SecretKey.c_str(), SetWebDav_password, IM_ARRAYSIZE(SetWebDav_password), flags, &InputKeyEvent, &InputInfo);
 		InputInfo.LText = SetWebDav_WebFile;
-		ImGui::InputText(u8"应用名称", SetWebDav_WebFile, IM_ARRAYSIZE(SetWebDav_WebFile), flags, &InputKeyEvent, &InputInfo);
+		ImGui::InputText(Language::ApplyName.c_str(), SetWebDav_WebFile, IM_ARRAYSIZE(SetWebDav_WebFile), flags, &InputKeyEvent, &InputInfo);
 
-		if (ImGui::Button(u8"备份")) {
+		ImGui::Checkbox("Opcode/", &LDirectory_Opcode);
+		ImGui::SameLine();
+		ImGui::Checkbox("Language/", &LDirectory_Language);
+		ImGui::SameLine();
+		ImGui::Checkbox("TessData/", &LDirectory_TessData);
+		ImGui::SameLine();
+		ImGui::Text(Language::BackupsFolder.c_str());
+
+		if (ImGui::Button(Language::Backups.c_str())) {
 			
 			// 获取当前时间的时间戳
 			std::time_t now = std::time(nullptr);
@@ -762,17 +782,20 @@ namespace GAME {
 					break;
 				}
 			}
-			WebDav_UploadDirectory(Exename + "Opcode\\", BackupsName, "Opcode");
+			if (LDirectory_Opcode)WebDav_UploadDirectory(Exename + "Opcode\\", BackupsName, "Opcode");
+			if (LDirectory_Language)WebDav_UploadDirectory(Exename + "Language\\", BackupsName, "Language");
+			if (LDirectory_TessData)WebDav_UploadDirectory(Exename + "TessData\\", BackupsName, "TessData");
 		}
 		ImGui::SameLine(ImGui::GetWindowWidth() * 0.5f);
-		if (ImGui::Button(RecoveryWindow ? u8"返回" : u8"恢复")) {
+		if (ImGui::Button(RecoveryWindow ? Language::Return.c_str() : Language::Recovery.c_str())) {
 			if (RecoveryWindow) {
 				RecoveryWindow = false;
 			}
 			else {
 				RecoveryWindow = true;
 				RecoveryList = WebDav_List(Variable::WebDav_WebFile + "/");
-				RecoveryIndex = RecoveryList.size() - 1;
+				RecoveryIndex = 0;
+				RecoveryChoice = 0;
 
 				Variable::WebDav_url = SetWebDav_url;
 				Variable::WebDav_username = SetWebDav_username;
@@ -783,7 +806,7 @@ namespace GAME {
 
 		if (RecoveryWindow && (RecoveryList.size() != 0))
 		{
-			if (ImGui::BeginCombo(u8"恢复列表", RecoveryList[RecoveryIndex].c_str(), flags))
+			if (ImGui::BeginCombo(Language::RecoveryList.c_str(), RecoveryList[RecoveryIndex].c_str(), flags))
 			{
 				for (int n = 0; n < RecoveryList.size(); n++)
 				{
@@ -796,20 +819,49 @@ namespace GAME {
 				ImGui::EndCombo();
 			}
 
-			ImGui::SameLine();
-			if (ImGui::Button(u8"复原")) {
-				RecoveryWindow = false;
-				WebDav_DownloadDirectory(RecoveryList[RecoveryIndex]);
+			if (RecoveryChoice == 0) {
+				ImGui::SameLine();
+				if (ImGui::Button(Language::Restoration.c_str())) {
+					RecoveryChoice = 1;
+				}
+				ImGui::SameLine();
+				if (ImGui::Button(Language::Delete.c_str())) {
+					RecoveryChoice = 2;
+				}
+			}
+			else if(RecoveryChoice == 1){
+				ImGui::SameLine();
+				if (ImGui::Button(Language::Cancel.c_str())) {
+					RecoveryChoice = 0;
+				}
+				ImGui::SameLine();
+				if (ImGui::Button(Language::Confirm.c_str())) {
+					RecoveryChoice = 0;
+					RecoveryWindow = false;
+					WebDav_DownloadDirectory(RecoveryList[RecoveryIndex]);
 
-				SetBool = true;
-				Variable::ReadFile(iniData);
+					SetBool = true;
+					Variable::ReadFile(iniData);
+				}
 			}
-			ImGui::SameLine();
-			if (ImGui::Button(u8"删除")) {
-				WebDav_Delete(RecoveryList[RecoveryIndex].c_str());
-				RecoveryList[RecoveryIndex] = RecoveryList.back();
-				RecoveryList.pop_back();
+			else {
+				ImGui::SameLine();
+				if (ImGui::Button(Language::Confirm.c_str())) {
+					RecoveryChoice = 0;
+					WebDav_Delete(RecoveryList[RecoveryIndex].c_str());
+					RecoveryList[RecoveryIndex] = RecoveryList.back();
+					RecoveryList.pop_back();
+					RecoveryIndex = 0;
+					if (RecoveryList.size() == 0) {
+						RecoveryWindow = false;
+					}
+				}
+				ImGui::SameLine();
+				if (ImGui::Button(Language::Cancel.c_str())) {
+					RecoveryChoice = 0;
+				}
 			}
+			
 		}
 		
 
@@ -949,6 +1001,15 @@ namespace GAME {
 		
 
 		if (ImGui::Button(Language::Save.c_str())) {
+			Variable::WebDav_url = SetWebDav_url;
+			Variable::WebDav_username = SetWebDav_username;
+			Variable::WebDav_password = SetWebDav_password;
+			Variable::WebDav_WebFile = SetWebDav_WebFile;
+
+			Variable::OpcodeBool = LDirectory_Opcode;
+			Variable::LanguageBool = LDirectory_Language;
+			Variable::TessDataBool = LDirectory_TessData;
+
 			Variable::BaiduAppid = SetBaiduID;
 			Variable::BaiduSecret_key = SetBaiduKey;
 			Variable::YoudaoAppid = SetYoudaoID;

@@ -43,6 +43,9 @@ namespace Variable {
 	extern std::string WebDav_username;
 	extern std::string WebDav_password;
 	extern std::string WebDav_WebFile;
+	extern bool OpcodeBool;
+	extern bool LanguageBool;
+	extern bool TessDataBool;
 
 	//快捷键
 	extern int MakeUp;//组合
@@ -92,6 +95,20 @@ namespace Language {
 	extern std::string To;						//To
 
 	//设置界面
+	extern std::string jianguoyunWebDav;		//坚果云WebDav
+	extern std::string ServerAddress;			//服务器地址
+	extern std::string Account;					//账户
+	extern std::string SecretKey;				//密钥
+	extern std::string ApplyName;				//应用名称
+	extern std::string BackupsFolder;			//选择需要备份的文件夹
+	extern std::string Backups;					//备份
+	extern std::string Recovery;				//恢复
+	extern std::string Return;					//返回
+	extern std::string RecoveryList;			//恢复列表
+	extern std::string Restoration;				//复原
+	extern std::string Delete;					//删除
+	extern std::string Cancel;					//取消
+	extern std::string Confirm;					//确定
 	extern std::string AccountKey;				//翻译密钥
 	extern std::string BaiduID;					//百度ID
 	extern std::string BaiduKey;				//百度Key

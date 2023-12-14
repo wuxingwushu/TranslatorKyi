@@ -11,6 +11,9 @@ namespace Variable {
 		WebDav_username = iniData->Get<std::string>("WebDav", "username");
 		WebDav_password = iniData->Get<std::string>("WebDav", "password");
 		WebDav_WebFile = iniData->Get<std::string>("WebDav", "WebFile");
+		OpcodeBool = iniData->Get<bool>("WebDav", "OpcodeBool");
+		LanguageBool = iniData->Get<bool>("WebDav", "LanguageBool");
+		TessDataBool = iniData->Get<bool>("WebDav", "TessDataBool");
 
 		BaiduAppid = iniData->Get<std::string>("BaiduAPI", "Baidu_ID");
 		BaiduSecret_key = iniData->Get<std::string>("BaiduAPI", "Baidu_Key");
@@ -58,6 +61,9 @@ namespace Variable {
 		iniData->UpdateEntry("WebDav", "username", WebDav_username);
 		iniData->UpdateEntry("WebDav", "password", WebDav_password);
 		iniData->UpdateEntry("WebDav", "WebFile", WebDav_WebFile);
+		iniData->UpdateEntry("WebDav", "OpcodeBool", OpcodeBool);
+		iniData->UpdateEntry("WebDav", "LanguageBool", LanguageBool);
+		iniData->UpdateEntry("WebDav", "TessDataBool", TessDataBool);
 		//保存 百度ID Key
 		iniData->UpdateEntry("BaiduAPI", "Baidu_ID", BaiduAppid);
 		iniData->UpdateEntry("BaiduAPI", "Baidu_Key", BaiduSecret_key);
@@ -127,6 +133,9 @@ namespace Variable {
 	std::string WebDav_username;
 	std::string WebDav_password;
 	std::string WebDav_WebFile;
+	bool OpcodeBool;
+	bool LanguageBool;
+	bool TessDataBool;
 
 	//快捷键
 	int MakeUp;//组合
@@ -153,41 +162,55 @@ namespace Language {
 	void ReadFile(std::string FilePath) {
 		inih::INIReader iniData = inih::INIReader("./Language/" + FilePath + ".ini");
 
-		TranslationKey = iniData.Get<std::string>("Translate","TranslationKey");
-		From = iniData.Get<std::string>("Translate", "From");
-		To = iniData.Get<std::string>("Translate", "To");
+		TranslationKey = iniData.Get<std::string>("Translate","TranslationKey_");
+		From = iniData.Get<std::string>("Translate", "From_");
+		To = iniData.Get<std::string>("Translate", "To_");
 
-		AccountKey = iniData.Get<std::string>("Set", "AccountKey");
-		BaiduID = iniData.Get<std::string>("Set", "BaiduID");
-		BaiduKey = iniData.Get<std::string>("Set", "BaiduKey");
-		YoudaoID = iniData.Get<std::string>("Set", "YoudaoID");
-		YoudaoKey = iniData.Get<std::string>("Set", "YoudaoKey");
-		ShortcutKeys = iniData.Get<std::string>("Set", "ShortcutKeys");
-		KeyCombination = iniData.Get<std::string>("Set", "KeyCombination");
-		ScreenshotTranslation = iniData.Get<std::string>("Set", "ScreenshotTranslation");
-		SelectTranslation = iniData.Get<std::string>("Set", "SelectTranslation");
-		ReplaceTranslation = iniData.Get<std::string>("Set", "ReplaceTranslation");
-		Startup = iniData.Get<std::string>("Set", "Startup");
-		ResidenceTime = iniData.Get<std::string>("Set", "ResidenceTime");
-		FontSize = iniData.Get<std::string>("Set", "FontSize");
-		TesseractModel = iniData.Get<std::string>("Set", "TesseractModel");
-		NotTesseractModelText = iniData.Get<std::string>("Set", "NotTesseractModelText");
-		UseTTF_Typeface = iniData.Get<std::string>("Set", "UseTTF_Typeface");
-		TTF_Folder = iniData.Get<std::string>("Set", "TTF_Folder");
-		TessDataFolder = iniData.Get<std::string>("Set", "TessDataFolder");
-		TTF_Typeface = iniData.Get<std::string>("Set", "TTF_Typeface");
-		NotTTF_TypefaceText = iniData.Get<std::string>("Set", "NotTTF_TypefaceText");
-		ReplaceLanguage = iniData.Get<std::string>("Set", "ReplaceLanguage");
-		Save = iniData.Get<std::string>("Set", "Save");
-		Close = iniData.Get<std::string>("Set", "Close");
-		Language = iniData.Get<std::string>("Set", "Language");
-		ScreenshotColor = iniData.Get<std::string>("Set", "ScreenshotColor");
-		Script = iniData.Get<std::string>("Set", "Script");
-		NotScript = iniData.Get<std::string>("Set", "NotScript");
+		jianguoyunWebDav = iniData.Get<std::string>("Set", "jianguoyunWebDav_");
+		ServerAddress = iniData.Get<std::string>("Set", "ServerAddress_");
+		Account = iniData.Get<std::string>("Set", "Account_");
+		SecretKey = iniData.Get<std::string>("Set", "SecretKey_");
+		ApplyName = iniData.Get<std::string>("Set", "ApplyName_");
+		BackupsFolder = iniData.Get<std::string>("Set", "BackupsFolder_");
+		Backups = iniData.Get<std::string>("Set", "Backups_");
+		Recovery = iniData.Get<std::string>("Set", "Recovery_");
+		Return = iniData.Get<std::string>("Set", "Return_");
+		RecoveryList = iniData.Get<std::string>("Set", "RecoveryList_");
+		Restoration = iniData.Get<std::string>("Set", "Restoration_");
+		Delete = iniData.Get<std::string>("Set", "Delete_");
+		Cancel = iniData.Get<std::string>("Set", "Cancel_");
+		Confirm = iniData.Get<std::string>("Set", "Confirm_");
+		AccountKey = iniData.Get<std::string>("Set", "AccountKey_");
+		BaiduID = iniData.Get<std::string>("Set", "BaiduID_");
+		BaiduKey = iniData.Get<std::string>("Set", "BaiduKey_");
+		YoudaoID = iniData.Get<std::string>("Set", "YoudaoID_");
+		YoudaoKey = iniData.Get<std::string>("Set", "YoudaoKey_");
+		ShortcutKeys = iniData.Get<std::string>("Set", "ShortcutKeys_");
+		KeyCombination = iniData.Get<std::string>("Set", "KeyCombination_");
+		ScreenshotTranslation = iniData.Get<std::string>("Set", "ScreenshotTranslation_");
+		SelectTranslation = iniData.Get<std::string>("Set", "SelectTranslation_");
+		ReplaceTranslation = iniData.Get<std::string>("Set", "ReplaceTranslation_");
+		Startup = iniData.Get<std::string>("Set", "Startup_");
+		ResidenceTime = iniData.Get<std::string>("Set", "ResidenceTime_");
+		FontSize = iniData.Get<std::string>("Set", "FontSize_");
+		TesseractModel = iniData.Get<std::string>("Set", "TesseractModel_");
+		NotTesseractModelText = iniData.Get<std::string>("Set", "NotTesseractModelText_");
+		UseTTF_Typeface = iniData.Get<std::string>("Set", "UseTTF_Typeface_");
+		TTF_Folder = iniData.Get<std::string>("Set", "TTF_Folder_");
+		TessDataFolder = iniData.Get<std::string>("Set", "TessDataFolder_");
+		TTF_Typeface = iniData.Get<std::string>("Set", "TTF_Typeface_");
+		NotTTF_TypefaceText = iniData.Get<std::string>("Set", "NotTTF_TypefaceText_");
+		ReplaceLanguage = iniData.Get<std::string>("Set", "ReplaceLanguage_");
+		Save = iniData.Get<std::string>("Set", "Save_");
+		Close = iniData.Get<std::string>("Set", "Close_");
+		Language = iniData.Get<std::string>("Set", "Language_");
+		ScreenshotColor = iniData.Get<std::string>("Set", "ScreenshotColor_");
+		Script = iniData.Get<std::string>("Set", "Script_");
+		NotScript = iniData.Get<std::string>("Set", "NotScript_");
 
-		Set = iniData.Get<std::string>("tray", "Set");
-		Exit = iniData.Get<std::string>("tray", "Exit");
-		strncpy = iniData.Get<std::string>("tray", "strncpy");
+		Set = iniData.Get<std::string>("tray", "Set_");
+		Exit = iniData.Get<std::string>("tray", "Exit_");
+		strncpy = iniData.Get<std::string>("tray", "strncpy_");
 	}
 
 	//翻译界面
@@ -196,6 +219,20 @@ namespace Language {
 	std::string To;						//To
 
 	//设置界面
+	std::string jianguoyunWebDav;		//坚果云WebDav
+	std::string ServerAddress;			//服务器地址
+	std::string Account;				//账户
+	std::string SecretKey;				//密钥
+	std::string ApplyName;				//应用名称
+	std::string BackupsFolder;			//选择需要备份的文件夹
+	std::string Backups;				//备份
+	std::string Recovery;				//恢复
+	std::string Return;					//返回
+	std::string RecoveryList;			//恢复列表
+	std::string Restoration;			//复原
+	std::string Delete;					//删除
+	std::string Cancel;					//取消
+	std::string Confirm;				//确定
 	std::string AccountKey;				//翻译密钥
 	std::string BaiduID;				//百度ID
 	std::string BaiduKey;				//百度Key
