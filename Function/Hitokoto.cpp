@@ -27,7 +27,7 @@ std::string GetHitokoto()
             Json::Reader reader;
             Json::Value value;
             reader.parse(readBuffer, value);
-            hitokoto = value["hitokoto"].asString() + " ---- " + value["from"].asString();
+            hitokoto = value["hitokoto"].asString() + "  --  " + value["from"].asString();
         }
     }
 

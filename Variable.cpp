@@ -7,6 +7,10 @@ namespace Variable {
 		IniPath = FilePath;
 		inih::INIReader* iniData = new inih::INIReader(IniPath);
 
+		PopUpNotificationBool = iniData->Get<bool>("Hitokoto", "PopUpNotificationBool");
+		HitokotoTimeInterval = iniData->Get<int>("Hitokoto", "HitokotoTimeInterval");
+		HitokotoDisplayDuration = iniData->Get<int>("Hitokoto", "HitokotoDisplayDuration");
+
 		WebDav_url = iniData->Get<std::string>("WebDav", "url");
 		WebDav_username = iniData->Get<std::string>("WebDav", "username");
 		WebDav_password = iniData->Get<std::string>("WebDav", "password");
@@ -14,6 +18,7 @@ namespace Variable {
 		OpcodeBool = iniData->Get<bool>("WebDav", "OpcodeBool");
 		LanguageBool = iniData->Get<bool>("WebDav", "LanguageBool");
 		TessDataBool = iniData->Get<bool>("WebDav", "TessDataBool");
+		TTFBool = iniData->Get<bool>("WebDav", "TTFBool");
 
 		BaiduAppid = iniData->Get<std::string>("BaiduAPI", "Baidu_ID");
 		BaiduSecret_key = iniData->Get<std::string>("BaiduAPI", "Baidu_Key");
@@ -56,6 +61,10 @@ namespace Variable {
 
 	extern void SaveFile() {
 		inih::INIReader* iniData = new inih::INIReader(IniPath);
+		//保存 一言
+		iniData->UpdateEntry("Hitokoto", "PopUpNotificationBool", PopUpNotificationBool);
+		iniData->UpdateEntry("Hitokoto", "HitokotoTimeInterval", HitokotoTimeInterval);
+		iniData->UpdateEntry("Hitokoto", "HitokotoDisplayDuration", HitokotoDisplayDuration);
 		//保存 WebDav
 		iniData->UpdateEntry("WebDav", "url", WebDav_url);
 		iniData->UpdateEntry("WebDav", "username", WebDav_username);
@@ -64,6 +73,7 @@ namespace Variable {
 		iniData->UpdateEntry("WebDav", "OpcodeBool", OpcodeBool);
 		iniData->UpdateEntry("WebDav", "LanguageBool", LanguageBool);
 		iniData->UpdateEntry("WebDav", "TessDataBool", TessDataBool);
+		iniData->UpdateEntry("WebDav", "TTFBool", TTFBool);
 		//保存 百度ID Key
 		iniData->UpdateEntry("BaiduAPI", "Baidu_ID", BaiduAppid);
 		iniData->UpdateEntry("BaiduAPI", "Baidu_Key", BaiduSecret_key);
@@ -128,6 +138,11 @@ namespace Variable {
 	int From;//被翻译的语言
 	int To;//翻译成什么语言
 
+	//一言
+	bool PopUpNotificationBool;
+	int HitokotoTimeInterval;
+	int HitokotoDisplayDuration;
+
 	//WebDav
 	std::string WebDav_url;
 	std::string WebDav_username;
@@ -136,6 +151,7 @@ namespace Variable {
 	bool OpcodeBool;
 	bool LanguageBool;
 	bool TessDataBool;
+	bool TTFBool;
 
 	//快捷键
 	int MakeUp;//组合
@@ -166,6 +182,9 @@ namespace Language {
 		From = iniData.Get<std::string>("Translate", "From_");
 		To = iniData.Get<std::string>("Translate", "To_");
 
+		PopUpNotification = iniData.Get<std::string>("Set", "HitokotoPopUpNotification_");
+		HitokotoTimeInterval = iniData.Get<std::string>("Set", "HitokotoTimeInterval_");
+		HitokotoDisplayDuration = iniData.Get<std::string>("Set", "HitokotoDisplayDuration_");
 		jianguoyunWebDav = iniData.Get<std::string>("Set", "jianguoyunWebDav_");
 		ServerAddress = iniData.Get<std::string>("Set", "ServerAddress_");
 		Account = iniData.Get<std::string>("Set", "Account_");
@@ -209,6 +228,8 @@ namespace Language {
 		NotScript = iniData.Get<std::string>("Set", "NotScript_");
 
 		Set = iniData.Get<std::string>("tray", "Set_");
+		ShutUp = iniData.Get<std::string>("tray", "ShutUp_");
+		Speak = iniData.Get<std::string>("tray", "Speak_");
 		Exit = iniData.Get<std::string>("tray", "Exit_");
 		strncpy = iniData.Get<std::string>("tray", "strncpy_");
 	}
@@ -219,6 +240,9 @@ namespace Language {
 	std::string To;						//To
 
 	//设置界面
+	std::string PopUpNotification;		//一言弹窗
+	std::string HitokotoTimeInterval;	//弹窗时间间隔
+	std::string HitokotoDisplayDuration;//弹窗显示时长
 	std::string jianguoyunWebDav;		//坚果云WebDav
 	std::string ServerAddress;			//服务器地址
 	std::string Account;				//账户
@@ -263,6 +287,8 @@ namespace Language {
 
 	//系统托盘
 	std::string Set;					//设置
+	std::string ShutUp;					//言闭
+	std::string Speak;					//言开
 	std::string Exit;					//退出
 	std::string strncpy;				//人家叫翻译姬！
 }

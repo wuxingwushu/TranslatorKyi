@@ -18,7 +18,8 @@ namespace GAME {
 		TranslateEnum,
 		ScreenshotEnum,
 		SetUpEnum,
-		MenuEnum
+		MenuEnum,
+		HitokotoEnum
 	};
 
 	class ImGuiInterFace
@@ -48,6 +49,13 @@ namespace GAME {
 				ImGui_ImplGlfw_NewFrame();
 				ImGui::NewFrame();
 				ImGui::Render();
+
+				if (m_io->ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+				{
+					//如果开启 Viewports 模式那么每次 ImGui::Render() 或 ImGui::EndFrame() 后都有调用下面两个函数
+					ImGui::UpdatePlatformWindows();
+					ImGui::RenderPlatformWindowsDefault();
+				}
 			}
 		}
 
@@ -55,12 +63,29 @@ namespace GAME {
 			return InterfaceIndexes;
 		}
 
+		int GetInterFaceEnumTime() {
+			switch (InterfaceIndexes)
+			{
+			case GAME::TranslateEnum:
+				return Variable::DisplayTime;
+			case GAME::MenuEnum:
+				return 5000;
+			case GAME::HitokotoEnum:
+				return 10000;
+			default:
+				return 0;
+			}
+		}
+
 		void SetInterFace(InterFaceEnum fi) {
 			InterfaceIndexes = fi;
 			SetInterFaceBool(true);
-			UpdateTheScreen = true;
+			UpdateTheScreen = 2;
 			switch (InterfaceIndexes)
 			{
+			case No_Enum:
+				SetInterFaceBool(false);
+				break;
 			case TranslateEnum:
 				TranslateBool = true;
 				TranslateTime = clock();//获取显示时间戳
@@ -73,6 +98,10 @@ namespace GAME {
 				break;
 			case MenuEnum:
 				MenuBool = true;
+				TranslateTime = clock();//获取显示时间戳
+				break; 
+			case HitokotoEnum:
+				HitokotoBool = true;
 				TranslateTime = clock();//获取显示时间戳
 				break;
 			default:
@@ -90,10 +119,11 @@ namespace GAME {
 
 		Translate* mTranslate = nullptr;
 
-		bool UpdateTheScreen = false;
+		int UpdateTheScreen = false;
+		//窗口是否是第一次显示
 		bool GetUpdateTheScreen() {
-			if (UpdateTheScreen) {
-				UpdateTheScreen = false;
+			if (UpdateTheScreen > 0) {
+				--UpdateTheScreen;
 				return true;
 			}
 			else {
@@ -101,11 +131,16 @@ namespace GAME {
 			}
 		}
 
-		bool DoYouWantToUpdateTheScreen() {
-			if ((clock() - TranslateTime) > Variable::DisplayTime) {
+		bool DragWindowSizeBool = false;
+		bool DoYouWantToUpdateTheScreen(int time) {
+			if (GetKeyState(VK_LBUTTON) >= 0) {
+				DragWindowSizeBool = false;
+			}
+			if ((clock() - TranslateTime) > time && (time != 0)) {
 				EndDisplayBool = true;
 				InterFaceBool = false;
 				ChildWindowBool = false;
+				return false;
 			}
 			if ((BeginWindowPosX - 1 < m_io->MousePos.x) &&
 				(m_io->MousePos.x < (BeginWindowPosX + BeginWindowSizeX + 1 + (ChildWindowBool ? BeginWindowSizeX_2 : 0))) &&
@@ -113,10 +148,29 @@ namespace GAME {
 				(m_io->MousePos.y < (BeginWindowPosY + BeginWindowSizeY + 1))
 				) 
 			{
+				TranslateTime = clock();
+				if (GetKeyState(VK_LBUTTON) < 0) {
+					DragWindowSizeBool = true;
+				}
 				return true;
 			}
 			else {
-				return UpdateTheScreen;
+				if (DragWindowSizeBool || ((InterfaceIndexes == TranslateEnum) ? WindowRenewBool : false)) {
+					return true;
+				}
+				if (InterfaceIndexes == MenuEnum) {
+					if ((GetKeyState(VK_LBUTTON) < 0) || (GetKeyState(VK_RBUTTON) < 0)) {//鼠标点击窗口之外的地方关闭窗口
+						EndDisplayBool = true;
+						InterFaceBool = false;
+					}
+				}
+				if (ChildWindowBool) {
+					if ((GetKeyState(VK_LBUTTON) < 0) || (GetKeyState(VK_RBUTTON) < 0)) {//鼠标点击窗口之外的地方关闭窗口
+						ChildWindowBool = false;
+					}
+					return true;
+				}
+				return (UpdateTheScreen > 0);
 			}
 		}
 
@@ -138,14 +192,17 @@ namespace GAME {
 		
 		void InputTextMultilineText();//向翻译窗口粘贴文本
 
-		bool TranslateInterface();//翻译内容显示界面
-		bool TranslateBool;//翻译界面是否是刚显示
-		bool ChildWindowBool = false;//右侧窗口是否显示
-		bool WhoBool;//右侧窗口显示 From 还是 To
-		bool WindowRenewBool = true;
+
 		int BeginWindowPosX = 0, BeginWindowPosY = 0;
 		int BeginWindowSizeX = 280, BeginWindowSizeY = 148;//翻译窗口的宽高
 		int BeginWindowSizeX_2 = 280;
+
+
+		void TranslateInterface();//翻译内容显示界面
+		bool TranslateBool;//翻译界面是否是刚显示
+		bool ChildWindowBool = false;//右侧窗口是否显示
+		bool WhoBool;//右侧窗口显示 From 还是 To
+		bool WindowRenewBool = true;//窗口大小是否调整过
 		int RowsNumber = 4;//文本显示多行
 	public:
 		int kuangshu = 200;//文本有多少像素宽度
@@ -166,10 +223,10 @@ namespace GAME {
 		bool SetBool = true;//界面是否是刚显示
 
 		void MenuInterface();//菜单界面
-		int MenuBool = true;//界面是否是刚显示
+		bool MenuBool = true;//界面是否是刚显示
 
-		//void HitokotoSentence();
-
+		void HitokotoSentence();
+		bool HitokotoBool = true;//界面是否是刚显示
 	public:
 		char* TData;
 

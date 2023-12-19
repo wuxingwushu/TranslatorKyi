@@ -176,7 +176,11 @@ namespace GAME {
 
 	bool ImGuiInterFace::InterFace()
 	{
-		bool kai = false;//下一帧是否要更新
+		bool kai = DoYouWantToUpdateTheScreen(GetInterFaceEnumTime());//下一帧是否要更新
+		if (!GetUpdateTheScreen() && !kai && (InterfaceIndexes != ScreenshotEnum)) {
+			return false;
+		}
+		
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
@@ -184,11 +188,10 @@ namespace GAME {
 		switch (InterfaceIndexes)
 		{
 		case TranslateEnum:
-			kai = TranslateInterface();
+			TranslateInterface();
 			break;
 		case ScreenshotEnum:
 			ScreenshotInterface();
-			kai = true;//截图实时更新下一帧
 			break;
 		case SetUpEnum:
 			SetUpInterface();
@@ -196,10 +199,20 @@ namespace GAME {
 		case MenuEnum:
 			MenuInterface();
 			break;
+		case HitokotoEnum:
+			HitokotoSentence();
+			break;
 		}
 		ImGui::Render();
 
-		return kai;
+		if (m_io->ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+		{
+			//如果开启 Viewports 模式那么每次 ImGui::Render() 或 ImGui::EndFrame() 后都有调用下面两个函数
+			ImGui::UpdatePlatformWindows();
+			ImGui::RenderPlatformWindowsDefault();
+		}
+
+		return true;
 	}
 
 	const VkCommandBuffer ImGuiInterFace::GetCommandBuffer(int i, VkCommandBufferInheritanceInfo info) {
@@ -269,14 +282,14 @@ namespace GAME {
 	
 	
 
-	bool ImGuiInterFace::TranslateInterface()
+	void ImGuiInterFace::TranslateInterface()
 	{
 		if (TranslateBool) {
+			TranslateBool = false;
 			POINT MousePos = { 0,0 };
 			GetCursorPos(&MousePos);//获取鼠标位置
 			ImGui::SetNextWindowPos({ float(MousePos.x), float(MousePos.y) });//设置窗口生成位置
 			Variable::WrapSize = kuangshu / int(Variable::FontSize);
-			TranslateBool = false;
 		}
 		ImGui::Begin(u8"TranslateUI", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//创建窗口
 		
@@ -318,7 +331,6 @@ namespace GAME {
 		}
 		ImGui::EndGroup();
 		ImGui::SetWindowSize(ImVec2(BeginWindowSizeX, BeginWindowSizeY));
-		bool fanbool = false;
 		BeginWindowPosX = ImGui::GetWindowPos().x;
 		BeginWindowPosY = ImGui::GetWindowPos().y;
 		//当鼠标点击时更新窗口大小
@@ -328,7 +340,7 @@ namespace GAME {
 			WindowRenewBool = true;
 		}
 		//判断鼠标是否在翻译界面上
-		if ((m_io->MousePos.x > BeginWindowPosX) && (m_io->MousePos.y > BeginWindowPosY) && (m_io->MousePos.x < (BeginWindowPosX + BeginWindowSizeX)) && (m_io->MousePos.y < (BeginWindowPosY + BeginWindowSizeY))) {
+		/*if ((m_io->MousePos.x > BeginWindowPosX) && (m_io->MousePos.y > BeginWindowPosY) && (m_io->MousePos.x < (BeginWindowPosX + BeginWindowSizeX)) && (m_io->MousePos.y < (BeginWindowPosY + BeginWindowSizeY))) {
 			TranslateTime = clock();
 			fanbool = true;
 		}
@@ -336,7 +348,7 @@ namespace GAME {
 			EndDisplayBool = true;
 			InterFaceBool = false;
 			ChildWindowBool = false;
-		}
+		}*/
 		ImGui::End();
 
 		
@@ -373,18 +385,18 @@ namespace GAME {
 			}
 			BeginWindowSizeX_2 = ImGui::GetTextLineHeightWithSpacing() * 5 + 20;
 			ImGui::SetWindowSize(ImVec2(BeginWindowSizeX_2, BeginWindowSizeY));
-			if ((m_io->MousePos.x > ImGui::GetWindowPos().x) && (m_io->MousePos.y > ImGui::GetWindowPos().y) && (m_io->MousePos.x < (ImGui::GetWindowPos().x + ImGui::GetWindowWidth())) && (m_io->MousePos.y < (ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
-				TranslateTime = clock();
-				fanbool = true;
-			}
-			else if ((clock() - TranslateTime) > Variable::DisplayTime) {
-				EndDisplayBool = true;
-				InterFaceBool = false;
-				ChildWindowBool = false;
-			}
-			else if ((GetKeyState(VK_LBUTTON) < 0) || (GetKeyState(VK_RBUTTON) < 0)) {//鼠标点击窗口之外的地方关闭窗口
-				ChildWindowBool = false;
-			}
+			//if ((m_io->MousePos.x > ImGui::GetWindowPos().x) && (m_io->MousePos.y > ImGui::GetWindowPos().y) && (m_io->MousePos.x < (ImGui::GetWindowPos().x + ImGui::GetWindowWidth())) && (m_io->MousePos.y < (ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
+			//	TranslateTime = clock();
+			//	fanbool = true;
+			//}
+			//else if ((clock() - TranslateTime) > Variable::DisplayTime) {
+			//	EndDisplayBool = true;
+			//	InterFaceBool = false;
+			//	ChildWindowBool = false;
+			//}
+			//else if ((GetKeyState(VK_LBUTTON) < 0) || (GetKeyState(VK_RBUTTON) < 0)) {//鼠标点击窗口之外的地方关闭窗口
+			//	ChildWindowBool = false;
+			//}
 			ImGui::End();
 		}
 
@@ -405,6 +417,7 @@ namespace GAME {
 				RowsNumber = ImGui::GetTextLineHeightWithSpacing();
 				BeginWindowSizeX = ImGui::GetTextLineHeightWithSpacing() * 4 + 16;
 			}
+			UpdateTheScreen = 2;//强制在刷新一次画面
 		}
 		
 
@@ -417,7 +430,6 @@ namespace GAME {
 		if (hwnd) {
 			SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 		}
-		return fanbool;
 	}
 
 	void ImGuiInterFace::ScreenshotInterface()
@@ -488,10 +500,7 @@ namespace GAME {
 				h = 0;
 
 				//开启翻译
-				TranslateTime = clock();
-				InterfaceIndexes = TranslateEnum;
-				ScreenshotBool = true;
-				TranslateBool = true;
+				SetInterFace(TranslateEnum);
 			}
 		}
 
@@ -660,6 +669,11 @@ namespace GAME {
 		static bool LDirectory_Opcode;
 		static bool LDirectory_Language;
 		static bool LDirectory_TessData;
+		static bool LDirectory_TTF;
+
+		static bool SetPopUpNotificationBool;
+		static int SetHitokotoTimeInterval;
+		static int SetHitokotoDisplayDuration;
 		if (SetBool) {
 			SetBool = false;
 
@@ -715,6 +729,11 @@ namespace GAME {
 			LDirectory_Opcode = Variable::OpcodeBool;
 			LDirectory_Language = Variable::LanguageBool;
 			LDirectory_TessData = Variable::TessDataBool;
+			LDirectory_TTF = Variable::TTFBool;
+
+			SetPopUpNotificationBool = Variable::PopUpNotificationBool;
+			SetHitokotoTimeInterval = Variable::HitokotoTimeInterval;
+			SetHitokotoDisplayDuration = Variable::HitokotoDisplayDuration;
 		}
 
 		
@@ -737,6 +756,8 @@ namespace GAME {
 		ImGui::Checkbox("Language/", &LDirectory_Language);
 		ImGui::SameLine();
 		ImGui::Checkbox("TessData/", &LDirectory_TessData);
+		ImGui::SameLine();
+		ImGui::Checkbox("TTF/", &LDirectory_TTF);
 		ImGui::SameLine();
 		ImGui::Text(Language::BackupsFolder.c_str());
 
@@ -785,6 +806,7 @@ namespace GAME {
 			if (LDirectory_Opcode)WebDav_UploadDirectory(Exename + "Opcode\\", BackupsName, "Opcode");
 			if (LDirectory_Language)WebDav_UploadDirectory(Exename + "Language\\", BackupsName, "Language");
 			if (LDirectory_TessData)WebDav_UploadDirectory(Exename + "TessData\\", BackupsName, "TessData");
+			if (LDirectory_TTF)WebDav_UploadDirectory(Exename + "TTF\\", BackupsName, "TTF");
 		}
 		ImGui::SameLine(ImGui::GetWindowWidth() * 0.5f);
 		if (ImGui::Button(RecoveryWindow ? Language::Return.c_str() : Language::Recovery.c_str())) {
@@ -998,9 +1020,17 @@ namespace GAME {
 				ImGui::Text(Language::NotScript.c_str());
 			}
 		}
-		
+
+		ImGui::Checkbox(Language::PopUpNotification.c_str(), &SetPopUpNotificationBool);
+		ImGui::InputInt(Language::HitokotoTimeInterval.c_str(), &SetHitokotoTimeInterval);
+		ImGui::InputInt(Language::HitokotoDisplayDuration.c_str(), &SetHitokotoDisplayDuration);
 
 		if (ImGui::Button(Language::Save.c_str())) {
+
+			Variable::PopUpNotificationBool = SetPopUpNotificationBool;
+			Variable::HitokotoTimeInterval = SetHitokotoTimeInterval;
+			Variable::HitokotoDisplayDuration = SetHitokotoDisplayDuration;
+
 			Variable::WebDav_url = SetWebDav_url;
 			Variable::WebDav_username = SetWebDav_username;
 			Variable::WebDav_password = SetWebDav_password;
@@ -1009,6 +1039,7 @@ namespace GAME {
 			Variable::OpcodeBool = LDirectory_Opcode;
 			Variable::LanguageBool = LDirectory_Language;
 			Variable::TessDataBool = LDirectory_TessData;
+			Variable::TTFBool = LDirectory_TTF;
 
 			Variable::BaiduAppid = SetBaiduID;
 			Variable::BaiduSecret_key = SetBaiduKey;
@@ -1092,6 +1123,7 @@ namespace GAME {
 			mTranslate->SetYoudaoSecretkey(Variable::YoudaoSecret_key.c_str());
 
 			EndDisplayBool = true;
+			InterFaceBool = false;
 			SetBool = true;
 		}
 		ImGui::SameLine();
@@ -1101,11 +1133,16 @@ namespace GAME {
 		ImGui::SameLine();
 		if (ImGui::Button(Language::Close.c_str())) {
 			EndDisplayBool = true;
+			InterFaceBool = false;
 			SetBool = true;
 		}
 
 		ImGui::Text(Hitokoto.c_str());
 
+		BeginWindowPosX = ImGui::GetWindowPos().x;
+		BeginWindowPosY = ImGui::GetWindowPos().y;
+		BeginWindowSizeX = ImGui::GetWindowWidth();
+		BeginWindowSizeY = ImGui::GetWindowHeight();
 		ImGui::End();
 	}
 
@@ -1115,7 +1152,7 @@ namespace GAME {
 		if (MenuBool) {
 			static POINT pt = { 0,0 };
 			GetCursorPos(&pt);//获取鼠标位置
-			ImGui::SetNextWindowPos({ float(pt.x), float(pt.y) - (ImGui::GetTextLineHeightWithSpacing() * 2) - 24 });//设置窗口生成位置
+			ImGui::SetNextWindowPos({ float(pt.x), float(pt.y) - (ImGui::GetTextLineHeightWithSpacing() * 3) - 24 });//设置窗口生成位置
 			MenuBool = false;
 		}
 		ImGui::Begin("MenuUI", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
@@ -1123,25 +1160,60 @@ namespace GAME {
 		if (ImGui::Button(Language::Set.c_str())) {
 			SetInterFace(SetUpEnum);
 		}
+		if (Variable::PopUpNotificationBool) {
+			if (ImGui::Button(Language::ShutUp.c_str())) {
+				Variable::PopUpNotificationBool = false;
+				Variable::SaveFile();
+			}
+		}
+		else {
+			if (ImGui::Button(Language::Speak.c_str())) {
+				Variable::PopUpNotificationBool = true;
+				Variable::SaveFile();
+			}
+		}
 		if (ImGui::Button(Language::Exit.c_str())) {
 			exit(0);
 		}
-		bool fanbool = false;
-		if ((m_io->MousePos.x > ImGui::GetWindowPos().x) && (m_io->MousePos.y > ImGui::GetWindowPos().y) && (m_io->MousePos.x < (ImGui::GetWindowPos().x + ImGui::GetWindowWidth())) && (m_io->MousePos.y < (ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
-			TranslateTime = clock();
-			fanbool = true;
-		}
-		else if ((clock() - TranslateTime) > Variable::DisplayTime) {
-			EndDisplayBool = true;
-			InterFaceBool = false;
-		}
-		else if ((GetKeyState(VK_LBUTTON) < 0) || (GetKeyState(VK_RBUTTON) < 0)) {//鼠标点击窗口之外的地方关闭窗口
-			EndDisplayBool = true;
-			InterFaceBool = false;
-		}
+		BeginWindowPosX = ImGui::GetWindowPos().x;
+		BeginWindowPosY = ImGui::GetWindowPos().y;
+		BeginWindowSizeX = ImGui::GetWindowWidth();
+		BeginWindowSizeY = ImGui::GetWindowHeight();
 		ImGui::End();
+
+		
 		// 获取窗口句柄
 		HWND hwnd = FindWindow(NULL, "MenuUI");
+		if (hwnd) {
+			SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+		}
+	}
+
+
+	void ImGuiInterFace::HitokotoSentence() {
+		static std::string Hitokoto;
+		static float lenH = 0;
+		if (HitokotoBool) {
+			HitokotoBool = false;
+			Hitokoto = GetHitokoto();
+
+			ImFont* font = ImGui::GetFont();
+			ImVec2 textSize = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0, Hitokoto.c_str());
+			lenH = textSize.x + font->FontSize;
+		}
+
+		ImGui::Begin("HitokotoUI", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBackground);//创建窗口
+		ImGui::SetWindowPos(ImVec2((Variable::windows_Width * 0.95) - lenH, (Variable::windows_Heigth * 0.95) - ImGui::GetFont()->FontSize));
+		ImGui::SetWindowSize(ImVec2(lenH, -1));
+		ImGui::Text(Hitokoto.c_str());
+		BeginWindowPosX = 1;
+		BeginWindowPosY = 1;
+		BeginWindowSizeX = -1;
+		BeginWindowSizeY = -1;
+		ImGui::End();
+
+		// 获取窗口句柄
+		HWND hwnd = FindWindow(NULL, "HitokotoUI");
 		if (hwnd) {
 			SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 		}

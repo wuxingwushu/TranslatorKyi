@@ -19,6 +19,12 @@ namespace GAME {
 
 	//总初始化
 	void Application::run(VulKan::Window* w) {
+		HWND window = GetDesktopWindow();
+		RECT re;
+		GetWindowRect(window, &re);
+		Variable::windows_Width = re.right;
+		Variable::windows_Heigth = re.bottom;
+
 		mWindow = w;
 		//initWindow();//初始化窗口
 		initVulkan();//初始化Vulkan
@@ -186,6 +192,7 @@ namespace GAME {
 
 	//主循环main
 	void Application::mainLoop() {
+		clock_t HitokotoTime = clock();
 		while (!mWindow->shouldClose()) {//窗口被关闭结束循环
 
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -193,33 +200,29 @@ namespace GAME {
 			mWindow->pollEvents();
 			KeyBoardEvents();//监听键盘
 
-			ImGuiIO& io = ImGui::GetIO();
-			double CursorPosX, CursorPosY;
-			glfwGetCursorPos(mWindow->getWindow(), &CursorPosX, &CursorPosY);
-			io.MousePos.x = CursorPosX;
-			io.MousePos.y = CursorPosY;
 			
-			if (InterFace->EndDisplayBool) {
-				InterFace->EndDisplayBool = false;
-				InterFace->SetInterFaceBool(false);
-				InterFace->SetInterFace(No_Enum);
-				render();
-			}
-
 			if (InterFace->GetInterFaceBool()) {
-				if ((InterFace->GetInterFaceEnum() == TranslateEnum) && !InterFace->DoYouWantToUpdateTheScreen()) {
-					continue;
-				}
+				ImGuiIO& io = ImGui::GetIO();
+				double CursorPosX, CursorPosY;
+				glfwGetCursorPos(mWindow->getWindow(), &CursorPosX, &CursorPosY);
+				io.MousePos.x = CursorPosX;
+				io.MousePos.y = CursorPosY;
+
 				//ImGui显示录制
-				if (InterFace->InterFace() || InterFace->GetUpdateTheScreen()) {
+				if (InterFace->InterFace()) {
 					render();//根据录制的主指令缓存显示画面
 				}
-				else {
-					if (InterFace->m_io->ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-					{
-						ImGui::UpdatePlatformWindows();
-						ImGui::RenderPlatformWindowsDefault();
-					}
+			}
+			else {
+				if (Variable::PopUpNotificationBool && (InterFace->GetInterFaceEnum() == No_Enum) && (clock() - HitokotoTime > 20000)) {
+					InterFace->SetInterFace(HitokotoEnum);
+					HitokotoTime = clock();
+				}
+
+				if (InterFace->EndDisplayBool) {
+					InterFace->EndDisplayBool = false;
+					InterFace->SetInterFace(No_Enum);
+					render();
 				}
 			}
 		}
@@ -359,11 +362,7 @@ namespace GAME {
 		}
 
 
-		if (InterFace->m_io->ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-		{
-			ImGui::UpdatePlatformWindows();
-			ImGui::RenderPlatformWindowsDefault();
-		}
+		
 	
 
 		VkPresentInfoKHR presentInfo{};

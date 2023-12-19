@@ -38,14 +38,21 @@ namespace Variable {
 	extern std::string eng;//原文
 	extern std::string zhong;//翻译
 
+	//一言
+	extern bool PopUpNotificationBool;	//是否开启一言弹窗
+	extern int HitokotoTimeInterval;	//一言弹窗时间间隔
+	extern int HitokotoDisplayDuration;	//一言弹窗显示时长
+
 	//WebDav
-	extern std::string WebDav_url;
-	extern std::string WebDav_username;
-	extern std::string WebDav_password;
-	extern std::string WebDav_WebFile;
+	extern std::string WebDav_url;		//WebDav 的服务器网址
+	extern std::string WebDav_username;	//WebDav 账号
+	extern std::string WebDav_password;	//WebDav 密钥
+	extern std::string WebDav_WebFile;	//WebDav 应用名称
+	//WebDav保存 那些文件夹
 	extern bool OpcodeBool;
 	extern bool LanguageBool;
 	extern bool TessDataBool;
+	extern bool TTFBool;
 
 	//快捷键
 	extern int MakeUp;//组合
@@ -95,6 +102,9 @@ namespace Language {
 	extern std::string To;						//To
 
 	//设置界面
+	extern std::string PopUpNotification;		//一言弹窗
+	extern std::string HitokotoTimeInterval;	//弹窗时间间隔
+	extern std::string HitokotoDisplayDuration;	//弹窗显示时长
 	extern std::string jianguoyunWebDav;		//坚果云WebDav
 	extern std::string ServerAddress;			//服务器地址
 	extern std::string Account;					//账户
@@ -139,6 +149,8 @@ namespace Language {
 
 	//系统托盘
 	extern std::string Set;						//设置
+	extern std::string ShutUp;					//言闭
+	extern std::string Speak;					//言开
 	extern std::string Exit;					//退出
 	extern std::string strncpy;					//人家叫翻译姬！
 
