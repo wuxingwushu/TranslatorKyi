@@ -1,4 +1,5 @@
 #include "Tool.h"
+#include <tchar.h>
 
 
 namespace TOOL {
@@ -87,20 +88,30 @@ namespace TOOL {
 	}
 
 	bool SetModifyRegedit(const char* Name, bool Bool) {
-		char pFileName[MAX_PATH] = { 0 };
-		DWORD dwRet = GetModuleFileName(NULL, (LPSTR)pFileName, MAX_PATH);
+		TCHAR pFileName[MAX_PATH] = { 0 };
+		DWORD dwRet = GetModuleFileName(NULL, pFileName, MAX_PATH);
 
 		HKEY hKey;
-		LPCTSTR lpRun = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
-		long lRet = RegOpenKeyEx(HKEY_LOCAL_MACHINE, lpRun, 0, KEY_WRITE, &hKey);
+		LPCTSTR lpRun = _T("Software\\Microsoft\\Windows\\CurrentVersion\\Run");
+		long lRet = RegOpenKeyEx(HKEY_CURRENT_USER, lpRun, 0, KEY_WRITE, &hKey);
 		if (lRet != ERROR_SUCCESS)
 			return false;
 
-		if (Bool)
-			RegSetValueEx(hKey, Name, 0, REG_SZ, (const BYTE*)(LPCSTR)pFileName, MAX_PATH);//添加一个Key
-		else
-			RegDeleteValueA(hKey, Name);//删除一个Key
-		RegCloseKey(hKey);//关闭注册表
+		if (Bool) {
+			lRet = RegSetValueEx(hKey, Name, 0, REG_SZ, (const BYTE*)pFileName, (_tcslen(pFileName) + 1) * sizeof(TCHAR));
+			if (lRet != ERROR_SUCCESS) {
+				RegCloseKey(hKey);
+				return false;
+			}
+		}
+		else {
+			lRet = RegDeleteValue(hKey, Name);
+			if (lRet != ERROR_SUCCESS && lRet != ERROR_FILE_NOT_FOUND) {
+				RegCloseKey(hKey);
+				return false;
+			}
+		}
+		RegCloseKey(hKey);
 		return true;
 	}
 

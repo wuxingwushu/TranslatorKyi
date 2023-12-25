@@ -42,6 +42,12 @@ namespace Variable {
 	extern bool PopUpNotificationBool;	//是否开启一言弹窗
 	extern int HitokotoTimeInterval;	//一言弹窗时间间隔
 	extern int HitokotoDisplayDuration;	//一言弹窗显示时长
+	extern float HitokotoPosX;			//一言弹窗位置X
+	extern float HitokotoPosY;			//一言弹窗位置Y
+	extern float HitokotoFontSize;		//一言字体大小
+	extern bool HitokotoFontBool;		//独立字模
+	extern bool HitokotoTTFBool;		//使用内部字模
+	extern std::string HitokotoFont;	//字模
 
 	//WebDav
 	extern std::string WebDav_url;		//WebDav 的服务器网址
@@ -105,6 +111,11 @@ namespace Language {
 	extern std::string PopUpNotification;		//一言弹窗
 	extern std::string HitokotoTimeInterval;	//弹窗时间间隔
 	extern std::string HitokotoDisplayDuration;	//弹窗显示时长
+	extern std::string IndependentTypeface;		//独立字模
+	extern std::string InternalFontPattern;		//内部字模
+	extern std::string PositionX;				//位置X
+	extern std::string PositionY;				//位置Y
+	extern std::string HitokotoFontSize;		//一言字体大小
 	extern std::string jianguoyunWebDav;		//坚果云WebDav
 	extern std::string ServerAddress;			//服务器地址
 	extern std::string Account;					//账户

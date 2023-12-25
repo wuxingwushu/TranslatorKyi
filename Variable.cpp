@@ -10,6 +10,12 @@ namespace Variable {
 		PopUpNotificationBool = iniData->Get<bool>("Hitokoto", "PopUpNotificationBool");
 		HitokotoTimeInterval = iniData->Get<int>("Hitokoto", "HitokotoTimeInterval");
 		HitokotoDisplayDuration = iniData->Get<int>("Hitokoto", "HitokotoDisplayDuration");
+		HitokotoPosX = iniData->Get<float>("Hitokoto", "HitokotoPosX");
+		HitokotoPosY = iniData->Get<float>("Hitokoto", "HitokotoPosY");
+		HitokotoFontSize = iniData->Get<float>("Hitokoto", "HitokotoFontSize");
+		HitokotoTTFBool = iniData->Get<bool>("Hitokoto", "HitokotoTTFBool");
+		HitokotoFontBool = iniData->Get<bool>("Hitokoto", "HitokotoFontBool");
+		HitokotoFont = iniData->Get<std::string>("Hitokoto", "HitokotoFont");
 
 		WebDav_url = iniData->Get<std::string>("WebDav", "url");
 		WebDav_username = iniData->Get<std::string>("WebDav", "username");
@@ -65,6 +71,12 @@ namespace Variable {
 		iniData->UpdateEntry("Hitokoto", "PopUpNotificationBool", PopUpNotificationBool);
 		iniData->UpdateEntry("Hitokoto", "HitokotoTimeInterval", HitokotoTimeInterval);
 		iniData->UpdateEntry("Hitokoto", "HitokotoDisplayDuration", HitokotoDisplayDuration);
+		iniData->UpdateEntry("Hitokoto", "HitokotoPosX", HitokotoPosX);
+		iniData->UpdateEntry("Hitokoto", "HitokotoPosY", HitokotoPosY);
+		iniData->UpdateEntry("Hitokoto", "HitokotoFontSize", HitokotoFontSize);
+		iniData->UpdateEntry("Hitokoto", "HitokotoTTFBool", HitokotoTTFBool);
+		iniData->UpdateEntry("Hitokoto", "HitokotoFontBool", HitokotoFontBool);
+		iniData->UpdateEntry("Hitokoto", "HitokotoFont", HitokotoFont);
 		//保存 WebDav
 		iniData->UpdateEntry("WebDav", "url", WebDav_url);
 		iniData->UpdateEntry("WebDav", "username", WebDav_username);
@@ -142,6 +154,12 @@ namespace Variable {
 	bool PopUpNotificationBool;
 	int HitokotoTimeInterval;
 	int HitokotoDisplayDuration;
+	float HitokotoPosX;
+	float HitokotoPosY;
+	float HitokotoFontSize;
+	bool HitokotoFontBool;
+	bool HitokotoTTFBool;
+	std::string HitokotoFont;
 
 	//WebDav
 	std::string WebDav_url;
@@ -185,6 +203,11 @@ namespace Language {
 		PopUpNotification = iniData.Get<std::string>("Set", "HitokotoPopUpNotification_");
 		HitokotoTimeInterval = iniData.Get<std::string>("Set", "HitokotoTimeInterval_");
 		HitokotoDisplayDuration = iniData.Get<std::string>("Set", "HitokotoDisplayDuration_");
+		IndependentTypeface = iniData.Get<std::string>("Set", "IndependentTypeface_");
+		InternalFontPattern = iniData.Get<std::string>("Set", "InternalFontPattern_");
+		PositionX = iniData.Get<std::string>("Set", "PositionX_");
+		PositionY = iniData.Get<std::string>("Set", "PositionY_");
+		HitokotoFontSize = iniData.Get<std::string>("Set", "HitokotoFontSize_");
 		jianguoyunWebDav = iniData.Get<std::string>("Set", "jianguoyunWebDav_");
 		ServerAddress = iniData.Get<std::string>("Set", "ServerAddress_");
 		Account = iniData.Get<std::string>("Set", "Account_");
@@ -243,6 +266,11 @@ namespace Language {
 	std::string PopUpNotification;		//一言弹窗
 	std::string HitokotoTimeInterval;	//弹窗时间间隔
 	std::string HitokotoDisplayDuration;//弹窗显示时长
+	std::string IndependentTypeface;	//独立字模
+	std::string InternalFontPattern;	//内部字模
+	std::string PositionX;				//位置X
+	std::string PositionY;				//位置Y
+	std::string HitokotoFontSize;		//一言字体大小
 	std::string jianguoyunWebDav;		//坚果云WebDav
 	std::string ServerAddress;			//服务器地址
 	std::string Account;				//账户

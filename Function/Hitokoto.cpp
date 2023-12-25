@@ -23,7 +23,7 @@ std::string GetHitokoto()
         res = curl_easy_perform(curl);
         curl_easy_cleanup(curl);
 
-        if (res == CURLE_OK) {
+        if ((res == CURLE_OK) && (readBuffer.size() > 0)) {
             Json::Reader reader;
             Json::Value value;
             reader.parse(readBuffer, value);

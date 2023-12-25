@@ -45,6 +45,7 @@ namespace GAME {
 
 		// 设置字体
 		ImFontConfig Font_cfg;
+		Font_cfg.OversampleH = 1;
 		Font_cfg.FontDataOwnedByAtlas = false;
 		ImFont* Font;
 		if (Variable::FontBool) {
@@ -53,7 +54,14 @@ namespace GAME {
 		else {
 			Font = io.Fonts->AddFontFromMemoryTTF((void*)Font_data, Font_size, Variable::FontSize, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
 		}
-		
+		if (Variable::HitokotoFontBool) {
+			if (!Variable::HitokotoTTFBool) {
+				HitokotoFont = io.Fonts->AddFontFromFileTTF(Variable::HitokotoFont.c_str(), Variable::HitokotoFontSize, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
+			}
+			else {
+				HitokotoFont = io.Fonts->AddFontFromMemoryTTF((void*)Font_data, Font_size, Variable::HitokotoFontSize, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
+			}
+		}
 		
 
 
@@ -674,6 +682,12 @@ namespace GAME {
 		static bool SetPopUpNotificationBool;
 		static int SetHitokotoTimeInterval;
 		static int SetHitokotoDisplayDuration;
+		static float SetHitokotoPosX;
+		static float SetHitokotoPosY;
+		static float SetHitokotoFontSize;
+		static bool SetHitokotoTTFBool;
+		static bool SetHitokotoFontBool;
+		static int SetHitokotoFontIndex;
 		if (SetBool) {
 			SetBool = false;
 
@@ -734,6 +748,19 @@ namespace GAME {
 			SetPopUpNotificationBool = Variable::PopUpNotificationBool;
 			SetHitokotoTimeInterval = Variable::HitokotoTimeInterval;
 			SetHitokotoDisplayDuration = Variable::HitokotoDisplayDuration;
+			SetHitokotoFontSize = Variable::HitokotoFontSize;
+			SetHitokotoTTFBool = Variable::HitokotoTTFBool;
+			SetHitokotoFontBool = Variable::HitokotoFontBool;
+			SetHitokotoPosX = Variable::HitokotoPosX;
+			SetHitokotoPosY = Variable::HitokotoPosY;
+			SetHitokotoFontIndex = 0;
+			for (size_t i = 0; i < FontS.size(); i++)
+			{
+				if (FontS[i] == Variable::HitokotoFont) {
+					SetHitokotoFontIndex = i;
+				}
+			}
+			
 		}
 
 		
@@ -1022,14 +1049,76 @@ namespace GAME {
 		}
 
 		ImGui::Checkbox(Language::PopUpNotification.c_str(), &SetPopUpNotificationBool);
-		ImGui::InputInt(Language::HitokotoTimeInterval.c_str(), &SetHitokotoTimeInterval);
-		ImGui::InputInt(Language::HitokotoDisplayDuration.c_str(), &SetHitokotoDisplayDuration);
-
+		if (SetPopUpNotificationBool) {
+			ImGui::SameLine();
+			ImGui::Checkbox(Language::IndependentTypeface.c_str(), &SetHitokotoFontBool);
+			if (SetHitokotoFontBool) {
+				ImGui::SameLine();
+				ImGui::Checkbox(Language::InternalFontPattern.c_str(), &SetHitokotoTTFBool);
+				if (!SetHitokotoTTFBool) {
+					if (FontS.size() != 0) {
+						if (ImGui::BeginCombo(Language::TTF_Typeface.c_str(), FontS[SetHitokotoFontIndex].c_str(), flags))
+						{
+							for (int n = 0; n < FontS.size(); n++)
+							{
+								const bool is_selected = (SetHitokotoFontIndex == n);
+								if (ImGui::Selectable(FontS[n].c_str(), is_selected))
+									SetHitokotoFontIndex = n;
+								if (is_selected)
+									ImGui::SetItemDefaultFocus();
+							}
+							ImGui::EndCombo();
+						}
+					}
+					else {
+						ImGui::Text(Language::NotTTF_TypefaceText.c_str());
+					}
+				}
+			}
+			ImGui::SliderFloat(Language::PositionX.c_str(), &SetHitokotoPosX, 0.0f, 1.0f);
+			ImGui::SliderFloat(Language::PositionY.c_str(), &SetHitokotoPosY, 0.0f, 1.0f);
+			ImGui::InputInt(Language::HitokotoTimeInterval.c_str(), &SetHitokotoTimeInterval);
+			ImGui::InputInt(Language::HitokotoDisplayDuration.c_str(), &SetHitokotoDisplayDuration);
+			ImGui::InputFloat(Language::HitokotoFontSize.c_str(), &SetHitokotoFontSize);
+		}
+		
 		if (ImGui::Button(Language::Save.c_str())) {
-
+			bool updata = false;//判断是否要重启软件
 			Variable::PopUpNotificationBool = SetPopUpNotificationBool;
 			Variable::HitokotoTimeInterval = SetHitokotoTimeInterval;
 			Variable::HitokotoDisplayDuration = SetHitokotoDisplayDuration;
+			Variable::HitokotoPosX = SetHitokotoPosX;
+			Variable::HitokotoPosY = SetHitokotoPosY;
+			if (Variable::HitokotoFontSize != SetHitokotoFontSize) {
+				updata = true;
+				Variable::HitokotoFontSize = SetHitokotoFontSize;
+			}
+			if (Variable::HitokotoTTFBool != SetHitokotoTTFBool) {
+				updata = true;
+				Variable::HitokotoTTFBool = SetHitokotoTTFBool;
+			}
+			if (Variable::HitokotoFontBool != SetHitokotoFontBool) {
+				updata = true;
+				Variable::HitokotoFontBool = SetHitokotoFontBool;
+			}
+			if ((FontS.size() != 0) && !Variable::HitokotoTTFBool) {
+				std::string LFontFilePath;
+				if (MyFontSize > SetHitokotoFontIndex) {
+					LFontFilePath = "./TTF/" + FontS[SetHitokotoFontIndex] + ".ttf";
+				}
+				else {
+					LFontFilePath = "C:\\Windows\\Fonts\\" + FontS[SetHitokotoFontIndex] + ".ttf";
+				}
+
+				if (LFontFilePath != Variable::HitokotoFont) {//更换字体
+					updata = true;
+					Variable::HitokotoFont = LFontFilePath;
+				}
+			}
+			else {
+				Variable::HitokotoTTFBool = true;
+			}
+			
 
 			Variable::WebDav_url = SetWebDav_url;
 			Variable::WebDav_username = SetWebDav_username;
@@ -1080,7 +1169,7 @@ namespace GAME {
 				Variable::Language = LanguageS[LanguageIndex];
 			}
 
-			bool updata = false;//判断是否要重启软件
+			
 			if ((FontS.size() != 0) && Variable::FontBool) {
 				std::string LFontFilePath;
 				if (MyFontSize > FontIndex) {
@@ -1103,7 +1192,9 @@ namespace GAME {
 				updata = true;
 			}
 
-			TOOL::SetModifyRegedit("TranslatorKyi", Variable::Startup);
+			if (TOOL::SetModifyRegedit("TranslatorKyi", Variable::Startup)) {
+				TOOL::logger->error("SetModifyRegedit(): Error");
+			}
 
 			
 			Variable::SaveFile();
@@ -1197,21 +1288,33 @@ namespace GAME {
 			HitokotoBool = false;
 			Hitokoto = GetHitokoto();
 
-			ImFont* font = ImGui::GetFont();
-			ImVec2 textSize = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0, Hitokoto.c_str());
-			lenH = textSize.x + font->FontSize;
+			if (Variable::HitokotoFontBool) {
+				ImVec2 textSize = HitokotoFont->CalcTextSizeA(HitokotoFont->FontSize, FLT_MAX, 0, Hitokoto.c_str());
+				lenH = textSize.x + HitokotoFont->FontSize;
+			}
+			else {
+				ImFont* font = ImGui::GetFont();
+				ImVec2 textSize = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0, Hitokoto.c_str());
+				lenH = (textSize.x + font->FontSize) * (Variable::HitokotoFontSize / Variable::FontSize);
+			}
+			
 		}
-
+		
 		ImGui::Begin("HitokotoUI", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBackground);//创建窗口
-		ImGui::SetWindowPos(ImVec2((Variable::windows_Width * 0.95) - lenH, (Variable::windows_Heigth * 0.95) - ImGui::GetFont()->FontSize));
+		// 在此处切换字体
+		if (Variable::HitokotoFontBool) { ImGui::PushFont(HitokotoFont); }
+		else{ ImGui::SetWindowFontScale(Variable::HitokotoFontSize / Variable::FontSize); }
+		ImGui::SetWindowPos(ImVec2((Variable::windows_Width * Variable::HitokotoPosX) - lenH, (Variable::windows_Heigth * Variable::HitokotoPosY) - ImGui::GetFont()->FontSize));
 		ImGui::SetWindowSize(ImVec2(lenH, -1));
 		ImGui::Text(Hitokoto.c_str());
 		BeginWindowPosX = 1;
 		BeginWindowPosY = 1;
 		BeginWindowSizeX = -1;
 		BeginWindowSizeY = -1;
+		// 在完成绘制后恢复默认字体
+		if (Variable::HitokotoFontBool)ImGui::PopFont();
 		ImGui::End();
-
+	
 		// 获取窗口句柄
 		HWND hwnd = FindWindow(NULL, "HitokotoUI");
 		if (hwnd) {

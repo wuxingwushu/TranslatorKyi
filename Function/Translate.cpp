@@ -1,5 +1,11 @@
 #include "Translate.h"
-
+#include <openssl/aes.h>
+#include <openssl/md5.h>
+#include <openssl/bio.h>
+#include <openssl/evp.h>
+#include <openssl/buffer.h>
+#include <openssl/rand.h>
+#include <openssl/hmac.h>
 
 size_t TranslateWrite_data(char* ptr, size_t size, size_t nmemb, void* userdata)
 {
@@ -256,7 +262,7 @@ size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* out
 }
 
 std::string Translate::Translate_ReptilesYoudao(std::string English) {
-    std::string url = "http://fanyi.youdao.com/translate?&doctype=json&type=AUTO&to=AUTO&i=" + UrlEncode(English);/*&to=ja*/
+    std::string url = "https://dict.youdao.com/webtranslate?&doctype=json&type=AUTO&to=AUTO&i=" + UrlEncode(English);/*&to=ja*/
     std::string result;
 
     // 初始化 libcurl
@@ -300,3 +306,142 @@ std::string Translate::Translate_ReptilesYoudao(std::string English) {
     std::string Chinese = value["translateResult"][0][0]["tgt"].asString();
     return Chinese;
 }
+
+
+
+
+
+//std::string iv = "ydsecret://query/iv/C@lZe2YzHtZ2CYgaXKSVfsb7Y4QWHjITPPZ0nQp87fBeJ!Iv6v^6fvi2WN@bYpJ4";
+//std::string key = "ydsecret://query/key/B*RGygVywfNBwpmBaZg*WT7SIOUP2T0C9WHMZN39j^DAdaZhAnxvGcCY6VYFwnHl";
+//
+//std::string md5(const std::string& input) {
+//    unsigned char hash[MD5_DIGEST_LENGTH];
+//    MD5(reinterpret_cast<const unsigned char*>(input.c_str()), input.length(), hash);
+//    std::string result;
+//    for (int i = 0; i < MD5_DIGEST_LENGTH; ++i) {
+//        result += hash[i];
+//    }
+//    return result;
+//}
+//
+//std::string aesEncrypt(const std::string& plaintext) {
+//    AES_KEY aesKey;
+//    AES_set_encrypt_key(reinterpret_cast<const unsigned char*>(key.c_str()), 128, &aesKey);
+//
+//    unsigned char ivBytes[AES_BLOCK_SIZE];
+//    memcpy(ivBytes, iv.c_str(), AES_BLOCK_SIZE);
+//
+//    int inputLength = plaintext.length();
+//    int paddingLength = AES_BLOCK_SIZE - (inputLength % AES_BLOCK_SIZE);
+//    int outputLength = inputLength + paddingLength;
+//
+//    unsigned char* inputBuffer = new unsigned char[outputLength];
+//    memset(inputBuffer, 0, outputLength);
+//    memcpy(inputBuffer, plaintext.c_str(), inputLength);
+//    for (int i = inputLength; i < outputLength; ++i) {
+//        inputBuffer[i] = paddingLength;
+//    }
+//
+//    unsigned char* outputBuffer = new unsigned char[outputLength];
+//    memset(outputBuffer, 0, outputLength);
+//
+//    for (int i = 0; i < outputLength; i += AES_BLOCK_SIZE) {
+//        AES_cbc_encrypt(inputBuffer + i, outputBuffer + i, AES_BLOCK_SIZE, &aesKey, ivBytes, AES_ENCRYPT);
+//    }
+//
+//    std::string encryptedText(reinterpret_cast<char*>(outputBuffer), outputLength);
+//
+//    delete[] inputBuffer;
+//    delete[] outputBuffer;
+//
+//    return encryptedText;
+//}
+//
+//std::string aesDecrypt(const std::string& ciphertext) {
+//    AES_KEY aesKey;
+//    AES_set_decrypt_key(reinterpret_cast<const unsigned char*>(key.c_str()), 128, &aesKey);
+//
+//    unsigned char ivBytes[AES_BLOCK_SIZE];
+//    memcpy(ivBytes, iv.c_str(), AES_BLOCK_SIZE);
+//
+//    int inputLength = ciphertext.length();
+//    int outputLength = inputLength;
+//
+//    unsigned char* inputBuffer = new unsigned char[inputLength];
+//    memcpy(inputBuffer, ciphertext.c_str(), inputLength);
+//
+//    unsigned char* outputBuffer = new unsigned char[outputLength];
+//    memset(outputBuffer, 0, outputLength);
+//
+//    for (int i = 0; i < outputLength; i += AES_BLOCK_SIZE) {
+//        AES_cbc_encrypt(inputBuffer + i, outputBuffer + i, AES_BLOCK_SIZE, &aesKey, ivBytes, AES_DECRYPT);
+//    }
+//
+//    // Remove padding
+//    int paddingLength = outputBuffer[outputLength - 1];
+//    std::string decryptedText(reinterpret_cast<char*>(outputBuffer), outputLength - paddingLength);
+//
+//    delete[] inputBuffer;
+//    delete[] outputBuffer;
+//
+//    return decryptedText;
+//}
+//
+//std::string getFormData(const std::string& sentence, const std::string& fromLang, const std::string& toLang) {
+//    std::time_t t = std::time(nullptr);
+//    std::string mysticTime = std::to_string(t);
+//
+//    std::string query = "client=fanyideskweb&mysticTime=" + mysticTime + "&product=webfanyi&key=fsdsogkndfokasodnaso";
+//    std::string sign = md5(query);
+//
+//    std::string formData = "i=" + sentence + "&from=" + fromLang + "&to=" + toLang +
+//        "&domain=0&dictResult=true&keyid=webfanyi&sign=" + sign +
+//        "&client=fanyideskweb&product=webfanyi&appVersion=1.0.0&vendor=web" +
+//        "&pointParam=client,mysticTime,product" + "&mysticTime=" + mysticTime + "&keyfrom=fanyi.web";
+//
+//    return formData;
+//}
+//
+//size_t writeCallback(void* contents, size_t size, size_t nmemb, std::string* output) {
+//    size_t totalSize = size * nmemb;
+//    output->append(static_cast<char*>(contents), totalSize);
+//    return totalSize;
+//}
+//
+//std::string translate(const std::string& sentence, const std::string& fromLang, const std::string& toLang) {
+//    std::string url = "https://dict.youdao.com/webtranslate";
+//    std::string headers = "user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36\r\n"
+//        "referer: https://fanyi.youdao.com/\r\n"
+//        "cookie: OUTFOX_SEARCH_USER_ID=-805044645@10.112.57.88; OUTFOX_SEARCH_USER_ID_NCOO=818822109.5585971;\r\n";
+//
+//    std::string formData = getFormData(sentence, fromLang, toLang);
+//    std::string encryptedData = aesEncrypt(formData);
+//
+//    CURL* curl = curl_easy_init();
+//    if (curl) {
+//        std::string response;
+//        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+//        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, encryptedData.c_str());
+//        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, encryptedData.length());
+//        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
+//        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+//        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers.c_str());
+//
+//        CURLcode res = curl_easy_perform(curl);
+//        curl_easy_cleanup(curl);
+//
+//        if (res == CURLE_OK) {
+//            std::string decryptedResponse = aesDecrypt(response);
+//
+//            Json::Value root;
+//            Json::Reader reader;
+//            bool success = reader.parse(decryptedResponse, root);
+//            if (success) {
+//                std::string tgt = root["translateResult"][0][0]["tgt"].asString();
+//                return tgt;
+//            }
+//        }
+//    }
+//
+//    return "翻译失败：" + sentence;
+//}

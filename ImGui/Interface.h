@@ -227,6 +227,7 @@ namespace GAME {
 
 		void HitokotoSentence();
 		bool HitokotoBool = true;//界面是否是刚显示
+		ImFont* HitokotoFont = nullptr;
 	public:
 		char* TData;
 
