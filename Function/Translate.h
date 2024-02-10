@@ -71,4 +71,4 @@ private:
 	std::string Translate_ReptilesYoudao(std::string English);
 };
 
-//std::string translate(const std::string& sentence, const std::string& fromLang = "auto", const std::string& toLang = "");
+std::string translate(const std::string& sentence, const std::string& fromLang = "auto", const std::string& toLang = "");

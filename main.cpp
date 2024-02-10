@@ -11,8 +11,8 @@
 　じしf_, )ノ 
 */
 int main() {
-	//std::cout << "结果：" << translate("Variable", "auto", "ja");
-	//return 0;
+	/*std::cout << "结果：" << translate("Variable", "auto", "ja");
+	return 0;*/
 	//防止软件多开
 	if (FindWindow(NULL, "TranslatorKyi"))
 	{

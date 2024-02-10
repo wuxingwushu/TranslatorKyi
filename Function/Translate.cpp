@@ -445,3 +445,167 @@ std::string Translate::Translate_ReptilesYoudao(std::string English) {
 //
 //    return "翻译失败：" + sentence;
 //}
+
+std::string md5(const std::string& input) {
+    unsigned char digest[MD5_DIGEST_LENGTH];
+    MD5(reinterpret_cast<const unsigned char*>(input.c_str()), input.length(), digest);
+
+    char md5string[33];
+    for (int i = 0; i < MD5_DIGEST_LENGTH; i++)
+        sprintf(&md5string[i * 2], "%02x", (unsigned int)digest[i]);
+
+    return std::string(md5string);
+}
+
+std::string base64_encode(const unsigned char* input, size_t length) {
+    BIO* bmem = nullptr;
+    BIO* b64 = nullptr;
+    BUF_MEM* bptr = nullptr;
+
+    b64 = BIO_new(BIO_f_base64());
+    bmem = BIO_new(BIO_s_mem());
+    b64 = BIO_push(b64, bmem);
+    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+    BIO_write(b64, input, length);
+    BIO_flush(b64);
+    BIO_get_mem_ptr(b64, &bptr);
+
+    std::string result(bptr->data, bptr->length - 1);
+
+    BIO_free_all(b64);
+    return result;
+}
+
+std::string base64_decode(const std::string& input) {
+    BIO* b64 = nullptr;
+    BIO* bmem = nullptr;
+    unsigned char* buffer = new unsigned char[input.size()];
+    memset(buffer, 0, input.size());
+
+    b64 = BIO_new(BIO_f_base64());
+    bmem = BIO_new_mem_buf(input.c_str(), input.size());
+    bmem = BIO_push(b64, bmem);
+    BIO_set_flags(bmem, BIO_FLAGS_BASE64_NO_NL);
+    size_t length = BIO_read(bmem, buffer, input.size());
+
+    std::string result(reinterpret_cast<const char*>(buffer), length);
+    delete[] buffer;
+
+    BIO_free_all(bmem);
+    return result;
+}
+
+std::string aes_encrypt(const std::string& plaintext, const std::string& key, const std::string& iv) {
+    AES_KEY aes_key;
+    AES_set_encrypt_key(reinterpret_cast<const unsigned char*>(key.c_str()), 128, &aes_key);
+
+    int padding = AES_BLOCK_SIZE - (plaintext.length() % AES_BLOCK_SIZE);
+    std::string padded_plaintext = plaintext + std::string(padding, static_cast<char>(padding));
+
+    std::string ciphertext;
+    ciphertext.resize(padded_plaintext.length());
+
+    for (size_t i = 0; i < padded_plaintext.length(); i += AES_BLOCK_SIZE) {
+        AES_encrypt(reinterpret_cast<const unsigned char*>(&padded_plaintext[i]),
+            reinterpret_cast<unsigned char*>(&ciphertext[i]), &aes_key);
+    }
+
+    std::string encoded_ciphertext = base64_encode(reinterpret_cast<const unsigned char*>(ciphertext.c_str()),
+        ciphertext.length());
+    return encoded_ciphertext;
+}
+
+std::string aes_decrypt(const std::string& ciphertext, const std::string& key, const std::string& iv) {
+    AES_KEY aes_key;
+    AES_set_decrypt_key(reinterpret_cast<const unsigned char*>(key.c_str()), 128, &aes_key);
+
+    std::string decoded_ciphertext = base64_decode(ciphertext);
+
+    std::string plaintext;
+    plaintext.resize(decoded_ciphertext.length());
+
+    for (size_t i = 0; i < decoded_ciphertext.length(); i += AES_BLOCK_SIZE) {
+        AES_decrypt(reinterpret_cast<const unsigned char*>(&decoded_ciphertext[i]),
+            reinterpret_cast<unsigned char*>(&plaintext[i]), &aes_key);
+    }
+
+    size_t padding = static_cast<size_t>(plaintext[plaintext.length() - 1]);
+    return plaintext.substr(0, plaintext.length() - padding);
+}
+
+std::string get_form_data(const std::string& sentence, const std::string& from_lang, const std::string& to_lang) {
+    time_t current_time = time(nullptr);
+    std::ostringstream mystic_time_stream;
+    mystic_time_stream << std::fixed << std::setprecision(6) << std::setfill('0') << current_time;
+
+    std::string t = mystic_time_stream.str();
+    std::string key = "fsdsogkndfokasodnaso";
+
+    std::string sign = md5("client=fanyideskweb&mysticTime=" + t + "&product=webfanyi&key=" + key);
+
+    std::string form_data = "";
+    form_data += "i=" + sentence + "&";
+    form_data += "from=" + from_lang + "&";
+    form_data += "to=" + to_lang + "&";
+    form_data += "domain=0&";
+    form_data += "dictResult=true&";
+    form_data += "keyid=webfanyi&";
+    form_data += "sign=" + sign + "&";
+    form_data += "client=fanyideskweb&";
+    form_data += "product=webfanyi&";
+    form_data += "appVersion=1.0.0&";
+    form_data += "vendor=web&";
+    form_data += "pointParam=client,mysticTime,product&";
+    form_data += "mysticTime=" + t + "&";
+    form_data += "keyfrom=fanyi.web";
+
+    return form_data;
+}
+
+std::string translate(const std::string& sentence, const std::string& from_lang, const std::string& to_lang) {
+    std::string url = "https://dict.youdao.com/webtranslate";
+    std::string headers = "user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/114.0.0.0 Safari/537.36\r\n"
+        "referer: https://fanyi.youdao.com/\r\n"
+        "cookie: OUTFOX_SEARCH_USER_ID=-805044645@10.112.57.88; "
+        "OUTFOX_SEARCH_USER_ID_NCOO=818822109.5585971;\r\n";
+    std::string params = get_form_data(sentence, from_lang, to_lang);
+
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+        std::cerr << "Failed to initialize curl" << std::endl;
+        return "";
+    }
+
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, params.c_str());
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, params.length());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers.c_str());
+
+    std::string response;
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, [](void* buffer, size_t size, size_t nmemb, std::string* response) {
+        response->append(reinterpret_cast<const char*>(buffer), size * nmemb);
+        return size * nmemb;
+        });
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+    CURLcode res = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
+
+    if (res != CURLE_OK) {
+        std::cerr << "Failed to perform curl request: " << curl_easy_strerror(res) << std::endl;
+        return "";
+    }
+
+    // Decrypt the translation result using AES
+    std::string key = md5("ydsecret://query/key/B*RGygVywfNBwpmBaZg*WT7SIOUP2T0C9WHMZN39j^DAdaZhAnxvGcCY6VYFwnHl");
+    std::string iv = md5("ydsecret://query/iv/C@lZe2YzHtZ2CYgaXKSVfsb7Y4QWHjITPPZ0nQp87fBeJ!Iv6v^6fvi2WN@bYpJ4");
+
+    std::string decrypted_response = aes_decrypt(response, key, iv);
+
+    // Parse the JSON response
+    // ...
+
+    return "";  // Return the translated text
+}

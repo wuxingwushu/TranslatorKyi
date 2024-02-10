@@ -243,20 +243,20 @@ namespace GAME {
 				InputCursorBool = false;
 			}
 		}
-		if (data->HasSelection() && ((GetKeyState(VK_CONTROL) < 0) && (GetKeyState('C') < 0)))
+		if (data->HasSelection() && ((GetKeyState(VK_CONTROL) < 0) && (GetKeyState('C') < 0)))//判断是否有选中的文本
 		{
 			char selected_text[10000];
-			if (data->SelectionEnd > data->SelectionStart) {
-				memcpy(selected_text, &data->Buf[data->SelectionStart], (data->SelectionEnd - data->SelectionStart));
-				selected_text[data->SelectionEnd + 1] = '\0';//加上终止符
+			if (data->SelectionEnd > data->SelectionStart) {//判断选中的文本是从左往右选还是从右往左选
+				memcpy(selected_text, &data->Buf[data->SelectionStart], (data->SelectionEnd - data->SelectionStart));//复制选中的文本
+				selected_text[(data->SelectionEnd - data->SelectionStart) + 1] = '\0';//加上终止符
 			}
 			else {
-				memcpy(selected_text, &data->Buf[data->SelectionEnd], (data->SelectionStart - data->SelectionEnd));
-				selected_text[data->SelectionStart + 1] = '\0';//加上终止符
+				memcpy(selected_text, &data->Buf[data->SelectionEnd], (data->SelectionStart - data->SelectionEnd));//复制选中的文本
+				selected_text[(data->SelectionStart - data->SelectionEnd) + 1] = '\0';//加上终止符
 			}
-			TOOL::CopyToClipboard(TOOL::Utf8ToUnicode(selected_text));
+			TOOL::CopyToClipboard(TOOL::Utf8ToUnicode(selected_text));//复制到剪贴板
 		}
-		else if(!ImGui::IsItemDeactivated() && (GetKeyState(VK_CONTROL) < 0) && (GetKeyState('V') < 0)){
+		else if(!ImGui::IsItemDeactivated() && (GetKeyState(VK_CONTROL) < 0) && (GetKeyState('V') < 0)){//判断是否有选中的文本
 			if (TranslateInputBool) {
 				mCursorPos = data->CursorPos;
 				mTextLen = data->BufTextLen;
