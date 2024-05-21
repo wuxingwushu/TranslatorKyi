@@ -78,7 +78,7 @@ bool WebDav_Directory(std::string path, std::string directory) {
     return RepeatName;
 }
 
-
+//查看列表
 std::vector<std::string> WebDav_List(std::string path) {
     CURL* curl;
     CURLcode res;
@@ -205,6 +205,7 @@ void WebDav_Upload(std::string File, std::string path) {
     curl_global_cleanup();
 }
 
+//上传文件夹
 void WebDav_UploadDirectory(std::string Filepath, std::string path, std::string directory) {
     WIN32_FIND_DATA findFileData;
     
@@ -236,6 +237,7 @@ void WebDav_UploadDirectory(std::string Filepath, std::string path, std::string 
     FindClose(hFind);
 }
 
+//下载
 void WebDav_Download(std::string File, std::string path) {
     // 初始化libcurl
     curl_global_init(CURL_GLOBAL_DEFAULT);
@@ -277,6 +279,7 @@ void WebDav_Download(std::string File, std::string path) {
     curl_global_cleanup();
 }
 
+//下载文件夹
 void WebDav_DownloadDirectory(std::string directory, std::string path) {
     if (std::filesystem::exists(path)) {//判断是否存在文件夹
         std::cout << "Folder already exists." << std::endl;
@@ -302,7 +305,7 @@ void WebDav_DownloadDirectory(std::string directory, std::string path) {
     }
 }
 
-
+//删除
 void WebDav_Delete(std::string File) {
     CURL* curl;
     CURLcode res;
@@ -333,6 +336,7 @@ void WebDav_Delete(std::string File) {
     }
 }
 
+//创建文件夹
 void WebDav_CreateFolder    (std::string File) {
     // 初始化 curl
     CURL* curl = curl_easy_init();
