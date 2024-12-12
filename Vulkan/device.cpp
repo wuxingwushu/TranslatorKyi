@@ -36,8 +36,9 @@ namespace VulKan {
 			candidates.insert(std::make_pair(score, device));//让最高分的在最后面
 		}
 
-		if (candidates.rbegin()->first > 0 && isDeviceSuitable(candidates.rbegin()->second)) {//判断那张显卡是否符合要求
-			mPhysicalDevice = candidates.rbegin()->second;//获取那张显卡
+		// 选择最低分那个 GPU 因为不需要什么性能
+		if (candidates.begin()->first > 0 && isDeviceSuitable(candidates.begin()->second)) {//判断那张显卡是否符合要求
+			mPhysicalDevice = candidates.begin()->second;//获取那张显卡
 		}
 
 		if (mPhysicalDevice == VK_NULL_HANDLE) {//判断是否获取合适的显卡
@@ -78,8 +79,8 @@ namespace VulKan {
 		VkPhysicalDeviceFeatures deviceFeatures;
 		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
-		return deviceProp.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
-			deviceFeatures.geometryShader &&
+		// deviceProp.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU 要求是独立显卡
+		return deviceFeatures.geometryShader &&
 			deviceFeatures.samplerAnisotropy;
 	}
 
