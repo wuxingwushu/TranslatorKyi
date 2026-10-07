@@ -1,5 +1,6 @@
 #include "Tool.h"
 #include <tchar.h>
+#include <new>//std::nothrow：截图的缓冲区分配失败时返回 nullptr，而不是抛异常
 
 
 namespace TOOL {
@@ -253,10 +254,10 @@ namespace TOOL {
 		int ClipboardBoll = 5;
 		while (ClipboardBoll > 0) {
 			ClipboardBoll--;
+			//打开失败时剪贴板并没有被打开，再 CloseClipboard 是错的操作（旧代码就是这么写的）
 			if (!OpenClipboard(NULL))//打开剪贴板
 			{
 				printf("打开剪贴板失败\n");
-				CloseClipboard();//关闭剪贴板
 				continue;
 			}
 
@@ -267,12 +268,21 @@ namespace TOOL {
 				CloseClipboard();//关闭剪贴板
 				continue;
 			}
-			else {
-				std::string CharS = (char*)GlobalLock(hmem);//获取内容块的地址
+
+			const char* pText = (const char*)GlobalLock(hmem);//获取内容块的地址
+			if (pText == NULL)//锁定失败：必须关闭剪贴板，否则一直占着不放
+			{
+				printf("锁定剪贴板内存失败!!!\n");
 				CloseClipboard();//关闭剪贴板
-				return CharS;
+				continue;
 			}
+
+			std::string CharS = pText;
+			GlobalUnlock(hmem);//解除内存锁定
+			CloseClipboard();//关闭剪贴板
+			return CharS;
 		}
+		return std::string();//5 次都没成功也要有返回值（旧代码直接从函数末尾掉出去，是未定义行为）
 	}
 
 	void CopyToClipboard(std::string str) {
@@ -326,29 +336,64 @@ namespace TOOL {
 	}
 
 	char* screen(char* buf) {
+		//缓冲区改由本函数自己持有。原因：截图尺寸会随分辨率/显示器/DPI 变化，而调用方
+		//（application.h 的 buffer，初值 nullptr）原来只在第一次分配，之后再没人重分配也没人释放，
+		//分辨率一变，后续 OCR/纹理上传就全按新尺寸去读一块旧尺寸的缓冲区，越界读堆。
+		//形参 buf 保留只是为了不改调用点，Tool.h 里已注明返回值不要 delete[]。
+		(void)buf;
+		static char* Buffer = nullptr;//本函数持有的截图缓冲区
+		static size_t BufferBytes = 0;//它当前有多大
+
 		HWND window = GetDesktopWindow();
 		HDC _dc = GetWindowDC(window);//屏幕DC
 		HDC dc = CreateCompatibleDC(0);//内存DC
+		if (_dc == NULL || dc == NULL)
+		{
+			if (_dc != NULL) { ReleaseDC(window, _dc); }
+			if (dc != NULL) { DeleteDC(dc); }
+			return Buffer;
+		}
 
 		RECT re;
 		GetWindowRect(window, &re);
 		Variable::windows_Width = re.right;
 		Variable::windows_Heigth = re.bottom;
+		//OCR、纹理上传、显示都按这一对尺寸走，它们必须和下面这块缓冲区严格配套
+		Variable::ScreenShot_Width = Variable::windows_Width;
+		Variable::ScreenShot_Heigth = Variable::windows_Heigth;
 
-		if (buf == nullptr) {
-			buf = new char[Variable::windows_Heigth * Variable::windows_Width * 4];
+		const size_t NeedBytes = (size_t)Variable::windows_Width * (size_t)Variable::windows_Heigth * 4;
+		if (Buffer == nullptr || BufferBytes < NeedBytes)
+		{
+			delete[] Buffer;//尺寸变了就重新分配，别让旧的小缓冲区继续用
+			Buffer = new (std::nothrow) char[NeedBytes]();//失败返回 nullptr，不让异常穿到主循环
+			BufferBytes = NeedBytes;
 		}
-			
-		void* buff = buf;
+		if (Buffer == nullptr)//分配失败（尺寸过大/内存不足）就别往下走了
+		{
+			ReleaseDC(window, _dc);
+			DeleteDC(dc);
+			return nullptr;
+		}
+
 		HBITMAP bm = CreateCompatibleBitmap(_dc, Variable::windows_Width, Variable::windows_Heigth);//建立和屏幕兼容的bitmap
+		if (bm == NULL)
+		{
+			ReleaseDC(window, _dc);
+			DeleteDC(dc);
+			return Buffer;
+		}
 		SelectObject(dc, bm);//将memBitmap选入内存DC
 		StretchBlt(dc, 0, 0, Variable::windows_Width, Variable::windows_Heigth, _dc, 0, 0, Variable::windows_Width, Variable::windows_Heigth, SRCCOPY);//复制屏幕图像到内存DC
 
-		GetObject(bm, 84, buff);
+		BITMAP bmInfo;
+		memset(&bmInfo, 0, sizeof(bmInfo));
+		//旧代码是 GetObject(bm, 84, buff)：把 84 字节的 BITMAP 结构写进了截图缓冲区，而且结果没人用
+		GetObject(bm, sizeof(bmInfo), &bmInfo);
 
-		
-
+		void* buff = nullptr;
 		tagBITMAPINFO bi;
+		memset(&bi, 0, sizeof(bi));
 		bi.bmiHeader.biSize = sizeof(bi.bmiHeader);
 		bi.bmiHeader.biWidth = Variable::windows_Width;
 		bi.bmiHeader.biHeight = Variable::windows_Heigth;
@@ -358,19 +403,27 @@ namespace TOOL {
 		bi.bmiHeader.biSizeImage = 0;
 
 		void* dcf = CreateDIBSection(dc, &bi, DIB_RGB_COLORS, &buff, NULL, NULL);
+		if (dcf == NULL || buff == nullptr)
+		{
+			if (dcf != NULL) { DeleteObject(dcf); }
+			DeleteObject(bm);
+			ReleaseDC(window, _dc);
+			DeleteDC(dc);
+			return Buffer;
+		}
 		GetDIBits(dc, bm, 0, Variable::windows_Heigth, buff, &bi, DIB_RGB_COLORS);
 
 		for (int yyy = 0; yyy < Variable::windows_Heigth; yyy++)
 		{
-			memcpy(&buf[(yyy * Variable::windows_Width * 4)], &((char*)buff)[((Variable::windows_Heigth - yyy - 1) * Variable::windows_Width) * 4], (4 * Variable::windows_Width));
+			memcpy(&Buffer[(yyy * Variable::windows_Width * 4)], &((char*)buff)[((Variable::windows_Heigth - yyy - 1) * Variable::windows_Width) * 4], (4 * Variable::windows_Width));
 		}
 
 
 		DeleteObject(dcf);
 		DeleteObject(bm);
-		DeleteDC(_dc);
+		ReleaseDC(window, _dc);//旧代码漏了这一个（GetWindowDC 拿到的一定要 ReleaseDC）
 		DeleteDC(dc);
-		return buf;
+		return Buffer;
 	}
 
 	/*********************************************- FPS -*********************************************/

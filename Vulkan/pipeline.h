@@ -1,7 +1,4 @@
 #pragma once
-
-#include "../base.h"
-#include "device.h"
 #include "shader.h"
 #include "renderPass.h"
 
@@ -40,8 +37,12 @@ namespace VulKan {
 		VkPipelineLayoutCreateInfo mLayoutState{};//创建管线布局
 
 	public:
-		[[nodiscard]] auto getPipeline() const noexcept { return mPipeline; }
-		[[nodiscard]] auto getLayout() const noexcept { return mLayout; }
+		[[nodiscard]] inline VkPipeline getPipeline() const noexcept { return mPipeline; }
+		[[nodiscard]] inline VkPipelineLayout getLayout() const noexcept { return mLayout; }
+
+		//顶点着色器实例化展块标记：为真时该管线的一个实例（顶点缓冲按实例步进）
+		//会被展开成 4 个顶点的方块，绘制必须用 draw(4, 数量)，见 UVDynamicDiagram::InitCommandBuffer。
+		bool mQuadExpansionByVertexShader{ false };
 
 		VkDescriptorSetLayout DescriptorSetLayout{ VK_NULL_HANDLE };
 

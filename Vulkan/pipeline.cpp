@@ -1,8 +1,10 @@
 #include "pipeline.h"
+#include "../DebugLog.h"
 
 namespace VulKan {
 
 	Pipeline::Pipeline(Device* device, RenderPass* renderPass) {
+		LOGD("Pipeline::Pipeline()");
 		mDevice = device;
 		mRenderPass = renderPass;
 
@@ -39,6 +41,7 @@ namespace VulKan {
 	}
 
 	void Pipeline::build() {
+		LOGD("Pipeline::build()");
 		//设置shader
 		std::vector<VkPipelineShaderStageCreateInfo> shaderCreateInfos{};
 		for (const auto& shader : mShaders) {
@@ -67,6 +70,7 @@ namespace VulKan {
 		}
 
 		if (vkCreatePipelineLayout(mDevice->getDevice(), &mLayoutState, nullptr, &mLayout) != VK_SUCCESS) {
+			LOGE("Pipeline::build: failed to create pipeline layout");
 			throw std::runtime_error("Error: failed to create pipeline layout");
 		}
 
@@ -98,6 +102,7 @@ namespace VulKan {
 
 		//pipeline cache，可以将相关数据存入缓存，在多个pipeline当中使用,也可以存到文件，不同程序调用
 		if (vkCreateGraphicsPipelines(mDevice->getDevice(), VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &mPipeline) != VK_SUCCESS) {
+			LOGE("Pipeline::build: failed to create graphics pipeline");
 			throw std::runtime_error("Error:failed to create pipeline");
 		}
 	}

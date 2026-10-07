@@ -1,15 +1,18 @@
 #include "fence.h"
+#include "../DebugLog.h"
 
 namespace VulKan {
 
 	Fence::Fence(Device* device, bool signaled) {
+		LOGD("Fence::Fence(signaled=%d)", signaled);
 		mDevice = device;
 
 		VkFenceCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-		createInfo.flags = signaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;//�Ƿ��Ǽ���̬
+		createInfo.flags = signaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
 
 		if (vkCreateFence(mDevice->getDevice(), &createInfo, nullptr, &mFence) != VK_SUCCESS) {
+			LOGE("Fence::Fence: failed to create fence");
 			throw std::runtime_error("Error:failed to create fence");
 		}
 	}

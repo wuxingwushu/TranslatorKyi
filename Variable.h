@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>//识别到的显卡列表 std::vector<VulkanDeviceInfo>
 #include "ini.h"//软件数据
 using namespace inih;//启用 ini 读取
 
@@ -34,6 +35,11 @@ namespace Variable {
 
 	extern int windows_Width;//屏幕宽度
 	extern int windows_Heigth;//屏幕高度
+	//上一次截图（TOOL::screen）实际用到的尺寸。截图缓冲区按这个尺寸分配，
+	//和 windows_* 不一定相等（截图之后用户可能换了分辨率/显示器/DPI），
+	//OCR、纹理上传、显示都必须用这一对，不能再读 windows_*，否则会越界读那块缓冲区。
+	extern int ScreenShot_Width;//上一次截图的宽度
+	extern int ScreenShot_Heigth;//上一次截图的高度
 
 	extern std::string eng;//原文
 	extern std::string zhong;//翻译
@@ -97,6 +103,33 @@ namespace Variable {
 	extern unsigned char ScreenshotColor[4];//截图颜色
 	extern std::string Script;					//脚本
 	extern bool ScriptBool;//是否开启脚本
+
+	//渲染设备选择（Vulkan）
+	//AutoBest 自动选最高性能、AutoWorst 自动选最低性能、CPU 走 SwiftShader 软件渲染、
+	//Specific 用 VulkanDeviceName 指定某一台。索引值和 ini 里存的值一一对应，不要随意调换。
+	enum class VulkanDeviceModeEnum {
+		AutoBest = 0,
+		AutoWorst = 1,
+		CPU = 2,
+		Specific = 3
+	};
+
+	//识别到的 Vulkan 设备。探测时由 Vulkan/instance.cpp 填充，设置界面的下拉框直接读它。
+	struct VulkanDeviceInfo {
+		std::string name;		//和 VkPhysicalDeviceProperties::deviceName 完全一致
+		int deviceType = 0;		//1 集成显卡 2 独立显卡 3 虚拟显卡 4 CPU 软件设备 0 其它
+		bool usable = true;		//是否满足最低要求（缺各向异性采样或 VK_KHR_swapchain 就不满足）
+	};
+
+	extern VulkanDeviceModeEnum VulkanDeviceMode;				//设备选择模式
+	extern std::string VulkanDeviceName;						//指定设备的名字（Specific 模式用）
+	extern std::vector<VulkanDeviceInfo> VulkanDetectedDevices;	//这次识别到的设备列表
+	extern bool RunningOnSoftwareRenderer;						//这次是否跑在 CPU 软件渲染上
+	extern std::string RunningDeviceName;						//这次实际用的设备名
+	extern std::string CpuSoftwareRenderReason;					//自动降级到 CPU 的原因
+
+	inline bool IsCpuRenderingMode() noexcept { return VulkanDeviceMode == VulkanDeviceModeEnum::CPU; }
+	inline bool IsSpecificDeviceMode() noexcept { return VulkanDeviceMode == VulkanDeviceModeEnum::Specific; }
 }
 
 namespace Language {
@@ -157,6 +190,33 @@ namespace Language {
 	extern std::string ScreenshotColor;			//截图颜色
 	extern std::string Script;					//脚本
 	extern std::string NotScript;				//没有脚本
+
+	//渲染设备选择（设置界面）
+	extern std::string RenderDevice;				//渲染设备
+	extern std::string RenderDeviceAutoBest;		//自动选择最高性能
+	extern std::string RenderDeviceAutoWorst;		//自动选择最低性能
+	extern std::string RenderDeviceCPU;				//CPU 软件渲染
+	extern std::string RenderDeviceUnusable;		//不满足最低要求
+	extern std::string RenderDeviceTypeIGPU;		//集成显卡
+	extern std::string RenderDeviceTypeDGPU;		//独立显卡
+	extern std::string RenderDeviceTypeVirtual;		//虚拟显卡
+	extern std::string RenderDeviceTypeCPU;			//CPU 软件设备
+	extern std::string RenderDeviceTypeOther;		//其它
+	extern std::string RenderDeviceItem;			//设备标签（名字 + 类型，两个 %s）
+	extern std::string RenderDeviceItemBad;			//设备标签-不满足要求（三个 %s）
+	extern std::string RenderDeviceRestart;			//重启程序后生效
+	extern std::string RenderDeviceMissing;			//指定设备没识别到（带 %s）
+	extern std::string RenderDeviceCurrentCPU;		//当前：CPU 软件渲染（带 %s）
+	extern std::string RenderDeviceCurrentSpecific;	//当前：指定设备（带 %s）
+	extern std::string RenderDeviceCurrentGPU;		//当前：显卡渲染（带 %s）
+	extern std::string RenderDeviceDegrade;			//降级提示前缀（带 %s）
+	extern std::string RenderDeviceHelp1;			//帮助第 1 行
+	extern std::string RenderDeviceHelp2;			//帮助第 2 行
+	extern std::string RenderDeviceHelp3;			//帮助第 3 行
+	extern std::string RenderDeviceHelp4;			//帮助第 4 行
+	extern std::string RenderDeviceHelp5;			//帮助第 5 行
+	extern std::string RenderDeviceHelp6;			//帮助第 6 行
+	extern std::string RenderDeviceHelp7;			//帮助第 7 行
 
 	//系统托盘
 	extern std::string Set;						//设置

@@ -1,5 +1,5 @@
 #include "buffer.h"
-//#include "../vk_mem_alloc.h"
+#include "../DebugLog.h"
 
 
 namespace VulKan {
@@ -47,6 +47,25 @@ namespace VulKan {
 		return buffer;
 	}
 
+	Buffer* Buffer::createStorageBuffer(Device* device, VkDeviceSize size, void* pData, bool persistentMapping) {
+		// SSBO：Storage Buffer，用于粒子系统实例数据
+		// usage 含 STORAGE_BUFFER_BIT（GPU 可读写）+ TRANSFER_DST_BIT（允许 staging 拷贝）
+		// 内存属性：HOST_VISIBLE + HOST_COHERENT，CPU 可持久映射写入
+		Buffer* buffer = new Buffer(
+			device, size,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+		);
+
+		if (pData != nullptr) {
+			buffer->updateBufferByStage(pData, size);
+		}
+		if (persistentMapping) {
+			buffer->getPersistentMappedPtr();
+		}
+		return buffer;
+	}
+
 	Buffer* Buffer::createStageBuffer(Device* device, const VkImage& dstImage, VkImageLayout dstImageLayout, uint32_t width, uint32_t height, VkDeviceSize size, void* pData, bool ThreadBool) {
 		Buffer* buffer = new Buffer(
 			device, size,
@@ -67,6 +86,7 @@ namespace VulKan {
 
 
 	Buffer::Buffer(Device* device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkSharingMode Mode) {
+		LOGD("Buffer::Buffer(size=%llu)", size);
 		mDevice = device;
 
 		VkBufferCreateInfo createInfo{};
@@ -75,8 +95,8 @@ namespace VulKan {
 		createInfo.usage = usage;//数据是干什么用的
 		createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;//专属显示队列
 		
+#if defined(_WIN32) || defined(__ANDROID__)
 		VmaAllocationCreateInfo VmaallocInfo = {};
-
 
 		if (VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT & properties) {
 			VmaallocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -85,12 +105,16 @@ namespace VulKan {
 			VmaallocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
 		}
 
-		
-
-		//vkCreateBuffer(device->getDevice(), &createInfo, nullptr, &mBuffer)
 		if (vmaCreateBuffer(device->getAllocator(), &createInfo, &VmaallocInfo, &mBuffer, &mAllocation, nullptr) != VK_SUCCESS) {
+			LOGE("Buffer::Buffer: failed to create buffer via VMA");
 			throw std::runtime_error("Error:failed to create buffer");
 		}
+#else
+		if (vkCreateBuffer(device->getDevice(), &createInfo, nullptr, &mBuffer) != VK_SUCCESS) {
+			LOGE("Buffer::Buffer: failed to create buffer");
+			throw std::runtime_error("Error:failed to create buffer");
+		}
+#endif
 
 
 		/*
@@ -125,22 +149,33 @@ namespace VulKan {
 	}
 
 	Buffer::~Buffer() {
-		if (BuffercommandBuffer != VK_NULL_HANDLE) {
+		if (BuffercommandBuffer != nullptr) {
 			delete BuffercommandBuffer;
-			BuffercommandBuffer = VK_NULL_HANDLE;
+			BuffercommandBuffer = nullptr;
 		}
-		if (BuffercommandPool != VK_NULL_HANDLE) {
+		if (BuffercommandPool != nullptr) {
 			delete BuffercommandPool;
-			BuffercommandPool = VK_NULL_HANDLE;
+			BuffercommandPool = nullptr;
 		}
-		if (BufferstageBuffer != VK_NULL_HANDLE) {
+		if (BufferstageBuffer != nullptr) {
 			delete BufferstageBuffer;
-			BufferstageBuffer = VK_NULL_HANDLE;
+			BufferstageBuffer = nullptr;
+		}
+		if (mPersistentMappedMemory != nullptr) {
+#if defined(_WIN32) || defined(__ANDROID__)
+			vmaUnmapMemory(mDevice->getAllocator(), mAllocation);
+#else
+			vkUnmapMemory(mDevice->getDevice(), mBufferMemory);
+#endif
+			mPersistentMappedMemory = nullptr;
 		}
 		if (mBuffer != VK_NULL_HANDLE) {
+#if defined(_WIN32) || defined(__ANDROID__)
 			vmaDestroyBuffer(mDevice->getAllocator(), mBuffer, mAllocation);
+#else
+			vkDestroyBuffer(mDevice->getDevice(), mBuffer, nullptr);
+#endif
 			mBuffer = VK_NULL_HANDLE;
-			//vkDestroyBuffer(mDevice->getDevice(), mBuffer, nullptr);
 		}
 		/*
 		if (mBufferMemory != VK_NULL_HANDLE) {
@@ -166,29 +201,64 @@ namespace VulKan {
 	void Buffer::updateBufferByMap(void* data, size_t size) {
 		void* memPtr = nullptr;
 
-		//vkMapMemory(mDevice->getDevice(), mBufferMemory, 0, size, 0, &memPtr);
-		vmaMapMemory(mDevice->getAllocator(), mAllocation, &memPtr);
+#if defined(_WIN32) || defined(__ANDROID__)
+		VkResult result = vmaMapMemory(mDevice->getAllocator(), mAllocation, &memPtr);
+#else
+		VkResult result = vkMapMemory(mDevice->getDevice(), mBufferMemory, 0, VK_WHOLE_SIZE, 0, &memPtr);
+#endif
+		if (result != VK_SUCCESS || memPtr == nullptr) {
+			throw std::runtime_error("Error: failed to map buffer memory");
+		}
 		memcpy(memPtr, data, size);
-		//vkUnmapMemory(mDevice->getDevice(), mBufferMemory);
+#if defined(_WIN32) || defined(__ANDROID__)
 		vmaUnmapMemory(mDevice->getAllocator(), mAllocation);
+#else
+		vkUnmapMemory(mDevice->getDevice(), mBufferMemory);
+#endif
 	}
 
 	void* Buffer::getupdateBufferByMap() {
 		void* memPtr = nullptr;
 
-		//vkMapMemory(mDevice->getDevice(), mBufferMemory, 0, size, 0, &memPtr);
-		vmaMapMemory(mDevice->getAllocator(), mAllocation, &memPtr);
+#if defined(_WIN32) || defined(__ANDROID__)
+		VkResult result = vmaMapMemory(mDevice->getAllocator(), mAllocation, &memPtr);
+#else
+		VkResult result = vkMapMemory(mDevice->getDevice(), mBufferMemory, 0, VK_WHOLE_SIZE, 0, &memPtr);
+#endif
+		if (result != VK_SUCCESS || memPtr == nullptr) {
+			throw std::runtime_error("Error: failed to map buffer memory");
+		}
 		return memPtr;
 	}
 	void Buffer::endupdateBufferByMap() {
-		//vkUnmapMemory(mDevice->getDevice(), mBufferMemory);
+#if defined(_WIN32) || defined(__ANDROID__)
 		vmaUnmapMemory(mDevice->getAllocator(), mAllocation);
+#else
+		vkUnmapMemory(mDevice->getDevice(), mBufferMemory);
+#endif
+	}
+
+	void* Buffer::getPersistentMappedPtr() {
+		if (mPersistentMappedMemory != nullptr) {
+			return mPersistentMappedMemory;
+		}
+		void* memPtr = nullptr;
+#if defined(_WIN32) || defined(__ANDROID__)
+		VkResult result = vmaMapMemory(mDevice->getAllocator(), mAllocation, &memPtr);
+#else
+		VkResult result = vkMapMemory(mDevice->getDevice(), mBufferMemory, 0, VK_WHOLE_SIZE, 0, &memPtr);
+#endif
+		if (result != VK_SUCCESS || memPtr == nullptr) {
+			throw std::runtime_error("Error: failed to map buffer memory for persistent mapping");
+		}
+		mPersistentMappedMemory = memPtr;
+		return memPtr;
 	}
 
 	void Buffer::updateImageByStage(const VkImage& dstImage, VkImageLayout dstImageLayout, uint32_t width, uint32_t height, void* data, size_t size) {
-		if (BufferstageBuffer != VK_NULL_HANDLE) {
+		if (BufferstageBuffer != nullptr) {
 			delete BufferstageBuffer;
-			BufferstageBuffer = VK_NULL_HANDLE;
+			BufferstageBuffer = nullptr;
 		}
 		
 		BufferstageBuffer = new Buffer(mDevice, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -197,21 +267,21 @@ namespace VulKan {
 
 		copyImage(BufferstageBuffer->getBuffer(), dstImage, dstImageLayout, width, height);
 
-		if (BufferstageBuffer != VK_NULL_HANDLE) {
+		if (BufferstageBuffer != nullptr) {
 			delete BufferstageBuffer;
-			BufferstageBuffer = VK_NULL_HANDLE;
+			BufferstageBuffer = nullptr;
 		}
 	}
 
 	void Buffer::copyImage(const VkBuffer& srcBuffer, const VkImage& dstImage, VkImageLayout dstImageLayout, uint32_t width, uint32_t height) {
-		if (BuffercommandPool == VK_NULL_HANDLE) {
+		if (BuffercommandPool == nullptr) {
 			BuffercommandPool = new CommandPool(mDevice);
 		}
-		if (BuffercommandBuffer == VK_NULL_HANDLE) {
+		if (BuffercommandBuffer == nullptr) {
 			BuffercommandBuffer = new CommandBuffer(mDevice, BuffercommandPool);
 		}
 
-		BuffercommandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);//这个命令只提交一次
+		BuffercommandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
 		BuffercommandBuffer->copyBufferToImage(srcBuffer, dstImage, dstImageLayout, width, height);
 
@@ -221,9 +291,9 @@ namespace VulKan {
 	}
 
 	void Buffer::updateBufferByStage(void* data, size_t size) {
-		if (BufferstageBuffer != VK_NULL_HANDLE) {
+		if (BufferstageBuffer != nullptr) {
 			delete BufferstageBuffer;
-			BufferstageBuffer = VK_NULL_HANDLE;
+			BufferstageBuffer = nullptr;
 		}
 		
 		BufferstageBuffer = new Buffer(mDevice, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -232,21 +302,21 @@ namespace VulKan {
 
 		copyBuffer(BufferstageBuffer->getBuffer(), mBuffer, static_cast<VkDeviceSize>(size));
 
-		if (BufferstageBuffer != VK_NULL_HANDLE) { 
+		if (BufferstageBuffer != nullptr) { 
 			delete BufferstageBuffer;
-			BufferstageBuffer = VK_NULL_HANDLE;
+			BufferstageBuffer = nullptr;
 		}
 	}
 
 	void Buffer::copyBuffer(const VkBuffer& srcBuffer, const VkBuffer& dstBuffer, VkDeviceSize size) {
-		if (BuffercommandPool == VK_NULL_HANDLE) {
+		if (BuffercommandPool == nullptr) {
 			BuffercommandPool = new CommandPool(mDevice);
 		}
-		if (BuffercommandBuffer == VK_NULL_HANDLE) {
+		if (BuffercommandBuffer == nullptr) {
 			BuffercommandBuffer = new CommandBuffer(mDevice, BuffercommandPool);
 		}
 
-		BuffercommandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);//这个命令只提交一次
+		BuffercommandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
 		VkBufferCopy copyInfo{};
 		copyInfo.size = size;
@@ -261,12 +331,12 @@ namespace VulKan {
 
 
 
-	
 
+	
 	void Buffer::ThreadUpDateImageByStage(const VkImage& dstImage, VkImageLayout dstImageLayout, uint32_t width, uint32_t height, void* data, size_t size) {
-		if (BufferstageBuffer != VK_NULL_HANDLE) {
+		if (BufferstageBuffer != nullptr) {
 			delete BufferstageBuffer;
-			BufferstageBuffer = VK_NULL_HANDLE;
+			BufferstageBuffer = nullptr;
 		}
 		BufferstageBuffer = new Buffer(mDevice, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 		BufferstageBuffer->updateBufferByMap(data, size);
@@ -277,9 +347,9 @@ namespace VulKan {
 	}
 
 	void Buffer::ThreadUpDateBufferByStage(void* data, size_t size) {
-		if (BufferstageBuffer != VK_NULL_HANDLE) {
+		if (BufferstageBuffer != nullptr) {
 			delete BufferstageBuffer;
-			BufferstageBuffer = VK_NULL_HANDLE;
+			BufferstageBuffer = nullptr;
 		}
 		BufferstageBuffer = new Buffer(mDevice, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 		BufferstageBuffer->updateBufferByMap(data, size);

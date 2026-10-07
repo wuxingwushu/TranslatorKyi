@@ -1,6 +1,4 @@
 #pragma once
-
-#include "../base.h"
 #include "device.h"
 
 namespace VulKan {
@@ -11,9 +9,9 @@ namespace VulKan {
 
 		~Shader();
 
-		[[nodiscard]] auto getShaderStage() const noexcept { return mShaderStage; }
-		[[nodiscard]] auto& getShaderEntryPoint() const noexcept { return mEntryPoint; }
-		[[nodiscard]] auto getShaderModule() const noexcept { return mShaderModule; }
+		[[nodiscard]] inline VkShaderStageFlagBits getShaderStage() const noexcept { return mShaderStage; }
+		[[nodiscard]] inline auto& getShaderEntryPoint() const noexcept { return mEntryPoint; }
+		[[nodiscard]] inline VkShaderModule getShaderModule() const noexcept { return mShaderModule; }
 
 	private:
 		VkShaderModule mShaderModule{ VK_NULL_HANDLE };

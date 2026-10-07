@@ -1,8 +1,5 @@
 #pragma once
-
-#include "../base.h"
 #include "commandPool.h"
-#include "device.h"
 
 namespace VulKan {
 
@@ -57,8 +54,11 @@ namespace VulKan {
 
 		//画数量（有多少个点）
 		void draw(size_t vertexCount);//没有顶点索引时用这个
+		//画数量（有多少个实例，每个实例包含 vertexCountPerInstance 个顶点）
+		//用于"顶点着色器实例化展块"：每个实例是一个单元格，顶点缓冲按实例步进读取
+		void draw(size_t vertexCountPerInstance, size_t instanceCount);
 		//画索引数量（有多少个点）
-		void drawIndex(size_t indexCount);//有顶点索引时用这个
+		void drawIndex(size_t indexCount);//有索引时用这个
 
 		//结束渲染管线
 		void endRenderPass();
@@ -81,8 +81,11 @@ namespace VulKan {
 		//上传数据，同步用的工具函数
 		void submitSync(VkQueue queue, VkFence fence = VK_NULL_HANDLE);//上传指令只可以再主线程运行
 		
+		// 异步提交：仅使用 Fence 同步，不阻塞队列（用于每帧调用场景）
+		void submit(VkQueue queue, VkFence fence);
+
 		// 获取录制好的 CommandBuffer
-		[[nodiscard]] VkCommandBuffer getCommandBuffer() const noexcept { return mCommandBuffer; }
+		[[nodiscard]] inline VkCommandBuffer getCommandBuffer() const noexcept { return mCommandBuffer; }
 	private:
 		VkCommandBuffer mCommandBuffer{ VK_NULL_HANDLE };
 		Device* mDevice{ nullptr };

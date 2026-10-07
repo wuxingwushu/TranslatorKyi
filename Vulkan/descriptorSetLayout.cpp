@@ -1,8 +1,10 @@
 #include "descriptorSetLayout.h"
+#include "../DebugLog.h"
 
 namespace VulKan {
 
 	DescriptorSetLayout::DescriptorSetLayout(Device* device) {
+		LOGD("DescriptorSetLayout::DescriptorSetLayout()");
 		mDevice = device;
 	}
 
@@ -13,6 +15,7 @@ namespace VulKan {
 	}
 
 	void DescriptorSetLayout::build(const std::vector<UniformParameter*>& params) {
+		LOGD("DescriptorSetLayout::build(params.size=%zu)", params.size());
 		mParams = params;
 
 		if (mLayout != VK_NULL_HANDLE) {
@@ -37,6 +40,7 @@ namespace VulKan {
 		createInfo.pBindings = layoutBindings.data();
 
 		if (vkCreateDescriptorSetLayout(mDevice->getDevice(), &createInfo, nullptr, &mLayout) != VK_SUCCESS) {
+			LOGE("DescriptorSetLayout::build: failed to create descriptor set layout");
 			throw std::runtime_error("Error: failed to create descriptor set layout");
 		}
 	}

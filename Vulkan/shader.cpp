@@ -1,4 +1,5 @@
 #include "shader.h"
+#include "../DebugLog.h"
 
 namespace VulKan {
 
@@ -6,6 +7,7 @@ namespace VulKan {
 		std::ifstream file(fileName.c_str(), std::ios::ate | std::ios::binary | std::ios::in);
 
 		if (!file) {
+			LOGE("Shader::readBinary: failed to open shader file %s", fileName.c_str());
 			throw std::runtime_error("Error: failed to open shader file");
 		}
 
@@ -20,18 +22,25 @@ namespace VulKan {
 	}
 
 	Shader::Shader(Device* device, const std::string& fileName, VkShaderStageFlagBits shaderStage, const std::string& entryPoint) {
+		LOGD("Shader::Shader(fileName=%s)", fileName.c_str());
 		mDevice = device;
 		mShaderStage = shaderStage;
 		mEntryPoint = entryPoint;
 
 		std::vector<char> codeBuffer = readBinary(fileName);
 
+		if (codeBuffer.size() % 4 != 0) {
+			LOGE("Shader::Shader: shader code size is not a multiple of 4 - file may be corrupted");
+			throw std::runtime_error("Error: shader code size is not a multiple of 4 - file may be corrupted");
+		}
+
 		VkShaderModuleCreateInfo shaderCreateInfo{};
 		shaderCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 		shaderCreateInfo.codeSize = codeBuffer.size();
-		shaderCreateInfo.pCode = reinterpret_cast<const uint32_t*>(codeBuffer.data());//数据强制转换为uint32_t
+		shaderCreateInfo.pCode = reinterpret_cast<const uint32_t*>(codeBuffer.data());
 
 		if (vkCreateShaderModule(mDevice->getDevice(), &shaderCreateInfo, nullptr, &mShaderModule) != VK_SUCCESS) {
+			LOGE("Shader::Shader: failed to create shader module");
 			throw std::runtime_error("Error: failed to create shader");
 		}
 

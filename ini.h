@@ -459,7 +459,10 @@ namespace inih {
     template <typename T>
     inline void INIReader::InsertEntry(const std::string& section,
         const std::string& name, const T& v) {
-        if (_values[section][name].size() > 0) {
+        //判据必须是"键在不在"，不能看"值长不长"：值为空（Data.ini 里 WebDav_password= 之类）
+        //是合法状态，旧实现按长度 > 0 判断，会在键存在但值为空时误报 duplicate。
+        if (_values.find(section) != _values.end() &&
+            _values[section].find(name) != _values[section].end()) {
             throw std::runtime_error("duplicate key '" + std::string(name) +
                 "' in section '" + section + "'.");
         }
@@ -470,20 +473,21 @@ namespace inih {
     inline void INIReader::InsertEntry(const std::string& section,
         const std::string& name,
         const std::vector<T>& vs) {
-        if (_values[section][name].size() > 0) {
+        if (_values.find(section) != _values.end() &&
+            _values[section].find(name) != _values[section].end()) {
             throw std::runtime_error("duplicate key '" + std::string(name) +
                 "' in section '" + section + "'.");
         }
         _values[section][name] = Vec2String(vs);
     }
 
+    //UpdateEntry 改成"有则覆盖、无则新增"。ini 的写入本来就是把这个 map 整体写回文件，
+    //并不需要"键必须已存在"这个前提；而旧实现按"值长度"判定，键在但值为空就抛异常，
+    //SaveFile() 没有 try/catch，异常会穿过 ImGui 帧与主循环把进程直接带走
+    //（Data.ini 里 Screenshotkey=、WebDav_password=、FontFilePath=、Language= 都是空值）。
     template <typename T>
     inline void INIReader::UpdateEntry(const std::string& section,
         const std::string& name, const T& v) {
-        if (!_values[section][name].size()) {
-            throw std::runtime_error("key '" + std::string(name) +
-                "' not exist in section '" + section + "'.");
-        }
         _values[section][name] = V2String(v);
     }
 
@@ -491,10 +495,6 @@ namespace inih {
     inline void INIReader::UpdateEntry(const std::string& section,
         const std::string& name,
         const std::vector<T>& vs) {
-        if (!_values[section][name].size()) {
-            throw std::runtime_error("key '" + std::string(name) +
-                "' not exist in section '" + section + "'.");
-        }
         _values[section][name] = Vec2String(vs);
     }
 

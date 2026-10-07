@@ -1,6 +1,4 @@
 #pragma once
-
-#include "../base.h"
 #include "device.h"
 
 //用来同步，
@@ -14,7 +12,7 @@ namespace VulKan {
 
 		~Semaphore();
 
-		[[nodiscard]] auto getSemaphore() const noexcept { return mSemaphore; }
+		[[nodiscard]] inline VkSemaphore getSemaphore() const noexcept { return mSemaphore; }
 	private:
 		VkSemaphore mSemaphore{ VK_NULL_HANDLE };
 		Device* mDevice{ nullptr };

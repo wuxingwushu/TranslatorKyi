@@ -1,8 +1,5 @@
 #pragma once
-
-#include "../base.h"
 #include "device.h"
-#include "description.h"
 #include "descriptorSetLayout.h"
 #include "descriptorPool.h"
 
@@ -23,16 +20,29 @@ namespace VulKan {
 			const std::vector<UniformParameter*> params,
 			const VkDescriptorSetLayout layout,
 			const DescriptorPool* pool,
-			int frameCount
+			int frameCount,
+			std::mutex* wMutex = nullptr
 		);
 
 		~DescriptorSet();
 
-		[[nodiscard]] auto getDescriptorSet(int frameCount) const { return mDescriptorSets[frameCount]; }
+		//更新绑定的图片
+		void UpDataImagePicture(unsigned int Index, VkDescriptorImageInfo* ImageInfo);
+		void UpDataBufferPicture(unsigned int Index, VkDescriptorBufferInfo* BufferInfo);
+
+		[[nodiscard]] inline VkDescriptorSet getDescriptorSet(int frameCount) const { return mDescriptorSets[frameCount]; }
 
 	private:
+		unsigned int wFrameCount = 0;
+		unsigned int mDescriptorSize = 0;
 		const DescriptorPool* mDescriptorPool;
+		// 对每个DescriptorSet，我们需要把params里面的描述信息，写入其中
+		// VkWriteDescriptorSet 存储 pBufferInfo 指针，但源 Buffer 可能被销毁导致悬空指针
+		// 因此将 VkDescriptorBufferInfo 按值复制到 mBufferInfoStorage 中保存
+		std::vector<std::vector<VkWriteDescriptorSet>> descriptorSetWrites{};
 		std::vector<VkDescriptorSet> mDescriptorSets{};
+		std::vector<std::vector<VkDescriptorBufferInfo>> mBufferInfoStorage;      // 本地存储避免悬空指针
+		std::vector<VkDescriptorBufferInfo> mUpdateBufferInfoStorage;            // UpDataBufferPicture 本地存储
 		Device* mDevice{ nullptr };
 	};
 }

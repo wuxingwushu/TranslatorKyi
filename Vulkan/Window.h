@@ -26,6 +26,10 @@ namespace VulKan {
 
 		[[nodiscard]] GLFWwindow* getWindow() const { return mWindow; }
 
+		[[nodiscard]] int getWidth() const noexcept { return mWidth; }//swapChain 会在窗口模式改变后重新取宽高
+
+		[[nodiscard]] int getHeight() const noexcept { return mHeight; }//swapChain 会在窗口模式改变后重新取宽高
+
 		void setApp(GAME::Application* app);
 
 		void processEvent();
@@ -34,7 +38,7 @@ namespace VulKan {
 
 	public:
 		bool mWindowResized{ false };
-		GAME::Application* mApp;
+		GAME::Application* mApp{ nullptr };
 
 	private:
 		bool MouseDisabled = false;

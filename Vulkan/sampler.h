@@ -1,6 +1,4 @@
 #pragma once
-
-#include "../base.h"
 #include "device.h"
 
 namespace VulKan {
@@ -11,7 +9,7 @@ namespace VulKan {
 
 		~Sampler();
 
-		[[nodiscard]] auto getSampler() const noexcept { return mSampler; }
+		[[nodiscard]] inline VkSampler getSampler() const noexcept { return mSampler; }
 
 	private:
 		Device* mDevice{ nullptr };

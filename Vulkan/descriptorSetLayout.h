@@ -1,6 +1,4 @@
 #pragma once
-
-#include "../base.h"
 #include "device.h"
 #include "description.h"
 
@@ -16,7 +14,7 @@ namespace VulKan {
 
 		void build(const std::vector<UniformParameter*>& params);
 
-		[[nodiscard]] VkDescriptorSetLayout getLayout() const noexcept { return mLayout; }
+		[[nodiscard]] inline VkDescriptorSetLayout getLayout() const noexcept { return mLayout; }
 
 	private:
 		VkDescriptorSetLayout mLayout{ VK_NULL_HANDLE };

@@ -1,9 +1,4 @@
 #pragma once
-
-#include "../base.h"
-#include "device.h"
-#include "commandPool.h"
-#include "commandBuffer.h"
 #include "buffer.h"
 
 namespace VulKan {
@@ -54,7 +49,8 @@ namespace VulKan {
 			VkPipelineStageFlags srcStageMask, 
 			VkPipelineStageFlags dstStageMask,
 			VkImageSubresourceRange subresrouceRange,
-			const CommandPool* commandPool
+			const CommandPool* commandPool,
+			CommandBuffer* wCommandBuffer = nullptr
 			);
 
 		//多线程设置ImageLayout
@@ -75,15 +71,15 @@ namespace VulKan {
 
 		void updateBufferByMap(void* data, size_t size);
 
-		[[nodiscard]] auto getImage() const noexcept { return mImage; }
+		[[nodiscard]] inline VkImage getImage() const noexcept { return mImage; }
 
-		[[nodiscard]] auto getLayout() const noexcept { return mLayout; }
+		[[nodiscard]] inline VkImageLayout getLayout() const noexcept { return mLayout; }
 
-		[[nodiscard]] auto getWidth() const noexcept { return mWidth; }
+		[[nodiscard]] inline size_t getWidth() const noexcept { return mWidth; }
 
-		[[nodiscard]] auto getHeight() const noexcept { return mHeight; }
+		[[nodiscard]] inline size_t getHeight() const noexcept { return mHeight; }
 
-		[[nodiscard]] auto getImageView() const noexcept { return mImageView; }
+		[[nodiscard]] inline VkImageView getImageView() const noexcept { return mImageView; }
 
 		//[[nodiscard]] auto getImageBuffer() const { return fillstageBuffer; }
 
@@ -108,7 +104,9 @@ namespace VulKan {
 		size_t				mHeight{ 0 };
 		Device*			    mDevice{ nullptr };
 		VkImage				mImage{ VK_NULL_HANDLE };//CPU端的内存描述
+#if defined(_WIN32) || defined(__ANDROID__)
 		VmaAllocation mAllocation;// vma 的GPU内存描述
+#endif
 		//VkDeviceMemory		mImageMemory{ VK_NULL_HANDLE };//GPU端的内存描述，（废弃，专用 vma）
 		VkImageView			mImageView{ VK_NULL_HANDLE };
 		VkFormat			mFormat;
@@ -119,7 +117,7 @@ namespace VulKan {
 		
 	
 	private://这些数据是临时的，用来上传数据用的
-		CommandBuffer* LayoutcommandBuffer{ VK_NULL_HANDLE };
-		Buffer* fillstageBuffer{ VK_NULL_HANDLE };
+		CommandBuffer* LayoutcommandBuffer{ nullptr };
+		Buffer* fillstageBuffer{ nullptr };
 	};
 }

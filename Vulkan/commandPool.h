@@ -1,6 +1,4 @@
 #pragma once
-
-#include "../base.h"
 #include "device.h"
 
 namespace VulKan {
@@ -11,7 +9,13 @@ namespace VulKan {
 
 		~CommandPool();
 
-		[[nodiscard]] auto getCommandPool() const noexcept { return mCommandPool; }
+		[[nodiscard]] inline VkCommandPool getCommandPool() const noexcept { return mCommandPool; }
+
+		void reset() {
+			if (mCommandPool != VK_NULL_HANDLE) {
+				vkResetCommandPool(mDevice->getDevice(), mCommandPool, 0);
+			}
+		}
 
 	private:
 		VkCommandPool mCommandPool{ VK_NULL_HANDLE };

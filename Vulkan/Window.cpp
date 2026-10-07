@@ -1,4 +1,4 @@
-#include "window.h"
+#include "Window.h"
 #include "../application.h"
 
 GAME::Application* mAppcpp;

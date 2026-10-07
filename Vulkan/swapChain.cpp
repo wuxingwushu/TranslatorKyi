@@ -1,14 +1,17 @@
 #include "swapChain.h"
 #include "renderPass.h"
+#include <limits>
+#include "../DebugLog.h"
 
 namespace VulKan {
 
 	SwapChain::SwapChain(
-		Device* device, 
-		Window* window, 
+		Device* device,
+		Window* window,
 		WindowSurface* surface,
 		CommandPool* commandPool
 	) {
+		LOGD("SwapChain::SwapChain()");
 		mDevice = device;
 		mWindow = window;
 		mSurface = surface;
@@ -17,6 +20,7 @@ namespace VulKan {
 	}
 
 	void SwapChain::StructureSwapChain() {
+		LOGD("SwapChain::StructureSwapChain()");
 		SwapChainSupportInfo swapChainSupportInfo = querySwapChainSupportInfo();
 
 		//选择vkformat
@@ -29,7 +33,12 @@ namespace VulKan {
 		VkExtent2D extent = chooseExtent(swapChainSupportInfo.mCapabilities);
 
 		//设置图像缓冲数量
+		//至少 3 张：软件光栅化设备（SwiftShader）的 minImageCount 只有 1，若按 minImageCount + 1
+		//申请只能拿到 2 张图，ImGui 要求交换链图像数 >= 3（MinImageCount），Debug 下会断言失败。
 		mImageCount = swapChainSupportInfo.mCapabilities.minImageCount + 1;
+		if (mImageCount < 3) {
+			mImageCount = 3;
+		}
 
 		//如果maxImageCount为0，说明只要内存不爆炸，我们就可以设定任意数量的images
 		if (swapChainSupportInfo.mCapabilities.maxImageCount > 0 && mImageCount > swapChainSupportInfo.mCapabilities.maxImageCount) {
@@ -68,7 +77,11 @@ namespace VulKan {
 		}
 
 		//交换链的图像初始变化，比如是否需要反转
+#if defined(__ANDROID__)
+		createInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+#else
 		createInfo.preTransform = swapChainSupportInfo.mCapabilities.currentTransform;
+#endif
 
 		//不与原来窗体当中的内容混合
 		createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -79,6 +92,7 @@ namespace VulKan {
 		createInfo.clipped = VK_TRUE;
 
 		if (vkCreateSwapchainKHR(mDevice->getDevice(), &createInfo, nullptr, &mSwapChain) != VK_SUCCESS) {
+			LOGE("SwapChain::StructureSwapChain: failed to create swap chain");
 			throw std::runtime_error("Error: failed to create swapChain");
 		}
 
@@ -93,7 +107,7 @@ namespace VulKan {
 
 		//创建imageView
 		mSwapChainImageViews.resize(mImageCount);
-		for (int i = 0; i < mImageCount; ++i) {
+		for (unsigned int i = 0; i < mImageCount; ++i) {
 			mSwapChainImageViews[i] = createImageView(mSwapChainImages[i], mSwapChainFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 		}
 
@@ -107,7 +121,7 @@ namespace VulKan {
 		region.baseArrayLayer = 0;
 		region.layerCount = 1;
 
-		for (int i = 0; i < mImageCount; ++i) {
+		for (unsigned int i = 0; i < mImageCount; ++i) {
 			mDepthImages[i] = Image::createDepthImage(
 				mDevice,
 				mSwapChainExtent.width,
@@ -117,15 +131,17 @@ namespace VulKan {
 
 			mDepthImages[i]->setImageLayout(
 				VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,// 初始化布局转换使用 TOP_OF_PIPE 作为源阶段是 Vulkan 合法惯例，确保屏障完全执行
 				VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
 				region,
 				mCommandPool
 			);
 		}
 
-		//创建MutiSampleImages
+		//创建MutiSampleImages（仅当设备支持MSAA时创建）
 		mMutiSampleImages.resize(mImageCount);
+
+		VkSampleCountFlagBits sampleCount = mDevice->getMaxUsableSampleCount();
 
 		VkImageSubresourceRange regionMutiSample{};
 		regionMutiSample.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -134,31 +150,34 @@ namespace VulKan {
 		regionMutiSample.baseArrayLayer = 0;
 		regionMutiSample.layerCount = 1;
 
-		for (int i = 0; i < mImageCount; ++i) {
-			mMutiSampleImages[i] = Image::createRenderTargetImage(
-				mDevice,
-				mSwapChainExtent.width,
-				mSwapChainExtent.height,
-				mSwapChainFormat
-			);
+		for (unsigned int i = 0; i < mImageCount; ++i) {
+			if (sampleCount != VK_SAMPLE_COUNT_1_BIT) {
+				mMutiSampleImages[i] = Image::createRenderTargetImage(
+					mDevice,
+					mSwapChainExtent.width,
+					mSwapChainExtent.height,
+					mSwapChainFormat
+				);
 
-			mMutiSampleImages[i]->setImageLayout(
-				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-				regionMutiSample,
-				mCommandPool
-			);
+				mMutiSampleImages[i]->setImageLayout(
+					VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,// 初始化布局转换使用 TOP_OF_PIPE 作为源阶段是 Vulkan 合法惯例
+					VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+					regionMutiSample,
+					mCommandPool
+				);
+			}
+			else {
+				mMutiSampleImages[i] = nullptr;
+			}
 		}
 	}
 	
 	void SwapChain::createFrameBuffers(const RenderPass* renderPass) {
+		LOGD("SwapChain::createFrameBuffers()");
 		//创建FrameBuffer
 		mSwapChainFrameBuffers.resize(mImageCount);
-		for (int i = 0; i < mImageCount; ++i) {
-			//FrameBuffer 里面为一帧的数据，比如有n个ColorAttachment 1个DepthStencilAttachment，
-			//这些东西的集合为一个FrameBuffer，送入管线，就会形成一个GPU的集合，由上方的Attachments构成
-			//注意数组当中的顺序！！必须与RenderPass匹配
+		for (uint32_t i = 0; i < mImageCount; ++i) {
 			std::array<VkImageView, 3> attachments = { 
 				mSwapChainImageViews[i], 
 				mMutiSampleImages[i]->getImageView(),
@@ -175,13 +194,14 @@ namespace VulKan {
 			frameBufferCreateInfo.layers = 1;
 
 			if (vkCreateFramebuffer(mDevice->getDevice(), &frameBufferCreateInfo, nullptr, &mSwapChainFrameBuffers[i]) != VK_SUCCESS) {
+				LOGE("SwapChain::createFrameBuffers: failed to create framebuffer %d", i);
 				throw std::runtime_error("Error:Failed to create frameBuffer");
 			}
 		}
 	}
 
 	SwapChain::~SwapChain() {
-		for (int i = 0; i < mImageCount; ++i) {
+		for (uint32_t i = 0; i < mImageCount; ++i) {
 			delete mMutiSampleImages[i];
 			delete mDepthImages[i];
 		}
@@ -262,7 +282,12 @@ namespace VulKan {
 
 		//由于高清屏幕情况下 ，比如苹果， 窗体的坐标大小，并不等于像素的长宽
 		int width = 0, height = 0;
+#if defined(_WIN32)
 		glfwGetFramebufferSize(mWindow->getWindow(), &width, &height);
+#elif defined(__ANDROID__)
+		width = mWindow->getWidth();
+		height = mWindow->getHeight();
+#endif
 
 		VkExtent2D actualExtent = {
 			static_cast<uint32_t>(width),
@@ -294,6 +319,7 @@ namespace VulKan {
 
 		VkImageView imageView{ VK_NULL_HANDLE };
 		if (vkCreateImageView(mDevice->getDevice(), &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
+			LOGE("SwapChain::createImageView: failed to create image view");
 			throw std::runtime_error("Error: failed to create image view in swapchain");
 		}
 

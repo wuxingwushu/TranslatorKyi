@@ -1,4 +1,5 @@
 #include "Variable.h"
+#include <cstdio>//printf：写盘失败的兜底提示（DebugLog.h 是空实现，这里要一条一定能编译的输出）
 
 namespace Variable {
 	unsigned int WrapSize = 12;
@@ -62,11 +63,30 @@ namespace Variable {
 		Script = iniData->Get<std::string>("Set", "Script");
 		ScriptBool = iniData->Get<bool>("Set", "ScriptBool");
 
+		//渲染设备选择。老配置文件里没有这两个键，Get 的三参数版本会返回默认值而不是抛异常。
+		int LVulkanDeviceMode = iniData->Get<int>("Set", "VulkanDeviceMode", (int)VulkanDeviceModeEnum::AutoBest);
+		if (LVulkanDeviceMode < (int)VulkanDeviceModeEnum::AutoBest || LVulkanDeviceMode > (int)VulkanDeviceModeEnum::Specific)
+		{
+			LVulkanDeviceMode = (int)VulkanDeviceModeEnum::AutoBest;//配置被人改坏时退回自动
+		}
+		VulkanDeviceMode = (VulkanDeviceModeEnum)LVulkanDeviceMode;
+		VulkanDeviceName = iniData->Get<std::string>("Set", "VulkanDeviceName", std::string(""));
+
 		delete iniData;
 	}
 
 	extern void SaveFile() {
-		inih::INIReader* iniData = new inih::INIReader(IniPath);
+		//读不出来（Data.ini 被删/被占用）时宁可这次什么都不做，也不能让异常把进程带走
+		inih::INIReader* iniData = nullptr;
+		try
+		{
+			iniData = new inih::INIReader(IniPath);
+		}
+		catch (const std::exception& e)
+		{
+			printf("读取 %s 失败，本次设置未保存：%s\n", IniPath, e.what());
+			return;
+		}
 		//保存 一言
 		iniData->UpdateEntry("Hitokoto", "PopUpNotificationBool", PopUpNotificationBool);
 		iniData->UpdateEntry("Hitokoto", "HitokotoTimeInterval", HitokotoTimeInterval);
@@ -90,8 +110,8 @@ namespace Variable {
 		iniData->UpdateEntry("BaiduAPI", "Baidu_ID", BaiduAppid);
 		iniData->UpdateEntry("BaiduAPI", "Baidu_Key", BaiduSecret_key);
 		//保存 有道 ID Key
-		iniData->UpdateEntry("YoudaoAPI", "Youdao_ID", BaiduAppid);
-		iniData->UpdateEntry("YoudaoAPI", "Youdao_Key", BaiduSecret_key);
+		iniData->UpdateEntry("YoudaoAPI", "Youdao_ID", YoudaoAppid);
+		iniData->UpdateEntry("YoudaoAPI", "Youdao_Key", YoudaoSecret_key);
 		//保存 翻译配置
 		iniData->UpdateEntry("FT", "Translate", Translate);
 		iniData->UpdateEntry("FT", "From", From);
@@ -122,8 +142,23 @@ namespace Variable {
 		//保存 脚本设置
 		iniData->UpdateEntry("Set", "Script", Script);
 		iniData->UpdateEntry("Set", "ScriptBool", ScriptBool);
-
-		inih::INIWriter::write_Gai(IniPath, *iniData);//保存
+		//保存 渲染设备选择
+		//UpdateEntry 现在是"有则覆盖、无则新增"，空值也不会抛异常，
+		//不再需要按当前值是否为空去挑 InsertEntry / UpdateEntry 了。
+		iniData->UpdateEntry("Set", "VulkanDeviceMode", toString((int)VulkanDeviceMode));
+		iniData->UpdateEntry("Set", "VulkanDeviceName", VulkanDeviceName);
+		//写盘失败（文件被占用/只读/路径不存在）不能让异常逃出去：
+		//这里是 ImGui 帧回调 → 主循环的调用链，中间没有任何 try/catch，
+		//异常会一路 std::terminate 掉整个进程，表现就是"点一下保存，程序直接没了"。
+		//降级成打印，设置仍留在内存里，至少程序还活着。
+		try
+		{
+			inih::INIWriter::write_Gai(IniPath, *iniData);//保存
+		}
+		catch (const std::exception& e)
+		{
+			printf("保存 %s 失败：%s\n", IniPath, e.what());
+		}
 
 		delete iniData;
 	}
@@ -132,6 +167,8 @@ namespace Variable {
 
 	int windows_Width;//屏幕宽度
 	int windows_Heigth;//屏幕高度
+	int ScreenShot_Width;//上一次截图用到的宽度
+	int ScreenShot_Heigth;//上一次截图用到的高度
 
 	std::string eng = "";//原文
 	std::string zhong = "";//翻译
@@ -188,6 +225,14 @@ namespace Variable {
 	unsigned char ScreenshotColor[4];	//截图颜色
 	std::string Script;					//脚本
 	bool ScriptBool;					//是否开启脚本
+
+	//渲染设备选择
+	VulkanDeviceModeEnum VulkanDeviceMode = VulkanDeviceModeEnum::AutoBest;//设备选择模式
+	std::string VulkanDeviceName = "";			//指定的设备名（Specific 模式用）
+	std::vector<VulkanDeviceInfo> VulkanDetectedDevices;//这次识别到的设备列表
+	bool RunningOnSoftwareRenderer = false;		//这次是否跑在 CPU 软件渲染上
+	std::string RunningDeviceName = "";			//这次实际用的设备名
+	std::string CpuSoftwareRenderReason = "";	//自动降级到 CPU 的原因
 }
 
 
@@ -249,6 +294,33 @@ namespace Language {
 		ScreenshotColor = iniData.Get<std::string>("Set", "ScreenshotColor_");
 		Script = iniData.Get<std::string>("Set", "Script_");
 		NotScript = iniData.Get<std::string>("Set", "NotScript_");
+
+		//渲染设备选择（带 %s 的是模板，界面里会替换成设备名）
+		RenderDevice = iniData.Get<std::string>("Set", "RenderDevice_");
+		RenderDeviceAutoBest = iniData.Get<std::string>("Set", "RenderDeviceAutoBest_");
+		RenderDeviceAutoWorst = iniData.Get<std::string>("Set", "RenderDeviceAutoWorst_");
+		RenderDeviceCPU = iniData.Get<std::string>("Set", "RenderDeviceCPU_");
+		RenderDeviceUnusable = iniData.Get<std::string>("Set", "RenderDeviceUnusable_");
+		RenderDeviceTypeIGPU = iniData.Get<std::string>("Set", "RenderDeviceTypeIGPU_");
+		RenderDeviceTypeDGPU = iniData.Get<std::string>("Set", "RenderDeviceTypeDGPU_");
+		RenderDeviceTypeVirtual = iniData.Get<std::string>("Set", "RenderDeviceTypeVirtual_");
+		RenderDeviceTypeCPU = iniData.Get<std::string>("Set", "RenderDeviceTypeCPU_");
+		RenderDeviceTypeOther = iniData.Get<std::string>("Set", "RenderDeviceTypeOther_");
+		RenderDeviceItem = iniData.Get<std::string>("Set", "RenderDeviceItem_");
+		RenderDeviceItemBad = iniData.Get<std::string>("Set", "RenderDeviceItemBad_");
+		RenderDeviceRestart = iniData.Get<std::string>("Set", "RenderDeviceRestart_");
+		RenderDeviceMissing = iniData.Get<std::string>("Set", "RenderDeviceMissing_");
+		RenderDeviceCurrentCPU = iniData.Get<std::string>("Set", "RenderDeviceCurrentCPU_");
+		RenderDeviceCurrentSpecific = iniData.Get<std::string>("Set", "RenderDeviceCurrentSpecific_");
+		RenderDeviceCurrentGPU = iniData.Get<std::string>("Set", "RenderDeviceCurrentGPU_");
+		RenderDeviceDegrade = iniData.Get<std::string>("Set", "RenderDeviceDegrade_");
+		RenderDeviceHelp1 = iniData.Get<std::string>("Set", "RenderDeviceHelp1_");
+		RenderDeviceHelp2 = iniData.Get<std::string>("Set", "RenderDeviceHelp2_");
+		RenderDeviceHelp3 = iniData.Get<std::string>("Set", "RenderDeviceHelp3_");
+		RenderDeviceHelp4 = iniData.Get<std::string>("Set", "RenderDeviceHelp4_");
+		RenderDeviceHelp5 = iniData.Get<std::string>("Set", "RenderDeviceHelp5_");
+		RenderDeviceHelp6 = iniData.Get<std::string>("Set", "RenderDeviceHelp6_");
+		RenderDeviceHelp7 = iniData.Get<std::string>("Set", "RenderDeviceHelp7_");
 
 		Set = iniData.Get<std::string>("tray", "Set_");
 		ShutUp = iniData.Get<std::string>("tray", "ShutUp_");
@@ -312,6 +384,33 @@ namespace Language {
 	std::string ScreenshotColor;		//截图颜色
 	std::string Script;					//脚本
 	std::string NotScript;				//没有脚本
+
+	//渲染设备选择（设置界面）
+	std::string RenderDevice;				//渲染设备
+	std::string RenderDeviceAutoBest;		//自动选择最高性能
+	std::string RenderDeviceAutoWorst;		//自动选择最低性能
+	std::string RenderDeviceCPU;			//CPU 软件渲染
+	std::string RenderDeviceUnusable;		//不满足最低要求
+	std::string RenderDeviceTypeIGPU;		//集成显卡
+	std::string RenderDeviceTypeDGPU;		//独立显卡
+	std::string RenderDeviceTypeVirtual;	//虚拟显卡
+	std::string RenderDeviceTypeCPU;		//CPU 软件设备
+	std::string RenderDeviceTypeOther;		//其它
+	std::string RenderDeviceItem;			//设备标签
+	std::string RenderDeviceItemBad;		//设备标签-不满足要求
+	std::string RenderDeviceRestart;		//重启程序后生效
+	std::string RenderDeviceMissing;		//指定设备没识别到
+	std::string RenderDeviceCurrentCPU;		//当前：CPU 软件渲染
+	std::string RenderDeviceCurrentSpecific;//当前：指定设备
+	std::string RenderDeviceCurrentGPU;		//当前：显卡渲染
+	std::string RenderDeviceDegrade;		//降级提示前缀
+	std::string RenderDeviceHelp1;			//帮助第 1 行
+	std::string RenderDeviceHelp2;			//帮助第 2 行
+	std::string RenderDeviceHelp3;			//帮助第 3 行
+	std::string RenderDeviceHelp4;			//帮助第 4 行
+	std::string RenderDeviceHelp5;			//帮助第 5 行
+	std::string RenderDeviceHelp6;			//帮助第 6 行
+	std::string RenderDeviceHelp7;			//帮助第 7 行
 
 	//系统托盘
 	std::string Set;					//设置

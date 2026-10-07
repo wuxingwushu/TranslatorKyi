@@ -245,15 +245,16 @@ namespace GAME {
 		}
 		if (data->HasSelection() && ((GetKeyState(VK_CONTROL) < 0) && (GetKeyState('C') < 0)))//判断是否有选中的文本
 		{
+			//选中的文本可能非常长（eng/zhong 是 1MB 的缓冲区），必须按目标栈数组的长度截断。
+			//旧代码把终止符写在 [长度+1]（越界一字节），而长度本身没有任何上限。
 			char selected_text[10000];
-			if (data->SelectionEnd > data->SelectionStart) {//判断选中的文本是从左往右选还是从右往左选
-				memcpy(selected_text, &data->Buf[data->SelectionStart], (data->SelectionEnd - data->SelectionStart));//复制选中的文本
-				selected_text[(data->SelectionEnd - data->SelectionStart) + 1] = '\0';//加上终止符
-			}
-			else {
-				memcpy(selected_text, &data->Buf[data->SelectionEnd], (data->SelectionStart - data->SelectionEnd));//复制选中的文本
-				selected_text[(data->SelectionStart - data->SelectionEnd) + 1] = '\0';//加上终止符
-			}
+			const int SelectionBegin = (data->SelectionEnd > data->SelectionStart) ? data->SelectionStart : data->SelectionEnd;
+			const int SelectionEndPos = (data->SelectionEnd > data->SelectionStart) ? data->SelectionEnd : data->SelectionStart;
+			int SelectionLen = SelectionEndPos - SelectionBegin;//判断选中的文本是从左往右选还是从右往左选
+			if (SelectionLen > (int)sizeof(selected_text) - 1) { SelectionLen = (int)sizeof(selected_text) - 1; }
+			if (SelectionLen < 0) { SelectionLen = 0; }
+			memcpy(selected_text, &data->Buf[SelectionBegin], SelectionLen);//复制选中的文本
+			selected_text[SelectionLen] = '\0';//加上终止符
 			TOOL::CopyToClipboard(TOOL::Utf8ToUnicode(selected_text));//复制到剪贴板
 		}
 		else if(!ImGui::IsItemDeactivated() && (GetKeyState(VK_CONTROL) < 0) && (GetKeyState('V') < 0)){//判断是否有选中的文本
@@ -274,13 +275,18 @@ namespace GAME {
 				mWindown->pollEvents();
 			}
 			std::string ClipboardText = TOOL::UnicodeToUtf8(TOOL::ClipboardTochar());
-			char selected_text[10000];
-			int Len = mTextLen - mCursorPos;
-			memcpy(selected_text, &eng[mCursorPos], Len);
+			//旧写法是在栈上的定长数组里手工拼三段：选中尾部（Len）和剪贴板内容都没有长度上限，
+			//既能写爆 selected_text[10000]，也能写爆 eng 这块 1MB 的堆缓冲区。
+			//改成先在 std::string 上拼接，再按容量截断拷回去。
+			const std::string TextCopy(eng, strnlen(eng, sizeof(eng)));//eng 是定长缓冲区，按实际长度取
+			const int TextLen = (int)TextCopy.size();
+			int PastePos = (mCursorPos < TextLen) ? mCursorPos : TextLen;
+			if (PastePos < 0) { PastePos = 0; }
+			const std::string ResultText = TextCopy.substr(0, PastePos) + ClipboardText + TextCopy.substr(PastePos);
 			ImGui::ClearActiveID();//失去焦点，粘贴的内容才会被保存
-			memcpy(&eng[mCursorPos], ClipboardText.c_str(), ClipboardText.size());
-			mCursorPos += ClipboardText.size();
-			memcpy(&eng[mCursorPos], selected_text, Len);
+			TOOL::CopyToBuffer(eng, sizeof(eng), ResultText);
+			mCursorPos = PastePos + (int)ClipboardText.size();
+			if (mCursorPos > (int)sizeof(eng) - 1) { mCursorPos = (int)sizeof(eng) - 1; }
 			//Variable::eng = eng;
 			
 			//memcpy(eng, Variable::eng.c_str(), Variable::eng.size());
@@ -314,8 +320,9 @@ namespace GAME {
 		ImGui::BeginGroup();
 		if (ImGui::Button(Language::TranslationKey.c_str())) {
 			Variable::zhong = mTranslate->TranslateAPI(eng);
+			//zhong 是 1MB 的定长缓冲区，长文翻译结果直接 memcpy 会写爆且结尾没有 '\0'
 			memset(zhong, 0, sizeof(zhong));
-			memcpy(zhong, Variable::zhong.c_str(), Variable::zhong.size());
+			TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
 		}
 		if (ImGui::Button(Language::From.c_str())) {
 			ChildWindowBool = !ChildWindowBool;
@@ -497,10 +504,11 @@ namespace GAME {
 				}
 
 
+				//eng/zhong 各 1MB，长文识别+翻译结果直接 memcpy 会写爆数组，且结尾没有 '\0'
 				memset(eng, 0, sizeof(eng));
 				memset(zhong, 0, sizeof(zhong));
-				memcpy(eng, Variable::eng.c_str(), Variable::eng.size());
-				memcpy(zhong, Variable::zhong.c_str(), Variable::zhong.size());
+				TOOL::CopyToBuffer(eng, sizeof(eng), Variable::eng);
+				TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
 
 				x = 0;
 				w = 0;
@@ -598,6 +606,7 @@ namespace GAME {
 		char* Text;
 		int Pos;
 		int Len;
+		int Cap;//缓冲区的真实容量（字节），粘贴时必须按它截断
 		bool FFO;
 		char* LText;
 	};
@@ -605,14 +614,20 @@ namespace GAME {
 
 	void InputText() {
 		if (!((GetKeyState(VK_CONTROL) < 0) && (GetKeyState('V') < 0)) && InputInfo.FFO) {
+			//旧写法把光标后的尾部内容拷进栈上的 selected_text[10000] 再拼回去：
+			//长度既没按 selected_text 截断，也没按目标缓冲区（这些输入框都只有 128 字节）截断，
+			//往一个 128 字节的输入框里粘贴一段长文本，就会连着写爆栈数组和堆缓冲区。
 			std::string ClipboardText = TOOL::UnicodeToUtf8(TOOL::ClipboardTochar());
-			char selected_text[10000];
-			int Len = InputInfo.Len - InputInfo.Pos;
-			memcpy(selected_text, &InputInfo.Text[InputInfo.Pos], Len);
+			const int Cap = (InputInfo.Cap > 0) ? InputInfo.Cap : 128;
+			const std::string TextCopy(InputInfo.LText, strnlen(InputInfo.LText, (size_t)Cap));
+			const int TextLen = (int)TextCopy.size();
+			int PastePos = (InputInfo.Pos < TextLen) ? InputInfo.Pos : TextLen;
+			if (PastePos < 0) { PastePos = 0; }
+			const std::string ResultText = TextCopy.substr(0, PastePos) + ClipboardText + TextCopy.substr(PastePos);
 			ImGui::ClearActiveID();//失去焦点，粘贴的内容才会被保存
-			memcpy(&InputInfo.Text[InputInfo.Pos], ClipboardText.c_str(), ClipboardText.size());
-			InputInfo.Pos += ClipboardText.size();
-			memcpy(&InputInfo.Text[InputInfo.Pos], selected_text, Len);
+			TOOL::CopyToBuffer(InputInfo.Text, (size_t)Cap, ResultText);
+			InputInfo.Pos = PastePos + (int)ClipboardText.size();
+			if (InputInfo.Pos > Cap - 1) { InputInfo.Pos = Cap - 1; }
 			InputInfo.FFO = false;
 		}
 	}
@@ -622,6 +637,7 @@ namespace GAME {
 		if ((GetKeyState(VK_CONTROL) < 0) && (GetKeyState('V') < 0)) {
 			InputInfo.Text = InputInfo.LText;
 			InputInfo.Len = data->BufTextLen;
+			InputInfo.Cap = data->BufSize;//ImGui 拿到的就是数组真实容量（调用点都传了 IM_ARRAYSIZE）
 			InputInfo.Pos = data->CursorPos;
 			InputInfo.FFO = true;
 		}
@@ -688,25 +704,54 @@ namespace GAME {
 		static bool SetHitokotoTTFBool;
 		static bool SetHitokotoFontBool;
 		static int SetHitokotoFontIndex;
+		//渲染设备选择：先改这几个"待保存"的局部量，按下保存才写回 Variable::（和 PixelClean 一致）
+		static int SetVulkanDeviceMode = (int)Variable::VulkanDeviceModeEnum::AutoBest;
+		static bool VulkanDeviceModeChanged = false;
+		static Variable::VulkanDeviceModeEnum PendingVulkanDeviceMode = Variable::VulkanDeviceModeEnum::AutoBest;
+		static std::string PendingVulkanDeviceName = "";
+		//语言文件里本来就是 UTF-8 中文，标点也一起放进语言文件当模板，
+		//这样代码里不用出现非 ASCII 字面量。这里把模板里前 N 个 %s 依次换成给定文本。
+		auto FillDeviceText = [](const std::string& Tpl, const std::vector<std::string>& Values) -> std::string {
+			std::string Result;
+			Result.reserve(Tpl.size() + 32);
+			size_t ValueIndex = 0;
+			for (size_t i = 0; i < Tpl.size(); i++)
+			{
+				if (Tpl[i] == '%' && i + 1 < Tpl.size() && Tpl[i + 1] == 's' && ValueIndex < Values.size())
+				{
+					Result += Values[ValueIndex];
+					ValueIndex++;
+					i++;//跳过 s
+				}
+				else
+				{
+					Result += Tpl[i];
+				}
+			}
+			return Result;
+		};
 		if (SetBool) {
 			SetBool = false;
 
 			Hitokoto = GetHitokoto();
 
-			memcpy(SetWebDav_url, Variable::WebDav_url.c_str(), Variable::WebDav_url.size());
-			memcpy(SetWebDav_username, Variable::WebDav_username.c_str(), Variable::WebDav_username.size());
-			memcpy(SetWebDav_password, Variable::WebDav_password.c_str(), Variable::WebDav_password.size());
-			memcpy(SetWebDav_WebFile, Variable::WebDav_WebFile.c_str(), Variable::WebDav_WebFile.size());
+			//这些目标全是 128 字节的定长数组。旧写法直接 memcpy(..., str.size())：
+			//配置里存了长文本就会写爆数组，而且刚好写满 128 字节时连终止符都没有，
+			//ImGui 后面按 C 字符串读它就会一路读到相邻内存。CopyToBuffer 负责截断并补 '\0'。
+			TOOL::CopyToBuffer(SetWebDav_url, sizeof(SetWebDav_url), Variable::WebDav_url);
+			TOOL::CopyToBuffer(SetWebDav_username, sizeof(SetWebDav_username), Variable::WebDav_username);
+			TOOL::CopyToBuffer(SetWebDav_password, sizeof(SetWebDav_password), Variable::WebDav_password);
+			TOOL::CopyToBuffer(SetWebDav_WebFile, sizeof(SetWebDav_WebFile), Variable::WebDav_WebFile);
 
-			memcpy(SetBaiduID, Variable::BaiduAppid.c_str(), Variable::BaiduAppid.size());
-			memcpy(SetBaiduKey, Variable::BaiduSecret_key.c_str(), Variable::BaiduSecret_key.size());
-			memcpy(SetYoudaoID, Variable::YoudaoAppid.c_str(), Variable::YoudaoAppid.size());
-			memcpy(SetYoudaoKey, Variable::YoudaoSecret_key.c_str(), Variable::YoudaoSecret_key.size());
+			TOOL::CopyToBuffer(SetBaiduID, sizeof(SetBaiduID), Variable::BaiduAppid);
+			TOOL::CopyToBuffer(SetBaiduKey, sizeof(SetBaiduKey), Variable::BaiduSecret_key);
+			TOOL::CopyToBuffer(SetYoudaoID, sizeof(SetYoudaoID), Variable::YoudaoAppid);
+			TOOL::CopyToBuffer(SetYoudaoKey, sizeof(SetYoudaoKey), Variable::YoudaoSecret_key);
 
 			if (Variable::MakeUp == 17) { SetMakeUp = 1; }
-			memcpy(SetScreenshotkey, Variable::Screenshotkey.c_str(), 1);
-			memcpy(SetChoicekey, Variable::Choicekey.c_str(), 1);
-			memcpy(SetReplacekey, Variable::Replacekey.c_str(), 1);
+			TOOL::CopyToBuffer(SetScreenshotkey, sizeof(SetScreenshotkey), Variable::Screenshotkey);
+			TOOL::CopyToBuffer(SetChoicekey, sizeof(SetChoicekey), Variable::Choicekey);
+			TOOL::CopyToBuffer(SetReplacekey, sizeof(SetReplacekey), Variable::Replacekey);
 
 			LFontSize = Variable::FontSize;
 			LFontBool = Variable::FontBool;
@@ -735,6 +780,28 @@ namespace GAME {
 			ScriptIndex = 0;
 			TOOL::FilePath("./Opcode", &ScriptS, "as", TOOL::StrName(Variable::Script).c_str(), &ScriptIndex);
 			LScriptBool = Variable::ScriptBool;
+
+			//渲染设备选择：把当前设置换算成下拉框下标。
+			//0..2 是三项固定的（自动最高/自动最低/CPU），3 开始依次对应识别到的设备。
+			if (Variable::VulkanDeviceMode == Variable::VulkanDeviceModeEnum::Specific)
+			{
+				SetVulkanDeviceMode = 0;//指定的设备这次没识别到就先显示第一项
+				for (size_t i = 0; i < Variable::VulkanDetectedDevices.size(); i++)
+				{
+					if (Variable::VulkanDetectedDevices[i].name == Variable::VulkanDeviceName)
+					{
+						SetVulkanDeviceMode = (int)i + 3;
+						break;
+					}
+				}
+			}
+			else
+			{
+				SetVulkanDeviceMode = (int)Variable::VulkanDeviceMode;
+			}
+			PendingVulkanDeviceMode = Variable::VulkanDeviceMode;
+			PendingVulkanDeviceName = Variable::VulkanDeviceName;
+			VulkanDeviceModeChanged = false;
 
 			RecoveryWindow = false;
 			RecoveryIndex = 0;
@@ -1024,6 +1091,125 @@ namespace GAME {
 			ImGui::EndCombo();
 		}
 
+		//渲染设备选择。下拉框的内容每帧重建：前三项固定，后面每项对应一台识别到的设备。
+		{
+			static std::vector<std::string> RenderDeviceLabels;
+			static std::vector<const char*> RenderDeviceItems;
+			RenderDeviceLabels.clear();
+			RenderDeviceItems.clear();
+			RenderDeviceLabels.push_back(Language::RenderDeviceAutoBest);
+			RenderDeviceLabels.push_back(Language::RenderDeviceAutoWorst);
+			RenderDeviceLabels.push_back(Language::RenderDeviceCPU);
+			for (size_t i = 0; i < Variable::VulkanDetectedDevices.size(); i++)
+			{
+				const Variable::VulkanDeviceInfo& Device = Variable::VulkanDetectedDevices[i];
+				std::string TypeText;
+				switch (Device.deviceType)
+				{
+				case 1: TypeText = Language::RenderDeviceTypeIGPU; break;
+				case 2: TypeText = Language::RenderDeviceTypeDGPU; break;
+				case 3: TypeText = Language::RenderDeviceTypeVirtual; break;
+				case 4: TypeText = Language::RenderDeviceTypeCPU; break;
+				default: TypeText = Language::RenderDeviceTypeOther; break;
+				}
+				if (Device.usable)
+				{
+					RenderDeviceLabels.push_back(FillDeviceText(Language::RenderDeviceItem, { Device.name, TypeText }));
+				}
+				else
+				{
+					RenderDeviceLabels.push_back(FillDeviceText(Language::RenderDeviceItemBad, { Device.name, TypeText, Language::RenderDeviceUnusable }));
+				}
+			}
+			for (size_t i = 0; i < RenderDeviceLabels.size(); i++)
+			{
+				RenderDeviceItems.push_back(RenderDeviceLabels[i].c_str());
+			}
+			if (SetVulkanDeviceMode < 0 || SetVulkanDeviceMode >= (int)RenderDeviceItems.size())
+			{
+				SetVulkanDeviceMode = 0;//列表变了（比如换了显卡）就退回第一项，避免越界
+			}
+			if (ImGui::BeginCombo(Language::RenderDevice.c_str(), RenderDeviceItems[SetVulkanDeviceMode], flags))
+			{
+				for (int n = 0; n < (int)RenderDeviceItems.size(); n++)
+				{
+					const bool is_selected = (SetVulkanDeviceMode == n);
+					if (ImGui::Selectable(RenderDeviceItems[n], is_selected))
+					{
+						SetVulkanDeviceMode = n;
+						if (n >= 3 && (size_t)(n - 3) < Variable::VulkanDetectedDevices.size())
+						{
+							//第 3 项往后都是具体设备，记下名字，重启后按名字找
+							PendingVulkanDeviceMode = Variable::VulkanDeviceModeEnum::Specific;
+							PendingVulkanDeviceName = Variable::VulkanDetectedDevices[n - 3].name;
+						}
+						else
+						{
+							const int Mode = (n < 0) ? 0 : ((n > 2) ? 2 : n);
+							PendingVulkanDeviceMode = (Variable::VulkanDeviceModeEnum)Mode;
+						}
+					}
+					if (is_selected)
+						ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
+			VulkanDeviceModeChanged = (PendingVulkanDeviceMode != Variable::VulkanDeviceMode)
+				|| (PendingVulkanDeviceMode == Variable::VulkanDeviceModeEnum::Specific && PendingVulkanDeviceName != Variable::VulkanDeviceName);
+			if (VulkanDeviceModeChanged)
+			{
+				ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "%s", Language::RenderDeviceRestart.c_str());
+			}
+			else if (Variable::IsSpecificDeviceMode())
+			{
+				//设置里指定了设备，但这轮探测没看到它，Vulkan 层会自动改用最高性能的那台
+				bool DeviceFound = false;
+				for (size_t i = 0; i < Variable::VulkanDetectedDevices.size(); i++)
+				{
+					if (Variable::VulkanDetectedDevices[i].name == Variable::VulkanDeviceName)
+					{
+						DeviceFound = true;
+						break;
+					}
+				}
+				if (!DeviceFound)
+				{
+					ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "%s", FillDeviceText(Language::RenderDeviceMissing, { Variable::VulkanDeviceName }).c_str());
+				}
+			}
+			//这次实际跑在哪台设备上
+			if (Variable::RunningOnSoftwareRenderer)
+			{
+				ImGui::Text("%s", FillDeviceText(Language::RenderDeviceCurrentCPU, { Variable::RunningDeviceName }).c_str());
+			}
+			else if (Variable::IsSpecificDeviceMode())
+			{
+				ImGui::Text("%s", FillDeviceText(Language::RenderDeviceCurrentSpecific, { Variable::RunningDeviceName }).c_str());
+			}
+			else
+			{
+				ImGui::Text("%s", FillDeviceText(Language::RenderDeviceCurrentGPU, { Variable::RunningDeviceName }).c_str());
+			}
+			if (Variable::RunningOnSoftwareRenderer && !Variable::CpuSoftwareRenderReason.empty())
+			{
+				ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "%s", FillDeviceText(Language::RenderDeviceDegrade, { Variable::CpuSoftwareRenderReason }).c_str());
+			}
+			ImGui::SameLine();
+			ImGui::TextDisabled("(?)");
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::BeginTooltip();
+				ImGui::TextUnformatted(Language::RenderDeviceHelp1.c_str());
+				ImGui::TextUnformatted(Language::RenderDeviceHelp2.c_str());
+				ImGui::TextUnformatted(Language::RenderDeviceHelp3.c_str());
+				ImGui::TextUnformatted(Language::RenderDeviceHelp4.c_str());
+				ImGui::TextUnformatted(Language::RenderDeviceHelp5.c_str());
+				ImGui::TextUnformatted(Language::RenderDeviceHelp6.c_str());
+				ImGui::TextUnformatted(Language::RenderDeviceHelp7.c_str());
+				ImGui::EndTooltip();
+			}
+		}
+
 		ImGui::ColorEdit4(Language::ScreenshotColor.c_str(), (float*)&ScreenshotColor, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_Float);
 
 		
@@ -1129,6 +1315,10 @@ namespace GAME {
 			Variable::LanguageBool = LDirectory_Language;
 			Variable::TessDataBool = LDirectory_TessData;
 			Variable::TTFBool = LDirectory_TTF;
+
+			//渲染设备选择
+			Variable::VulkanDeviceMode = PendingVulkanDeviceMode;
+			Variable::VulkanDeviceName = PendingVulkanDeviceName;
 
 			Variable::BaiduAppid = SetBaiduID;
 			Variable::BaiduSecret_key = SetBaiduKey;
@@ -1348,11 +1538,13 @@ namespace GAME {
 
 		// Specifying 4 channels forces stb to load the image in RGBA which is an easy format for Vulkan
 		tex_data->Channels = 4;
-		tex_data->Width = Variable::windows_Width;
-		tex_data->Height = Variable::windows_Heigth;
+		//尺寸必须用"上一次截图"的那一对：Texturedata 就是 TOOL::screen 交出来的那块缓冲区，
+		//按 windows_* 算的话，截图之后用户换了分辨率，这里就会按新尺寸去读旧缓冲区（越界读堆）。
+		tex_data->Width = Variable::ScreenShot_Width;
+		tex_data->Height = Variable::ScreenShot_Heigth;
 
 		// Calculate allocation size (in number of bytes)
-		size_t image_size = tex_data->Width * tex_data->Height * tex_data->Channels;
+		size_t image_size = (size_t)tex_data->Width * (size_t)tex_data->Height * (size_t)tex_data->Channels;
 
 		VkResult err;
 

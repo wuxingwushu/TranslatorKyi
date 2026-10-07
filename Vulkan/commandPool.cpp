@@ -1,8 +1,10 @@
 #include "commandPool.h"
+#include "../DebugLog.h"
 
 namespace VulKan {
 
 	CommandPool::CommandPool(Device* device, VkCommandPoolCreateFlagBits flag) {
+		LOGD("CommandPool::CommandPool()");
 		mDevice = device;
 
 		VkCommandPoolCreateInfo createInfo{};
@@ -15,6 +17,7 @@ namespace VulKan {
 		createInfo.flags = flag;
 
 		if (vkCreateCommandPool(mDevice->getDevice(), &createInfo, nullptr, &mCommandPool) != VK_SUCCESS) {
+			LOGE("CommandPool::CommandPool: failed to create command pool");
 			throw std::runtime_error("Error:  failed to create command pool");
 		}
 	}

@@ -1,6 +1,6 @@
 #include "image.h"
-//#include "../vk_mem_alloc.h"
-
+#include <assert.h>
+#include "../DebugLog.h"
 
 namespace VulKan {
 
@@ -74,6 +74,7 @@ namespace VulKan {
 		const VkMemoryPropertyFlags& properties,//显存访问权限
 		const VkImageAspectFlags& aspectFlags
 	) {
+		LOGD("Image::Image(width=%d, height=%d)", width, height);
 		mDevice = device;
 		mLayout = VK_IMAGE_LAYOUT_UNDEFINED;//VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL     VK_IMAGE_LAYOUT_UNDEFINED      VK_IMAGE_LAYOUT_GENERAL
 		mWidth = width;
@@ -102,6 +103,7 @@ namespace VulKan {
 
 		//vkCreateImage(mDevice->getDevice(), &imageCreateInfo, nullptr, &mImage)
 		if (vmaCreateImage(mDevice->getAllocator(), &imageCreateInfo, &VmaallocInfo, &mImage, &mAllocation, nullptr) != VK_SUCCESS) {
+			LOGE("Image::Image: failed to create image");
 			throw std::runtime_error("Error:failed to create image");
 		}
 
@@ -141,15 +143,16 @@ namespace VulKan {
 		
 
 		if (vkCreateImageView(mDevice->getDevice(), &imageViewCreateInfo, nullptr, &mImageView) != VK_SUCCESS) {
+			LOGE("Image::Image: failed to create image view");
 			throw std::runtime_error("Error: failed to create image view");
 		}
 		
 	}
 
 	Image::~Image() {
-		if (fillstageBuffer != VK_NULL_HANDLE) {
+		if (fillstageBuffer != nullptr) {
 			delete fillstageBuffer;
-			fillstageBuffer != VK_NULL_HANDLE;
+			fillstageBuffer = nullptr;
 		}
 
 		if (mImageView != VK_NULL_HANDLE) {
@@ -219,7 +222,7 @@ namespace VulKan {
 	}
 
 	bool Image::hasStencilComponent(VkFormat format) {
-		return mFormat == VK_FORMAT_D32_SFLOAT_S8_UINT || mFormat == VK_FORMAT_D24_UNORM_S8_UINT;
+		return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 	}
 
 	void Image::setImageLayout(
@@ -227,7 +230,8 @@ namespace VulKan {
 		VkPipelineStageFlags srcStageMask,
 		VkPipelineStageFlags dstStageMask,
 		VkImageSubresourceRange subresrouceRange,
-		const CommandPool* commandPool
+		const CommandPool* commandPool,
+		CommandBuffer* wCommandBuffer
 	) {
 		VkImageMemoryBarrier imageMemoryBarrier{};
 		imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -261,7 +265,7 @@ namespace VulKan {
 			//如果目标是，将图片转换成为一个适合被作为纹理的格式，那么被阻塞的操作一定是，读取
 			//如果作为texture，那么来源只能有两种，一种是通过map从cpu拷贝而来，一种是通过stagingbuffer拷贝而来
 		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:{
-			if (imageMemoryBarrier.srcAccessMask == 0) {
+			if (imageMemoryBarrier.srcAccessMask == 0 && imageMemoryBarrier.oldLayout != VK_IMAGE_LAYOUT_UNDEFINED) {
 				imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
 			}
 
@@ -284,15 +288,20 @@ namespace VulKan {
 
 		mLayout = newLayout;
 
-		LayoutcommandBuffer = new CommandBuffer(mDevice, commandPool);
-		LayoutcommandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);//这个指令只执行一次，
-		LayoutcommandBuffer->transferImageLayout(imageMemoryBarrier, srcStageMask, dstStageMask);
-		LayoutcommandBuffer->end();
-		LayoutcommandBuffer->submitSync(mDevice->getGraphicQueue());//执行这个指令
+		if (wCommandBuffer == nullptr) {
+			LayoutcommandBuffer = new CommandBuffer(mDevice, commandPool);
+			LayoutcommandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);//这个指令只执行一次，
+			LayoutcommandBuffer->transferImageLayout(imageMemoryBarrier, srcStageMask, dstStageMask);
+			LayoutcommandBuffer->end();
+			LayoutcommandBuffer->submitSync(mDevice->getGraphicQueue());//执行这个指令
 
-		if (LayoutcommandBuffer != VK_NULL_HANDLE) { 
-			delete LayoutcommandBuffer; 
-			LayoutcommandBuffer = VK_NULL_HANDLE; 
+			if (LayoutcommandBuffer != nullptr) {
+				delete LayoutcommandBuffer;
+				LayoutcommandBuffer = nullptr;
+			}
+		}
+		else {
+			wCommandBuffer->transferImageLayout(imageMemoryBarrier, srcStageMask, dstStageMask);
 		}
 	}
 
@@ -335,7 +344,7 @@ namespace VulKan {
 			//如果目标是，将图片转换成为一个适合被作为纹理的格式，那么被阻塞的操作一定是，读取
 			//如果作为texture，那么来源只能有两种，一种是通过map从cpu拷贝而来，一种是通过stagingbuffer拷贝而来
 		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL: {
-			if (imageMemoryBarrier.srcAccessMask == 0) {
+			if (imageMemoryBarrier.srcAccessMask == 0 && imageMemoryBarrier.oldLayout != VK_IMAGE_LAYOUT_UNDEFINED) {
 				imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
 			}
 
@@ -365,9 +374,9 @@ namespace VulKan {
 		assert(pData);
 		assert(size);
 
-		if (fillstageBuffer != VK_NULL_HANDLE) {
+		if (fillstageBuffer != nullptr) {
 			delete fillstageBuffer;
-			fillstageBuffer != VK_NULL_HANDLE;
+			fillstageBuffer = nullptr;
 		}
 
 		fillstageBuffer = Buffer::createStageBuffer(mDevice, mImage, mLayout, mWidth, mHeight,size, pData);
@@ -377,9 +386,9 @@ namespace VulKan {
 		assert(pData);
 		assert(size);
 
-		if (fillstageBuffer != VK_NULL_HANDLE) {
+		if (fillstageBuffer != nullptr) {
 			delete fillstageBuffer;
-			fillstageBuffer != VK_NULL_HANDLE;
+			fillstageBuffer = nullptr;
 		}
 
 		fillstageBuffer = Buffer::createStageBuffer(mDevice, mImage, mLayout, mWidth, mHeight, size, pData, true);
@@ -392,10 +401,11 @@ namespace VulKan {
 	void Image::updateBufferByMap(void* data, size_t size) {
 		void* memPtr = nullptr;
 
-		//vkMapMemory(mDevice->getDevice(), mBufferMemory, 0, size, 0, &memPtr);
-		vmaMapMemory(mDevice->getAllocator(), mAllocation, &memPtr);
+		VkResult result = vmaMapMemory(mDevice->getAllocator(), mAllocation, &memPtr);
+		if (result != VK_SUCCESS || memPtr == nullptr) {
+			throw std::runtime_error("Error: failed to map image memory - GPU_ONLY memory is not host visible");
+		}
 		memcpy(memPtr, data, size);
-		//vkUnmapMemory(mDevice->getDevice(), mBufferMemory);
 		vmaUnmapMemory(mDevice->getAllocator(), mAllocation);
 	}
 }

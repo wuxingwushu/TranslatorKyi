@@ -1,7 +1,9 @@
 #include "commandBuffer.h"
+#include "../DebugLog.h"
 
 namespace VulKan {
 	CommandBuffer::CommandBuffer(Device* device, const CommandPool* commandPool, bool asSecondary) {
+		LOGD("CommandBuffer::CommandBuffer(asSecondary=%d)", asSecondary);
 		mDevice = device;
 		mCommandPool = commandPool;
 
@@ -12,6 +14,7 @@ namespace VulKan {
 		allocInfo.level = asSecondary ? VK_COMMAND_BUFFER_LEVEL_SECONDARY : VK_COMMAND_BUFFER_LEVEL_PRIMARY;//是主指令缓存，还是二级指令缓存
 
 		if (vkAllocateCommandBuffers(mDevice->getDevice(), &allocInfo, &mCommandBuffer) != VK_SUCCESS) {
+			LOGE("CommandBuffer::CommandBuffer: failed to allocate command buffer");
 			throw std::runtime_error("Error: falied to create commandBuffer");
 		}
 	}
@@ -31,6 +34,7 @@ namespace VulKan {
 		
 
 		if (vkBeginCommandBuffer(mCommandBuffer, &beginInfo) != VK_SUCCESS) {
+			LOGE("CommandBuffer::begin: failed to begin command buffer");
 			throw std::runtime_error("Error:failed to begin commandBuffer");
 		}
 	}
@@ -65,6 +69,11 @@ namespace VulKan {
 		vkCmdDraw(mCommandBuffer, vertexCount, 1, 0, 0);
 	}
 
+	void CommandBuffer::draw(size_t vertexCountPerInstance, size_t instanceCount) {
+		//每个实例画 vertexCountPerInstance 个顶点（如 4 个顶点组成一个方块），共 instanceCount 个实例
+		vkCmdDraw(mCommandBuffer, static_cast<uint32_t>(vertexCountPerInstance), static_cast<uint32_t>(instanceCount), 0, 0);
+	}
+
 	void CommandBuffer::drawIndex(size_t indexCount) {
 		vkCmdDrawIndexed(mCommandBuffer, indexCount, 1, 0, 0, 0);
 	}
@@ -75,6 +84,7 @@ namespace VulKan {
 
 	void CommandBuffer::end() {
 		if (vkEndCommandBuffer(mCommandBuffer) != VK_SUCCESS) {
+			LOGE("CommandBuffer::end: failed to end command buffer");
 			throw std::runtime_error("Error:failed to end Command Buffer");
 		}
 	}
@@ -110,6 +120,15 @@ namespace VulKan {
 		vkQueueSubmit(queue, 1, &submitInfo, fence);
 
 		vkQueueWaitIdle(queue);//等待命令结束
+	}
+
+	void CommandBuffer::submit(VkQueue queue, VkFence fence) {
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &mCommandBuffer;
+
+		vkQueueSubmit(queue, 1, &submitInfo, fence);
 	}
 
 

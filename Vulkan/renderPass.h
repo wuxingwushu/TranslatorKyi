@@ -1,6 +1,4 @@
 #pragma once
-
-#include "../base.h"
 #include "device.h"
 
 //用于汇集所有要渲染的物体，然后一次性提交渲染
@@ -22,18 +20,15 @@ namespace VulKan {
 
 		~SubPass();
 
-		//添加颜色附件参考
 		void addColorAttachmentReference(const VkAttachmentReference& ref);
-		//添加输入附件参考
 		void addInputAttachmentReference(const VkAttachmentReference& ref);
-		//添加深度网格附件参考
 		void setDepthStencilAttachmentReference(const VkAttachmentReference& ref);
-		//添加解决附件参考
 		void setResolveAttachmentReference(const VkAttachmentReference& ref);
-		//构建子描述
 		void buildSubPassDescription();
 
-		[[nodiscard]] auto getSubPassDescription() const noexcept { return mSubPassDescription; }
+		void rebuildSubPassDescriptionPointers();
+
+		[[nodiscard]] inline VkSubpassDescription getSubPassDescription() const noexcept { return mSubPassDescription; }
 
 	private:
 		VkSubpassDescription mSubPassDescription{};

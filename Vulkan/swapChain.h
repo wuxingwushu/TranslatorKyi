@@ -1,7 +1,4 @@
 #pragma once
-
-#include "../base.h"
-#include "device.h"
 #include "window.h"
 #include "windowSurface.h"
 #include "renderPass.h"
@@ -42,18 +39,24 @@ namespace VulKan {
 		void createFrameBuffers(const RenderPass* renderPass);
 
 	public:
-		[[nodiscard]] VkFormat getFormat() const noexcept { return mSwapChainFormat; }
+		[[nodiscard]] inline VkFormat getFormat() const noexcept { return mSwapChainFormat; }
 
 		//获取GPU画布的数量
-		[[nodiscard]] auto getImageCount() const noexcept { return mImageCount; }
+		[[nodiscard]] inline uint32_t getImageCount() const noexcept { return mImageCount; }
 
-		[[nodiscard]] auto getSwapChain() const noexcept { return mSwapChain; }
+		[[nodiscard]] inline VkSwapchainKHR getSwapChain() const noexcept { return mSwapChain; }
 
 		//获得是哪一个GPU画布
-		[[nodiscard]] auto getFrameBuffer(const int index) const { return mSwapChainFrameBuffers[index]; }
+		[[nodiscard]] inline VkFramebuffer getFrameBuffer(const int index) const { return mSwapChainFrameBuffers[index]; }
 
 		//获得屏幕的长宽
-		[[nodiscard]] auto getExtent() const noexcept { return mSwapChainExtent; }
+		[[nodiscard]] inline VkExtent2D getExtent() const noexcept { return mSwapChainExtent; }
+
+		[[nodiscard]] inline VkImageView getImageView(const int index) const { return mSwapChainImageViews[index]; }
+
+		[[nodiscard]] inline VkImageView getMutiSampleImageView(const int index) const { return mMutiSampleImages[index]->getImageView(); }
+
+		[[nodiscard]] inline VkImageView getDepthImageView(const int index) const { return mDepthImages[index]->getImageView(); }
 
 	private:
 		//创建imageView

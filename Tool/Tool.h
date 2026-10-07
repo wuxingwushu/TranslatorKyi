@@ -1,6 +1,7 @@
 #pragma once
 #include <time.h>
 #include <string>
+#include <cstring>//memcpy：下面 CopyToBuffer 用
 #include <windows.h>
 #include "../Variable.h"
 #include <filesystem>
@@ -50,7 +51,17 @@ namespace TOOL {
 
 	void CopyToClipboard(std::string str); //将内容复制到剪贴板
 
-	char* screen(char* buf);//截图&保存（全屏）
+	//把 src 安全地拷进定长缓冲区：最多写 destBytes-1 字节，并且一定会补 '\0'。
+	//项目里原本到处是 memcpy(dest, str.c_str(), str.size()) 这种写法，没有任何长度上限，
+	//剪贴板、翻译结果、配置文件里的长文本一进来就会把栈/堆上的定长数组写爆。
+	inline void CopyToBuffer(char* dest, size_t destBytes, const std::string& src) {
+		if (dest == nullptr || destBytes == 0) { return; }
+		const size_t CopyBytes = (src.size() < destBytes - 1) ? src.size() : (destBytes - 1);
+		if (CopyBytes > 0) { memcpy(dest, src.data(), CopyBytes); }
+		dest[CopyBytes] = '\0';
+	}
+
+	char* screen(char* buf);//截图&保存（全屏）。返回的缓冲区由本函数自己持有，调用方不要 delete[]
 	
 
 
