@@ -7,3 +7,5 @@ TessData/eng.traineddata
 TessData/jpn_vert.traineddata
 TessData/jpn.traineddata
 build
+/Modes/*
+!/Modes/Modes.txt

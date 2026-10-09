@@ -1,8 +1,29 @@
 #include "Window.h"
 #include "../application.h"
 #include "../Tool/Tool.h"
+#include <cstdlib>//std::atexit
 
 GAME::Application* mAppcpp;
+
+namespace {
+	//托盘图标的状态放在文件作用域，而不是 Window 成员：程序里所有退出路径都是 exit(0)
+	//（ImGui/Interface.cpp:2296 的菜单「退出」、Interface.cpp:1441 的自更新重启、Window.cpp:185 的 ESC），
+	//exit(0) 不会执行 ~Window()，只有 atexit 注册的函数一定会被调用，
+	//所以清理函数必须能从文件作用域拿到 hWnd/uID。
+	HWND gTrayHwnd = NULL;
+	NOTIFYICONDATA gTrayNid{};
+
+	//摘掉托盘图标并销毁回调窗口。幂等：~Window() 和 atexit 兜底都会调它。
+	void RemoveTrayIcon() {
+		if (gTrayHwnd == NULL) {
+			return;
+		}
+		gTrayNid.uFlags = 0;//NIM_DELETE 只认 hWnd/uID，uFlags 必须清零
+		Shell_NotifyIcon(NIM_DELETE, &gTrayNid);
+		DestroyWindow(gTrayHwnd);
+		gTrayHwnd = NULL;
+	}
+}
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -82,7 +103,7 @@ namespace VulKan {
 
 		RegisterClass(&wc);
 
-		HWND hwnd = CreateWindowEx(
+		gTrayHwnd = CreateWindowEx(
 			0,
 			"MyWindowClass",
 			"My Window",
@@ -93,21 +114,34 @@ namespace VulKan {
 			wc.hInstance,
 			NULL
 		);
+		if (gTrayHwnd == NULL) {
+			if (TOOL::logger != nullptr) {
+				TOOL::logger->error("托盘回调窗口创建失败，GetLastError={}", GetLastError());
+			}
+			return;//没有回调窗口就挂不上托盘图标，提前退出，免得再白调一次 Shell_NotifyIcon
+		}
+		//exit(0) 型的退出路径拿不到 ~Window()，这里再挂一层 atexit 兜底，保证图标一定被摘掉。
+		std::atexit(RemoveTrayIcon);
 
 		//系统托盘创建
 		NOTIFYICONDATA nidApp = { sizeof(nidApp) };
-		nidApp.hWnd = hwnd;
+		nidApp.hWnd = gTrayHwnd;
 		nidApp.uID = 1;
-		nidApp.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_SHOWTIP | NIF_GUID;
+		//这里绝对不能带 NIF_GUID：一旦置了 NIF_GUID，图标身份就只认 guidItem（uID 被忽略），
+		//而本程序从来没给 guidItem 赋值（全 0）。全 0 的 GUID 不是合法身份，Shell 直接拒绝：
+		//实测 NIM_ADD 与 NIM_MODIFY 都返回 FALSE、GetLastError=2147500037(0x80004005 E_FAIL)，
+		//结果就是通知区里连图标带菜单一起消失，日志里只剩 "Shell_NotifyIcon 失败"。
+		//（官方文档的 troubleshooting 也提到：GUID 注册里带着二进制路径，exe 换目录后会失败。）
+		//用 hWnd+uID 识别就一切正常。
+		nidApp.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_SHOWTIP;
 		nidApp.uCallbackMessage = WM_USER + 1;
 		lstrcpyn(nidApp.szTip, TEXT("TranslatorKyi"), ARRAYSIZE(nidApp.szTip));//鼠标停在系统托盘图标上的提示（原来是空字符串）
 
-		//图标一律优先取 exe 自己带的资源（resource.rc 里：IDI_ICON1 ICON "product.ico"）。
-		//原来这里写的是 LoadImage(NULL, TEXT("product.ico"), ..., LR_LOADFROMFILE)：
-		//那是「当前工作目录下的 product.ico」，而 CMake 只把 product.ico 复制到构建树根
-		//（build/release），exe 所在目录（build/release/Release）里并没有这个文件 ——
-		//于是 LoadImage 返回 NULL，托盘里图标位置在、右键也能弹菜单，但图完全是透明的，
-		//就是「图标看不见」的原因。从资源里取图标就不会再依赖工作目录。
+		//图标一律优先取 exe 自己带的资源（resource.rc 里：IDI_ICON1 ICON "product.ico"），
+		//不要再依赖「当前工作目录下的 product.ico」：CMake 只把 product.ico 复制到构建树根
+		//（build/release），exe 所在目录（build/release/Release）里不一定有，LoadImage 返回 NULL
+		//时通知区里就是一个透明的空位。从 exe 资源取图标与工作目录无关。
+		//（注意：这次「托盘整个消失」不是图标加载的问题，是下面的 NIF_GUID，见上。）
 		int IconCx = GetSystemMetrics(SM_CXSMICON);//按系统小图标尺寸取，高 DPI 下会自动缩放
 		int IconCy = GetSystemMetrics(SM_CYSMICON);
 		HINSTANCE hInstance = GetModuleHandle(NULL);
@@ -126,18 +160,23 @@ namespace VulKan {
 		if (!TrayOk) {
 			TrayOk = Shell_NotifyIcon(NIM_MODIFY, &nidApp);//已经有同 id 的图标时 NIM_ADD 会失败，改成更新
 		}
+		gTrayNid = nidApp;//退出时要用同一份数据做 NIM_DELETE
 		if (TOOL::logger != nullptr) {
 			if (TrayOk) {
 				TOOL::logger->info("托盘图标已添加，图标来源：{}", IconSource);
 			}
 			else {
-				TOOL::logger->error("Shell_NotifyIcon 失败，GetLastError={}，图标来源：{}", GetLastError(), IconSource);
+				TOOL::logger->error("Shell_NotifyIcon 失败，GetLastError={}，图标来源：{}（通知区不会有任何图标）", GetLastError(), IconSource);
 			}
 		}
 	}
 
 	//销毁Window
 	Window::~Window() {
+		//先摘掉托盘图标、再销毁那个隐藏的回调窗口。顺序不能反，也不能漏：
+		//不摘的话退出后通知区会留下「幽灵图标」，鼠标划过才消失。
+		//正常退出（main.cpp:55 delete mWin）走到这里；exit(0) 型的退出由 atexit 注册的同一个函数兜底。
+		RemoveTrayIcon();
 		glfwDestroyWindow(mWindow);//回收GLFW的API
 		glfwTerminate();
 	}

@@ -45,5 +45,7 @@ namespace VulKan {
 		int mWidth{ 0 };//储存窗口宽度
 		int mHeight{ 0 };//储存窗口高度
 		GLFWwindow* mWindow{ NULL };//储存窗口指针
+		//托盘的回调窗口（HWND）和图标数据（NOTIFYICONDATA）不放在这里：
+		//退出走的是 exit(0)，析构函数跑不到，清理只能靠 atexit，所以它们存在 Window.cpp 的文件作用域里。
 	};
 }
