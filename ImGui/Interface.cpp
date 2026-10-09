@@ -1484,9 +1484,10 @@ namespace GAME {
 
 			if (updata) {
 				delete mWindown;
-				char path[MAX_PATH];
-				GetModuleFileName(NULL, path, MAX_PATH);
-				ShellExecute(NULL, NULL, path, NULL, NULL, SW_SHOWDEFAULT);
+				//自己重启自己：路径必须走宽字符 API，否则程序装在中文目录下（例如 C:\用户\...）会启动失败
+				wchar_t path[MAX_PATH] = { 0 };
+				GetModuleFileNameW(NULL, path, MAX_PATH);
+				ShellExecuteW(NULL, NULL, path, NULL, NULL, SW_SHOWDEFAULT);
 				exit(0);
 			}
 
@@ -1801,17 +1802,22 @@ namespace GAME {
 					ImGui::Checkbox("##use_ttf", &Variable::FontBool);
 					ImGui::SameLine();
 					if (ImGui::Button(Language::TTF_Folder.c_str())) {
-						TCHAR buffer[MAX_PATH] = { 0 };
-						GetCurrentDirectory(MAX_PATH, buffer);//获取启动器路径
+						//启动器路径：用宽字符 API 取，程序装在中文目录下也能正常打开文件夹
+						wchar_t buffer[MAX_PATH] = { 0 };
+						GetCurrentDirectoryW(MAX_PATH, buffer);//获取启动器路径
 						//拼接为绝对路径
-						ShellExecute(NULL, "open", (std::string(buffer) + "\\TTF").c_str(), NULL, NULL, SW_SHOWDEFAULT);//打开文件夹
+						std::wstring Folder(buffer);
+						Folder += L"\\TTF";
+						ShellExecuteW(NULL, L"open", Folder.c_str(), NULL, NULL, SW_SHOWDEFAULT);//打开文件夹
 					}
 					ImGui::SameLine();
 					if (ImGui::Button(Language::TessDataFolder.c_str())) {
-						TCHAR buffer[MAX_PATH] = { 0 };
-						GetCurrentDirectory(MAX_PATH, buffer);//获取启动器路径
+						wchar_t buffer[MAX_PATH] = { 0 };
+						GetCurrentDirectoryW(MAX_PATH, buffer);//获取启动器路径
 						//拼接为绝对路径
-						ShellExecute(NULL, "open", (std::string(buffer) + "\\TessData").c_str(), NULL, NULL, SW_SHOWDEFAULT);//打开文件夹
+						std::wstring Folder(buffer);
+						Folder += L"\\TessData";
+						ShellExecuteW(NULL, L"open", Folder.c_str(), NULL, NULL, SW_SHOWDEFAULT);//打开文件夹
 					}
 					RowLabel(Language::TTF_Typeface.c_str());
 					ImGui::SetNextItemWidth(-FLT_MIN);

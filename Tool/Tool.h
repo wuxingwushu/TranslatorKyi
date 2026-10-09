@@ -39,13 +39,13 @@ namespace TOOL {
 
 	template<typename T>std::string toString(const T& t); //数据转字符串
 
-	std::string ws2s(const std::wstring& ws);//string 转 wstring
+	std::string ws2s(const std::wstring& ws);//宽字符 → 多字节：按系统 ANSI 代码页(中文系统是 GBK)，给 CF_TEXT 剪贴板/老式 ANSI 接口用
 
-	std::wstring s2ws(const std::string& s);//wstring 转 string
+	std::wstring s2ws(const std::string& s);//多字节(系统 ANSI/GBK) → 宽字符，与 ws2s 互为反向
 
-	std::string UnicodeToUtf8(const std::string& str);//Unicode 转到 utf8
+	std::string UnicodeToUtf8(const std::string& str);//GBK(系统 ANSI) 字节 → UTF-8：剪贴板/老接口进来的文本用它转成内部统一的 UTF-8
 
-	std::string Utf8ToUnicode(const std::string& utf8_str);//utf8 转到 Unicode
+	std::string Utf8ToUnicode(const std::string& utf8_str);//UTF-8 → GBK(系统 ANSI) 字节：给只认 ANSI 的接口用（例如 CF_TEXT）
 
 	std::string ClipboardTochar(); //获得剪贴板的内容
 

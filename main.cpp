@@ -1,5 +1,7 @@
 #include "application.h"
 #include "Vulkan/instance.h"
+#include <windows.h>
+#include <string>
 /*
 * 换了电脑编译说有语法错误：
 *		目前知道的是：中文输出的问题。
@@ -11,13 +13,50 @@
 　l、  ~ヽ
 　じしf_, )ノ 
 */
+//错误弹窗用的 UTF-8 文本转宽字符封装。
+//原因：CMake 里没有定义 UNICODE/_UNICODE，TEXT() 就是普通窄字符串、MessageBoxEx 会选到 ANSI 版，
+//而程序内部的错误信息（e.what()、日志里的中文）都是 UTF-8 字节 —— 交给 ANSI 版就等于让系统
+//按 936 代码页去解释 UTF-8，弹出来的中文必然是乱码。所以统一转成宽字符再用 MessageBoxExW。
+static int ShowUtf8MessageBox(const char* Text, const char* Title)
+{
+	std::wstring WideText;
+	std::wstring WideTitle;
+	if (Text != nullptr)
+	{
+		const int TextLen = MultiByteToWideChar(CP_UTF8, 0, Text, -1, nullptr, 0);
+		if (TextLen > 0)
+		{
+			WideText.resize((size_t)TextLen);
+			MultiByteToWideChar(CP_UTF8, 0, Text, -1, &WideText[0], TextLen);
+		}
+	}
+	if (Title != nullptr)
+	{
+		const int TitleLen = MultiByteToWideChar(CP_UTF8, 0, Title, -1, nullptr, 0);
+		if (TitleLen > 0)
+		{
+			WideTitle.resize((size_t)TitleLen);
+			MultiByteToWideChar(CP_UTF8, 0, Title, -1, &WideTitle[0], TitleLen);
+		}
+	}
+	return (int)MessageBoxExW(NULL, WideText.c_str(), WideTitle.c_str(), MB_OK, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
+}
+
 int main() {
 	/*std::cout << "结果：" << translate("Variable", "auto", "ja");
 	return 0;*/
+
+	//控制台的中文显示：程序内部（含 spdlog 的控制台 sink 和日志文件）统一用的是 UTF-8，
+	//而中文系统新建的控制台默认代码页是 936 —— 不改这里，屏幕上看到的日志就是
+	//“鎺㈡祴”这种乱码（文件里的字节其实是对的，只有屏幕显示错）。
+	//没有控制台（比如当纯 GUI 启动）时这两个调用只是失败返回，不影响后面的逻辑。
+	SetConsoleOutputCP(CP_UTF8);
+	SetConsoleCP(CP_UTF8);
+
 	//防止软件多开
 	if (FindWindow(NULL, "TranslatorKyi"))
 	{
-		MessageBoxEx(NULL, TEXT("Software Started"), TEXT("Error"), MB_OK, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
+		ShowUtf8MessageBox("Software Started", "Error");
 		return FALSE;
 	}
 
@@ -46,7 +85,7 @@ int main() {
 		app->run(mWin);
 	}
 	catch (const std::exception& e) {
-		MessageBoxEx(NULL, TEXT(e.what()), TEXT("main"), MB_OK, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
+		ShowUtf8MessageBox(e.what(), "main");
 		TOOL::logger->error(e.what());
 		//std::cout << "main: " << e.what() << std::endl;
 	}

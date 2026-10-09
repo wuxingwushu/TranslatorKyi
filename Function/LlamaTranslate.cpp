@@ -11,6 +11,10 @@
 #include <thread>
 #include <vector>
 
+#ifdef _WIN32
+#include <windows.h>	//MultiByteToWideChar / _wfopen：模型路径统一按 UTF-8 转成宽字符再开文件
+#endif
+
 // ============================================================================
 //  Hunyuan 系（GGUF 架构 hunyuan-dense，如 Hy-MT2-1.8B）对话模板里的特殊 token 文本
 //  必须与 GGUF 词表里的字节完全一致：竖线是 U+FF5C（｜），下划线是 U+2581（▁）
@@ -93,13 +97,42 @@ static std::string StripSpecialMarks(const std::string& text)
 	return out.substr(b, e - b + 1);
 }
 
+//以 UTF-8 路径打开文件：Windows 上非 ASCII 路径必须走宽字符 API，
+//而项目内部（以及 llama.cpp 自己的 ggml_fopen）都按 CP_UTF8 解释路径，
+//所以这里也用 CP_UTF8 → 宽字符 → _wfopen，中文名的模型才能被正确判定/加载
+static FILE* OpenUtf8File(const std::string& path, const wchar_t* mode)
+{
+#ifdef _WIN32
+	if (path.empty())
+	{
+		return nullptr;
+	}
+	const int WideLen = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), (int)path.size(), nullptr, 0);
+	if (WideLen <= 0)
+	{
+		return nullptr;
+	}
+	std::wstring Wide((size_t)WideLen, L'\0');
+	MultiByteToWideChar(CP_UTF8, 0, path.c_str(), (int)path.size(), &Wide[0], WideLen);
+	return _wfopen(Wide.c_str(), mode);
+#else
+	//非 Windows：路径本来就是窄字节，宽字符模式串转回窄字符即可
+	std::string NarrowMode;
+	for (const wchar_t* p = mode; p != nullptr && *p != L'\0'; ++p)
+	{
+		NarrowMode.push_back((char)*p);
+	}
+	return fopen(path.c_str(), NarrowMode.c_str());
+#endif
+}
+
 static bool FileExists(const std::string& path)
 {
 	if (path.empty())
 	{
 		return false;
 	}
-	FILE* f = fopen(path.c_str(), "rb");
+	FILE* f = OpenUtf8File(path, L"rb");
 	if (!f)
 	{
 		return false;
@@ -268,7 +301,9 @@ std::vector<std::string> LlamaTranslate::ListModelFiles()
 			{
 				continue;
 			}
-			std::string Extension = Entry.path().extension().string();
+			//扩展名/文件名都用 u8string()：Windows 下 path::string() 返回的是 ANSI(936) 字节，
+			//中文名字的模型会变成乱码字符串，而 llama.cpp 按 UTF-8 认路径
+			std::string Extension = Entry.path().extension().u8string();
 			for (size_t i = 0; i < Extension.size(); ++i)
 			{
 				Extension[i] = (char)std::tolower((unsigned char)Extension[i]);
@@ -277,7 +312,7 @@ std::vector<std::string> LlamaTranslate::ListModelFiles()
 			{
 				continue;
 			}
-			Found.push_back(std::string(Dir) + FileNameOf(Entry.path().string()));
+			Found.push_back(std::string(Dir) + FileNameOf(Entry.path().u8string()));
 		}
 		std::sort(Found.begin(), Found.end());
 		for (const std::string& Candidate : Found)

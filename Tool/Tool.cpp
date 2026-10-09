@@ -1,16 +1,95 @@
 #include "Tool.h"
 #include <tchar.h>
 #include <new>//std::nothrow：截图的缓冲区分配失败时返回 nullptr，而不是抛异常
+#include <cstdio>//fopen/fread/fwrite：给日志文件补 UTF-8 BOM
+#include <filesystem>//判断日志文件是否已存在、是否为空
 
 
 namespace TOOL {
 
 	spdlog::logger* logger;
 
+	//日志文件（logs/Error.txt）的内容本来就是 UTF-8，但文件没有 BOM 时，
+	//不少查看方式会按系统代码页(936)去解释它，中文日志在屏幕上就成了乱码：
+	//  记事本/旧版 VS 的自动识别、Windows PowerShell 的 Get-Content（默认按 ANSI 解码）等等。
+	//这里给日志文件补一个 UTF-8 BOM（EF BB BF），它们就会按 UTF-8 打开，中文显示正常。
+	//BOM 只能出现在文件最前面：已有内容且开头没有 BOM 时，把 BOM 补在最前面（只做一次）；
+	//文件是新建/空的时候，直接写 BOM，后面的日志接在它后面。
+	static void EnsureLogFileUtf8Bom(const std::string& Path)
+	{
+		static const unsigned char Bom[3] = { 0xEF, 0xBB, 0xBF };
+
+		std::error_code DirEc;
+		const size_t Slash = Path.find_last_of("/\\");
+		if (Slash != std::string::npos)
+		{
+			std::filesystem::create_directories(Path.substr(0, Slash), DirEc);//没有 logs 目录时先建出来
+		}
+
+		std::error_code Ec;
+		const bool Exists = std::filesystem::exists(Path, Ec);
+		const std::uintmax_t Size = Exists ? std::filesystem::file_size(Path, Ec) : 0;
+
+		if (Exists && Size >= 3)
+		{
+			FILE* f = fopen(Path.c_str(), "rb");
+			if (f == nullptr)
+			{
+				return;
+			}
+			unsigned char Head[3] = { 0, 0, 0 };
+			const size_t Got = fread(Head, 1, sizeof(Head), f);
+			fclose(f);
+			if (Got == sizeof(Head) && Head[0] == Bom[0] && Head[1] == Bom[1] && Head[2] == Bom[2])
+			{
+				return;//已经有 BOM 了
+			}
+
+			//读出原内容，再整体重写成「BOM + 原内容」（日志文件很小，代价可忽略）
+			FILE* in = fopen(Path.c_str(), "rb");
+			if (in == nullptr)
+			{
+				return;
+			}
+			std::string Body;
+			char Buffer[4096];
+			size_t Read = 0;
+			while ((Read = fread(Buffer, 1, sizeof(Buffer), in)) > 0)
+			{
+				Body.append(Buffer, Read);
+			}
+			fclose(in);
+
+			FILE* out = fopen(Path.c_str(), "wb");
+			if (out == nullptr)
+			{
+				return;//文件被别的程序占着（比如日志正开着），这次就先算了
+			}
+			fwrite(Bom, 1, sizeof(Bom), out);
+			if (!Body.empty())
+			{
+				fwrite(Body.data(), 1, Body.size(), out);
+			}
+			fclose(out);
+			return;
+		}
+
+		FILE* f = fopen(Path.c_str(), "ab");
+		if (f == nullptr)
+		{
+			return;
+		}
+		fwrite(Bom, 1, sizeof(Bom), f);
+		fclose(f);
+	}
+
 	void SpdLogInit() {
 		auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
 		console_sink->set_level(spdlog::level::warn);//设置警报等级
 		console_sink->set_pattern("[multi_sink_example] [%^%l%$] %v");//打印显示
+
+		//日志文件先补上 UTF-8 BOM，再让 spdlog 接管（spdlog 只会往后追加，不影响最前面的 BOM）
+		EnsureLogFileUtf8Bom("logs/Error.txt");
 
 		auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs/Error.txt", false);//日志文件路径，是否覆写
 		file_sink->set_level(spdlog::level::trace);//设置警报等级
@@ -140,114 +219,82 @@ namespace TOOL {
 		return oss.str();
 	}
 
-	//string 转 wstring
+	//宽字符 → 多字节（按系统 ANSI 代码页，中文系统上就是 GBK/936）。
+	//函数名沿用老代码（Tool.h 里原来的注释还写反了），实际语义以调用点为准：
+	//本项目里它专门把宽字符转成「给 CF_TEXT 剪贴板、老式 ANSI 接口」用的字节。
+	//不再用 setlocale + wcstombs_s：setlocale 改的是进程全局状态，AI 翻译在后台线程、
+	//界面在主线程，两个线程同时进来会互相把 locale 改回去，偶发转出错乱的文本。
 	std::string ws2s(const std::wstring& ws)
 	{
-		size_t i;
-		std::string curLocale = setlocale(LC_ALL, NULL);
-		setlocale(LC_ALL, "chs");
-		const wchar_t* _source = ws.c_str();
-		size_t _dsize = 2 * ws.size() + 1;
-		char* _dest = new char[_dsize];
-		memset(_dest, 0x0, _dsize);
-		wcstombs_s(&i, _dest, _dsize, _source, _dsize);
-		std::string result = _dest;
-		delete[] _dest;
-		setlocale(LC_ALL, curLocale.c_str());
-		return result;
+		if (ws.empty())
+		{
+			return std::string();
+		}
+		const int Len = WideCharToMultiByte(CP_ACP, 0, ws.c_str(), (int)ws.size(), nullptr, 0, nullptr, nullptr);
+		if (Len <= 0)
+		{
+			return std::string();
+		}
+		std::string Result((size_t)Len, '\0');
+		WideCharToMultiByte(CP_ACP, 0, ws.c_str(), (int)ws.size(), &Result[0], Len, nullptr, nullptr);
+		return Result;
 	}
 
-	//wstring 转 string
+	//多字节（系统 ANSI/GBK）→ 宽字符，与上面的 ws2s 互为反向
 	std::wstring s2ws(const std::string& s)
 	{
-		size_t i;
-		std::string curLocale = setlocale(LC_ALL, NULL);
-		setlocale(LC_ALL, "chs");
-		const char* _source = s.c_str();
-		size_t _dsize = s.size() + 1;
-		wchar_t* _dest = new wchar_t[_dsize];
-		wmemset(_dest, 0x0, _dsize);
-		mbstowcs_s(&i, _dest, _dsize, _source, _dsize);
-		std::wstring result = _dest;
-		delete[] _dest;
-		setlocale(LC_ALL, curLocale.c_str());
-		return result;
+		if (s.empty())
+		{
+			return std::wstring();
+		}
+		const int Len = MultiByteToWideChar(CP_ACP, 0, s.c_str(), (int)s.size(), nullptr, 0);
+		if (Len <= 0)
+		{
+			return std::wstring();
+		}
+		std::wstring Result((size_t)Len, L'\0');
+		MultiByteToWideChar(CP_ACP, 0, s.c_str(), (int)s.size(), &Result[0], Len);
+		return Result;
 	}
 
-	//Unicode 转到 utf8
+	//GBK（系统 ANSI）字节 → UTF-8。函数名沿用老代码，方向以本注释为准：
+	//输入是剪贴板/老接口给的 ANSI 字节，输出是可以直接交给 ImGui、curl、jsoncpp 的 UTF-8。
 	std::string UnicodeToUtf8(const std::string& str) {
-		const std::wstring wstr = s2ws(str);
-		std::vector<char> utf8buf;
-		utf8buf.reserve(wstr.length() * 4);
-
-		for (const auto& wc : wstr) {
-			if (wc < 0x80) {
-				utf8buf.push_back(static_cast<char>(wc));
-			}
-			else if (wc < 0x800) {
-				utf8buf.push_back(static_cast<char>((wc >> 6) | 0xC0));
-				utf8buf.push_back(static_cast<char>((wc & 0x3F) | 0x80));
-			}
-			else if (wc < 0x10000) {
-				utf8buf.push_back(static_cast<char>((wc >> 12) | 0xE0));
-				utf8buf.push_back(static_cast<char>(((wc >> 6) & 0x3F) | 0x80));
-				utf8buf.push_back(static_cast<char>((wc & 0x3F) | 0x80));
-			}
-			else {
-				utf8buf.push_back(static_cast<char>((wc >> 18) | 0xF0));
-				utf8buf.push_back(static_cast<char>(((wc >> 12) & 0x3F) | 0x80));
-				utf8buf.push_back(static_cast<char>(((wc >> 6) & 0x3F) | 0x80));
-				utf8buf.push_back(static_cast<char>((wc & 0x3F) | 0x80));
-			}
+		if (str.empty())
+		{
+			return std::string();
 		}
-
-		return std::string(utf8buf.data(), utf8buf.size());
+		const std::wstring wstr = s2ws(str);
+		if (wstr.empty())
+		{
+			return std::string();
+		}
+		const int Len = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), nullptr, 0, nullptr, nullptr);
+		if (Len <= 0)
+		{
+			return std::string();
+		}
+		std::string Result((size_t)Len, '\0');
+		WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), &Result[0], Len, nullptr, nullptr);
+		return Result;
 	}
 
-	//utf8 转到 Unicode
+	//UTF-8 → GBK（系统 ANSI）字节，给只认 ANSI 的地方用（例如 CF_TEXT 剪贴板）。
+	//老实现是手写 UTF-8 解码：它把四字节序列硬塞进单个 wchar_t，超出 BMP 的字符
+	//（emoji 等）会解错，这里换成 Win32 的转换，代理对也交给系统处理。
 	std::string Utf8ToUnicode(const std::string& utf8_str) {
-		std::wstring result;
-		int i = 0;
-
-		while (i < utf8_str.size()) {
-			wchar_t ch = 0;
-			unsigned char byte = utf8_str[i];
-
-			if (byte <= 0x7F) {
-				// Single-byte character
-				ch = byte;
-				i += 1;
-			}
-			else if ((byte & 0xE0) == 0xC0) {
-				// Two-byte character
-				ch |= (byte & 0x1F) << 6;
-				ch |= (utf8_str[i + 1] & 0x3F);
-				i += 2;
-			}
-			else if ((byte & 0xF0) == 0xE0) {
-				// Three-byte character
-				ch |= (byte & 0x0F) << 12;
-				ch |= (utf8_str[i + 1] & 0x3F) << 6;
-				ch |= (utf8_str[i + 2] & 0x3F);
-				i += 3;
-			}
-			else if ((byte & 0xF8) == 0xF0) {
-				// Four-byte character
-				ch |= (byte & 0x07) << 18;
-				ch |= (utf8_str[i + 1] & 0x3F) << 12;
-				ch |= (utf8_str[i + 2] & 0x3F) << 6;
-				ch |= (utf8_str[i + 3] & 0x3F);
-				i += 4;
-			}
-			else {
-				// Invalid byte
-				i += 1;
-			}
-
-			result += ch;
+		if (utf8_str.empty())
+		{
+			return std::string();
 		}
-
-		return TOOL::ws2s(result);
+		const int WideLen = MultiByteToWideChar(CP_UTF8, 0, utf8_str.c_str(), (int)utf8_str.size(), nullptr, 0);
+		if (WideLen <= 0)
+		{
+			return std::string();
+		}
+		std::wstring Wide((size_t)WideLen, L'\0');
+		MultiByteToWideChar(CP_UTF8, 0, utf8_str.c_str(), (int)utf8_str.size(), &Wide[0], WideLen);
+		return ws2s(Wide);
 	}
 
 	std::string ClipboardTochar() {
@@ -259,6 +306,20 @@ namespace TOOL {
 			{
 				printf("打开剪贴板失败\n");
 				continue;
+			}
+
+			//优先取 Unicode 版：浏览器、VS Code、Office 这些现代程序常常只放 CF_UNICODETEXT，
+			//旧代码只读 CF_TEXT，遇到这类来源要么拿不到内容、要么只拿到半截。
+			//本函数的约定不变：返回的仍然是 ANSI(GBK) 字节，调用方照旧用 UnicodeToUtf8 转成 UTF-8。
+			if (IsClipboardFormatAvailable(CF_UNICODETEXT)) {
+				HANDLE hUnicode = GetClipboardData(CF_UNICODETEXT);
+				const wchar_t* pWide = (hUnicode != NULL) ? (const wchar_t*)GlobalLock(hUnicode) : NULL;
+				if (pWide != NULL) {
+					std::string CharS = TOOL::ws2s(std::wstring(pWide));
+					GlobalUnlock(hUnicode);
+					CloseClipboard();//关闭剪贴板
+					return CharS;
+				}
 			}
 
 			HGLOBAL hmem = GetClipboardData(CF_TEXT);//获取剪切板内容块
@@ -292,8 +353,7 @@ namespace TOOL {
 			if (!OpenClipboard(NULL))//打开剪贴板
 			{
 				puts("打开剪贴板失败\n");
-				CloseClipboard();
-				continue;
+				continue;//没打开就不能去关，旧代码这里会 CloseClipboard 一个没开的剪贴板
 			}
 
 			if (!EmptyClipboard())       // 清空剪切板，写入之前，必须先清空剪切板
@@ -301,6 +361,29 @@ namespace TOOL {
 				puts("清空剪切板失败\n");
 				CloseClipboard();
 				continue;
+			}
+
+			//同时放一份 Unicode 版：现代程序（浏览器、VS Code、Office）粘贴时优先读
+			//CF_UNICODETEXT，只放 CF_TEXT 的话粘出来就可能变成“鎺㈡祴”这种乱码。
+			const std::wstring Wide = TOOL::s2ws(str);
+			if (!Wide.empty())
+			{
+				const size_t WideBytes = (Wide.size() + 1) * sizeof(wchar_t);
+				HGLOBAL hWide = GlobalAlloc(GMEM_MOVEABLE, WideBytes);
+				wchar_t* lpWide = (hWide != NULL) ? (wchar_t*)GlobalLock(hWide) : NULL;
+				if (lpWide != NULL)
+				{
+					memcpy_s(lpWide, WideBytes, Wide.c_str(), WideBytes);
+					GlobalUnlock(hWide);                   // 解除内存锁定
+					if (SetClipboardData(CF_UNICODETEXT, hWide) == NULL)
+					{
+						GlobalFree(hWide);                 //系统没接管就得自己释放，否则泄漏
+					}
+				}
+				else if (hWide != NULL)
+				{
+					GlobalFree(hWide);
+				}
 			}
 
 			HGLOBAL hMemory;
@@ -315,6 +398,7 @@ namespace TOOL {
 			if ((lpMemory = (LPTSTR)GlobalLock(hMemory)) == NULL)             // 将内存区域锁定
 			{
 				puts("锁定内存错误!!!\n");
+				GlobalFree(hMemory);               //锁不上也要把内存还回去，旧代码这里直接泄漏
 				CloseClipboard();
 				continue;
 			}
@@ -326,6 +410,7 @@ namespace TOOL {
 			if (SetClipboardData(CF_TEXT, hMemory) == NULL)
 			{
 				puts("设置剪切板数据失败!!!\n");
+				GlobalFree(hMemory);
 				CloseClipboard();
 				continue;
 			}
