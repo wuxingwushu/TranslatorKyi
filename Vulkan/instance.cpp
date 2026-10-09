@@ -335,31 +335,112 @@ namespace VulKan {
 		return std::filesystem::is_regular_file(manifestPath.parent_path() / lib, ec);
 	}
 
+	//程序自身所在目录（exe 同级）：用户最可能手动丢一份 ICD json 的地方
+	static std::filesystem::path executableDirectory() {
+		wchar_t buffer[MAX_PATH] = { 0 };
+		DWORD n = ::GetModuleFileNameW(nullptr, buffer, MAX_PATH);
+		if (n == 0 || n >= MAX_PATH) return {};
+		return std::filesystem::path(buffer).parent_path();
+	}
+
+	//从环境变量取目录，避免把安装盘写死成 C:
+	static std::filesystem::path directoryFromEnv(const char* name) {
+		char buffer[512] = { 0 };
+		DWORD n = ::GetEnvironmentVariableA(name, buffer, static_cast<DWORD>(sizeof(buffer)));
+		if (n == 0 || n >= sizeof(buffer)) return {};
+		return std::filesystem::path(buffer);
+	}
+
+	//系统里"可能自带" SwiftShader 的目录：Chromium 系浏览器(Edge/Chrome)与 Android SDK 的模拟器。
+	//这些目录下面还带版本号子目录（例如 Edge\Application\154.0.4258.62\），所以要递归找。
+	//路径用 %ProgramFiles% / %ProgramFiles(x86)% / %LOCALAPPDATA% 拼，末尾再退回硬编码路径，
+	//防止进程环境被精简过（那样环境变量可能是空的）。
 	static const std::vector<std::filesystem::path>& swiftShaderCandidateRoots() {
-		static const std::vector<std::filesystem::path> roots = {
-			"C:\\Program Files (x86)\\Microsoft\\EdgeCore\\Optimized",
-			"C:\\Program Files\\Microsoft\\EdgeCore\\Optimized",
-			"C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application",
-			"C:\\Program Files\\Microsoft\\EdgeWebView\\Application",
-			"C:\\Program Files\\Microsoft\\Edge\\Application"
-		};
+		static const std::vector<std::filesystem::path> roots = [] {
+			std::vector<std::filesystem::path> list;
+			const std::filesystem::path programFilesX86 = directoryFromEnv("ProgramFiles(x86)");
+			const std::filesystem::path programFiles = directoryFromEnv("ProgramFiles");
+			const std::filesystem::path localAppData = directoryFromEnv("LOCALAPPDATA");
+			const std::filesystem::path suffixes[] = {
+				std::filesystem::path("Microsoft") / "EdgeCore" / "Optimized",
+				std::filesystem::path("Microsoft") / "EdgeWebView" / "Application",
+				std::filesystem::path("Microsoft") / "Edge" / "Application",
+				std::filesystem::path("Google") / "Chrome" / "Application",
+			};
+			for (const auto& base : { programFilesX86, programFiles }) {
+				if (base.empty()) continue;
+				for (const auto& suffix : suffixes) list.push_back(base / suffix);
+			}
+			if (!localAppData.empty()) {
+				list.push_back(localAppData / "Microsoft" / "Edge" / "Application");
+				list.push_back(localAppData / "Microsoft" / "EdgeCore" / "Optimized");
+				//Android SDK 自带的模拟器里也有 SwiftShader（可跑 Vulkan）
+				list.push_back(localAppData / "Android" / "Sdk" / "emulator" / "lib64" / "vulkan");
+				list.push_back(localAppData / "Android" / "Sdk" / "emulator" / "lib64" / "gles_angle");
+				//各种 Electron 应用（Arduino IDE、Trae、LCEDA 等）都各自带一份 SwiftShader，
+				//装在 %LOCALAPPDATA%\Programs\<应用名>\ 下。放在最后：它下面目录多，扫描最慢。
+				list.push_back(localAppData / "Programs");
+			}
+			list.push_back("C:\\Program Files (x86)\\Microsoft\\EdgeCore\\Optimized");
+			list.push_back("C:\\Program Files\\Microsoft\\EdgeCore\\Optimized");
+			list.push_back("C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application");
+			list.push_back("C:\\Program Files\\Microsoft\\EdgeWebView\\Application");
+			list.push_back("C:\\Program Files\\Microsoft\\Edge\\Application");
+			list.push_back("C:\\Program Files\\Google\\Chrome\\Application");
+			return list;
+		}();
 		return roots;
 	}
 
+	//认下一份可用的 SwiftShader ICD：写环境变量并返回 true。
+	//两个变量名都写：VK_DRIVER_FILES 是 loader 1.3 起的新名字，VK_ICD_FILENAMES 是旧名字，
+	//只写一个的话，另一代的 loader 就看不见这份 ICD。
+	static bool enableSwiftShaderIcd(const std::filesystem::path& manifestPath) {
+		if (!icdManifestLooksUsable(manifestPath)) return false;
+		const std::string text = manifestPath.string();
+		::SetEnvironmentVariableA("VK_DRIVER_FILES", text.c_str());
+		::SetEnvironmentVariableA("VK_ICD_FILENAMES", text.c_str());
+		VulkanDiag("[Vulkan] 已自动启用 SwiftShader（CPU 软件渲染）：%s\n", text.c_str());
+		return true;
+	}
+
+	//递归找 ICD 时的深度上限。为什么要限制：%LOCALAPPDATA%\Programs 下面每个应用都是一整棵树
+	//（几千个文件），而 ICD 一定在根附近——最多差 1~2 层版本号目录。
+	static const int SWIFTSHADER_SEARCH_MAX_DEPTH = 3;
+
 	static bool tryEnableSwiftShaderIcd() {
 		std::error_code ec;
+
+		//1) 先看两处"浅"位置：exe 同级目录（含 vk_swiftshader 子目录）和 %SystemRoot%\System32。
+		//   这两处是给用户手动补一份 ICD 用的。只做浅查找：程序目录里有 TessData 等上万个文件，
+		//   递归一次要好几百毫秒到几秒，不能放在启动路径上。
+		std::vector<std::filesystem::path> shallowCandidates;
+		const std::filesystem::path exeDir = executableDirectory();
+		if (!exeDir.empty()) {
+			shallowCandidates.push_back(exeDir / "vk_swiftshader_icd.json");
+			shallowCandidates.push_back(exeDir / "vk_swiftshader" / "vk_swiftshader_icd.json");
+		}
+		const std::filesystem::path windowsDir = directoryFromEnv("SystemRoot");
+		if (!windowsDir.empty()) {
+			shallowCandidates.push_back(windowsDir / "System32" / "vk_swiftshader_icd.json");
+		}
+		for (const auto& candidate : shallowCandidates) {
+			if (enableSwiftShaderIcd(candidate)) return true;
+		}
+
+		//2) 再找系统里自带的副本（浏览器/模拟器），这些目录带版本号，必须递归
 		for (const auto& root : swiftShaderCandidateRoots()) {
 			if (!std::filesystem::is_directory(root, ec)) continue;
-			//Optimized 目录下没有版本号，EdgeWebView/Edge 目录下带版本号子目录，所以递归找
 			for (std::filesystem::recursive_directory_iterator it(root, std::filesystem::directory_options::skip_permission_denied, ec), end;
 				it != end; it.increment(ec)) {
 				if (ec) break;
-				if (!it->is_regular_file(ec)) continue;
-				if (it->path().filename() != "vk_swiftshader_icd.json") continue;
-				if (!icdManifestLooksUsable(it->path())) continue;
-				::SetEnvironmentVariableA("VK_ICD_FILENAMES", it->path().string().c_str());
-				VulkanDiag("[Vulkan] 已自动启用 SwiftShader（CPU 软件渲染）：%s\n", it->path().string().c_str());
-				return true;
+				if (it->is_regular_file(ec)) {
+					if (it->path().filename() == "vk_swiftshader_icd.json" && enableSwiftShaderIcd(it->path())) return true;
+				}
+				//到深度上限就不再往里走：这些目录里真正的 ICD 都在根附近，往下只有无关文件
+				if (it->is_directory(ec) && it.depth() >= SWIFTSHADER_SEARCH_MAX_DEPTH) {
+					it.disable_recursion_pending();
+				}
 			}
 		}
 		return false;
@@ -386,8 +467,10 @@ namespace VulKan {
 			}
 			VulkanDiag("[Vulkan] 设置中选择了「CPU 软件渲染」，尝试启用 SwiftShader...\n");
 			if (tryEnableSwiftShaderIcd()) return true;
-			VulkanDiag("[Vulkan] 启用 SwiftShader 失败：没有找到 vk_swiftshader_icd.json，"
-				"请把它改成「自动选择最高性能」或安装支持 Vulkan 的显卡驱动。\n");
+			VulkanDiag("[Vulkan] 启用 SwiftShader 失败：没有找到 vk_swiftshader_icd.json。\n"
+				"[Vulkan]       已查找: 程序目录、%%SystemRoot%%\\System32、以及 Edge/Chrome/Android SDK\n"
+				"[Vulkan]       自带的副本。可以把 vk_swiftshader_icd.json + vk_swiftshader.dll 复制到\n"
+				"[Vulkan]       程序目录，或者把设置改成「自动选择最高性能」或安装支持 Vulkan 的显卡驱动。\n");
 			return false;
 		}
 
@@ -453,8 +536,10 @@ namespace VulKan {
 		}
 
 		VulkanDiag("[Vulkan] 自动启用 SwiftShader 失败：没有找到 vk_swiftshader_icd.json。\n"
-			"[Vulkan]       需要在 system32 或程序目录放一个 ICD json（例如 SwiftShader 的\n"
-			"[Vulkan]       vk_swiftshader_icd.json + vk_swiftshader.dll），或者安装显卡驱动。\n");
+			"[Vulkan]       已查找: 程序目录、%%SystemRoot%%\\System32、以及 Edge/Chrome/Android SDK\n"
+			"[Vulkan]       自带的副本。可以手动放一份到程序目录（vk_swiftshader_icd.json +\n"
+			"[Vulkan]       vk_swiftshader.dll，例如从 Edge 的 EdgeCore\\Optimized 目录复制），\n"
+			"[Vulkan]       或者安装支持 Vulkan 的显卡驱动。\n");
 		return false;
 #else
 		return true; //Android 的 ICD 是系统自带的

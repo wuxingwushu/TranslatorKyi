@@ -111,6 +111,16 @@ namespace GAME {
 
 		bool EndDisplayBool = false;//结束显示开关（给外界一个信号，结束显示）
 
+		//统一的翻译入口。显示模式下所有翻译源都是异步的：窗口立刻出来显示「翻译中…」，
+		//请求交给后台线程（百度/爬虫/有道走 HTTP 线程，本地 AI 走模型线程），结果由 UpdateTranslateTask() 每帧落实。
+		//只有 ReplaceClipboard = true（Ctrl+Alt+R）是同步的：返回 true 时 Variable::zhong 里就是译文，
+		//由调用方粘贴，并把 ClipboardBackup 还原回剪贴板。
+		bool RequestTranslate(const std::string& English, bool ReplaceClipboard = false, const std::string& ClipboardBackup = std::string());
+		//主循环每帧调用一次（KeyBoardEvents() 之后）：刷新「翻译中」提示、取回后台 AI 翻译结果
+		void UpdateTranslateTask();
+		//是否正在等一次「替换」的 AI 翻译（这次粘贴由 UpdateTranslateTask() 做，调用方不要再贴一遍）
+		bool AiReplaceTaskRunning() const { return AiTaskRunning && AiTaskReplace; }
+
 		const VkCommandBuffer GetCommandBuffer(int i, VkCommandBufferInheritanceInfo info);
 
 		ImGuiIO* m_io;
@@ -132,9 +142,19 @@ namespace GAME {
 		}
 
 		bool DragWindowSizeBool = false;
+
+		//翻译窗口里如果正开着下拉框（语言的弹出列表），鼠标其实落在弹出窗口上，
+		//主窗口的矩形命中测试会失败；TranslateInterface() 每帧把这里置位，
+		//DoYouWantToUpdateTheScreen() 见到就把滞留计时续上，否则弹出列表会跟着窗口一起被自动隐藏。
+		bool KeepAliveBool = false;
+
 		bool DoYouWantToUpdateTheScreen(int time) {
 			if (GetKeyState(VK_LBUTTON) >= 0) {
 				DragWindowSizeBool = false;
+			}
+			if (KeepAliveBool) {
+				TranslateTime = clock();
+				return true;
 			}
 			if ((clock() - TranslateTime) > time && (time != 0)) {
 				EndDisplayBool = true;
@@ -200,6 +220,21 @@ namespace GAME {
 
 		void TranslateInterface();//翻译内容显示界面
 		bool TranslateBool;//翻译界面是否是刚显示
+
+		//本地 AI 模型翻译的后台任务状态（见 RequestTranslate/UpdateTranslateTask）
+		bool AiTaskRunning = false;			//有后台 AI 翻译在跑
+		bool AiTaskReplace = false;			//完成后是「替换」而不是「显示」（Ctrl+Alt+R）
+		std::string AiTaskSourceText;		//原文，结果回来时一起填进 eng 缓冲
+		std::string AiTaskClipboardBackup;	//替换模式下原来剪贴板里的内容，贴完还原
+		clock_t AiTaskStartTime = 0;		//开始时间（用来显示已用秒数）
+		//普通翻译源（百度/爬虫/有道）的显示模式：窗口先出来，HTTP 请求交给后台线程
+		bool WebTaskPending = false;		//正在等一次后台的普通翻译源（百度/爬虫/有道）结果
+		std::string WebTaskSourceText;		//这次后台翻译的原文（结果回来时用它回填原文框）
+		bool OcrTaskPending = false;		//正在等一次后台的截图 OCR 识别结果（识别完接着翻译）
+		bool ScriptAfterOcr = false;		//本次截图识别完后要跑用户的截图脚本（脚本模式）
+		bool ScriptPending = false;			//脚本等这一帧把识别出的原文画出来之后，下一帧再跑（脚本是同步接口）
+		bool ScriptRunning = false;			//脚本已经交给后台线程在跑，跑完由 UpdateTranslateTask() 把结果同步上界面
+		std::string AiTargetLangCode() const;//当前要翻译成哪种语言（Data.ini 里的代码）
 		bool ChildWindowBool = false;//右侧窗口是否显示
 		bool WhoBool;//右侧窗口显示 From 还是 To
 		bool WindowRenewBool = true;//窗口大小是否调整过

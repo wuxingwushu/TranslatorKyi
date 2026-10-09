@@ -1,8 +1,84 @@
 #include "Interface.h"
 #include "../AngelScript/AngelScriptCode.h"
 #include "../Function/WebDav.h"
+#include <algorithm>
+#include <cctype>
+#include <filesystem>
 
 namespace GAME {
+	//=== 字体加载 ==============================================================
+	//Font.h（内嵌的 Test.ttf 字模）已经删除，字体一律从 TTF 文件里读：
+	//  1. 设置里选中的字体文件（Variable::FontFilePath / Variable::HitokotoFont）
+	//  2. 程序目录 ./TTF 下的默认字体（约定 SmileySans-Oblique.ttf，没有就取目录里第一个 ttf）
+	//  3. ImGui 自带字模（只有 ASCII，纯兜底，保证界面不会一个字体都没有）
+	//注意：ImGui 的 AddFontFromFileTTF 读不到文件时会直接 IM_ASSERT 失败（Debug 下一运行就弹框），
+	//所以这里必须先自己确认文件在不在，不能把路径直接丢给 ImGui。
+	static const char* const DefaultFontFileName = "./TTF/SmileySans-Oblique.ttf";
+
+	static bool FontFileReadable(const std::string& FilePath) {
+		if (FilePath.empty()) {
+			return false;
+		}
+		std::error_code ec;
+		return std::filesystem::is_regular_file(FilePath, ec) && !ec;
+	}
+
+	//./TTF 目录里按文件名排序的第一个 ttf（用户换字体文件后不用改代码）
+	static std::string FirstFontInTTFFolder() {
+		std::error_code ec;
+		std::filesystem::directory_iterator Iterator("./TTF", ec);
+		if (ec) {
+			return std::string();
+		}
+		std::vector<std::string> Files;
+		for (const auto& Entry : Iterator) {
+			std::error_code EntryEc;
+			if (!Entry.is_regular_file(EntryEc)) {
+				continue;
+			}
+			std::string Extension = Entry.path().extension().string();
+			for (size_t i = 0; i < Extension.size(); i++) {
+				Extension[i] = (char)std::tolower((unsigned char)Extension[i]);
+			}
+			if (Extension == ".ttf") {
+				Files.push_back(Entry.path().string());
+			}
+		}
+		if (Files.empty()) {
+			return std::string();
+		}
+		std::sort(Files.begin(), Files.end());
+		return Files.front();
+	}
+
+	//当前实际会使用的默认字模路径（设置界面里显示给用户看）
+	static std::string DefaultTypefacePath() {
+		if (FontFileReadable(DefaultFontFileName)) {
+			return DefaultFontFileName;
+		}
+		return FirstFontInTTFFolder();
+	}
+
+	//加载字体：文件不存在或读不出来就自动退回默认字模，永远返回一个可用字体（ImGui::PushFont 不接受空指针）
+	static ImFont* LoadTypeface(ImGuiIO& io, const std::string& WantedPath, float Size, const ImFontConfig* FontCfg, const ImWchar* Ranges) {
+		if (FontFileReadable(WantedPath)) {
+			if (ImFont* Font = io.Fonts->AddFontFromFileTTF(WantedPath.c_str(), Size, FontCfg, Ranges)) {
+				return Font;
+			}
+		}
+		else if (!WantedPath.empty()) {
+			TOOL::logger->warn("Typeface file not usable, fallback to default typeface: " + WantedPath);
+		}
+		std::string DefaultPath = DefaultTypefacePath();
+		if (FontFileReadable(DefaultPath)) {
+			if (ImFont* Font = io.Fonts->AddFontFromFileTTF(DefaultPath.c_str(), Size, FontCfg, Ranges)) {
+				return Font;
+			}
+		}
+		TOOL::logger->warn("No usable TTF typeface found, using ImGui built-in typeface");
+		return io.Fonts->AddFontDefault();
+	}
+
 	ImGuiInterFace::ImGuiInterFace(
 		VulKan::Device* device, 
 		VulKan::Window* Win, 
@@ -44,23 +120,16 @@ namespace GAME {
 		}
 
 		// 设置字体
+		//内嵌字模（Font.h）已经删除，现在统一按 TTF 文件加载：
+		//FontBool 打开 → 用设置里选中的字体文件；关闭 → 用程序目录 ./TTF 里的默认字体。
 		ImFontConfig Font_cfg;
 		Font_cfg.OversampleH = 1;
-		Font_cfg.FontDataOwnedByAtlas = false;
-		ImFont* Font;
-		if (Variable::FontBool) {
-			Font = io.Fonts->AddFontFromFileTTF(Variable::FontFilePath.c_str(), Variable::FontSize, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
-		}
-		else {
-			Font = io.Fonts->AddFontFromMemoryTTF((void*)Font_data, Font_size, Variable::FontSize, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
-		}
+		//FontDataOwnedByAtlas 保持默认的 true：字体数据是 ImGui 自己从文件读进来的，交给它释放。
+		//（以前必须设成 false，是因为那时候指向 Font.h 里的 static 数组，不能释放。）
+		ImFont* Font = LoadTypeface(io, Variable::FontBool ? Variable::FontFilePath : std::string(), Variable::FontSize, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
 		if (Variable::HitokotoFontBool) {
-			if (!Variable::HitokotoTTFBool) {
-				HitokotoFont = io.Fonts->AddFontFromFileTTF(Variable::HitokotoFont.c_str(), Variable::HitokotoFontSize, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
-			}
-			else {
-				HitokotoFont = io.Fonts->AddFontFromMemoryTTF((void*)Font_data, Font_size, Variable::HitokotoFontSize, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
-			}
+			//HitokotoTTFBool 打开表示一言窗口也用默认字模（原来的「内部字模」）
+			HitokotoFont = LoadTypeface(io, Variable::HitokotoTTFBool ? std::string() : Variable::HitokotoFont, Variable::HitokotoFontSize, &Font_cfg, io.Fonts->GetGlyphRangesChineseFull());
 		}
 		
 
@@ -112,29 +181,84 @@ namespace GAME {
 		ImGui_ImplVulkan_DestroyFontUploadObjects();
 
 
-		//ImGui 风格设置
+		//ImGui 风格设置（界面重构：深色 + 绿色主色）
 		auto Color = Style.Colors;
 
+		//窗口本身保持直角：多视口下每个窗口都是独立平台窗口，圆角会露出底下的桌面
+		Style.WindowRounding = 0.0f;
+		Style.ChildRounding = 5.0f;
+		Style.FrameRounding = 4.0f;
+		Style.PopupRounding = 5.0f;
+		Style.GrabRounding = 3.0f;
+		Style.TabRounding = 4.0f;
+		Style.ScrollbarRounding = 8.0f;
+		Style.WindowBorderSize = 1.0f;
+		Style.ChildBorderSize = 1.0f;
+		Style.FrameBorderSize = 0.0f;
+		Style.WindowPadding = ImVec2(12.0f, 10.0f);
+		Style.FramePadding = ImVec2(8.0f, 5.0f);
+		Style.ItemSpacing = ImVec2(8.0f, 7.0f);
+		Style.ItemInnerSpacing = ImVec2(6.0f, 5.0f);
+		Style.IndentSpacing = 18.0f;
+		Style.ScrollbarSize = 12.0f;
+		Style.GrabMinSize = 10.0f;
 
-		Style.ChildRounding = 0.0f;
-		Style.FrameRounding = 0.0f;//是否圆润按键
+		//背景
+		Color[ImGuiCol_WindowBg] = ImVec4(0.086f, 0.098f, 0.117f, 1.0f);//#161A1E
+		Color[ImGuiCol_ChildBg] = ImVec4(0.070f, 0.080f, 0.098f, 1.0f);//#121419
+		Color[ImGuiCol_PopupBg] = ImVec4(0.105f, 0.117f, 0.141f, 0.98f);//#1B1E24
+		Color[ImGuiCol_Border] = ImVec4(0.180f, 0.200f, 0.231f, 1.0f);//#2E333B
+		Color[ImGuiCol_BorderShadow] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+		Color[ImGuiCol_Text] = ImVec4(0.902f, 0.921f, 0.941f, 1.0f);
+		Color[ImGuiCol_TextDisabled] = ImVec4(0.470f, 0.505f, 0.545f, 1.0f);
 
-		Color[ImGuiCol_Button] = ImColor(10, 105, 56, 255);//按键颜色
-		Color[ImGuiCol_ButtonHovered] = ImColor(30, 125, 76, 255);//鼠标悬停颜色
-		Color[ImGuiCol_ButtonActive] = ImColor(0, 95, 46, 255);//鼠标点击颜色
+		//输入框 / 下拉框
+		Color[ImGuiCol_FrameBg] = ImVec4(0.129f, 0.145f, 0.172f, 1.0f);//#212529
+		Color[ImGuiCol_FrameBgHovered] = ImVec4(0.164f, 0.184f, 0.215f, 1.0f);
+		Color[ImGuiCol_FrameBgActive] = ImVec4(0.196f, 0.219f, 0.254f, 1.0f);
 
-		Color[ImGuiCol_FrameBg] = ImColor(54, 54, 54, 150);
-		Color[ImGuiCol_FrameBgActive] = ImColor(42, 42, 42, 150);
-		Color[ImGuiCol_FrameBgHovered] = ImColor(100, 100, 100, 150);
+		//按钮：绿色主色
+		Color[ImGuiCol_Button] = ImVec4(0.113f, 0.443f, 0.278f, 1.0f);//#1D7147
+		Color[ImGuiCol_ButtonHovered] = ImVec4(0.156f, 0.545f, 0.345f, 1.0f);//#288B58
+		Color[ImGuiCol_ButtonActive] = ImVec4(0.086f, 0.360f, 0.227f, 1.0f);//#165C3A
 
-		Color[ImGuiCol_CheckMark] = ImColor(10, 105, 56, 255);
+		Color[ImGuiCol_CheckMark] = ImVec4(0.282f, 0.780f, 0.486f, 1.0f);//#48C77C
+		Color[ImGuiCol_SliderGrab] = ImVec4(0.282f, 0.780f, 0.486f, 1.0f);
+		Color[ImGuiCol_SliderGrabActive] = ImVec4(0.345f, 0.850f, 0.549f, 1.0f);
 
-		Color[ImGuiCol_SliderGrab] = ImColor(10, 105, 56, 255);
-		Color[ImGuiCol_SliderGrabActive] = ImColor(0, 95, 46, 255);
+		Color[ImGuiCol_Header] = ImVec4(0.113f, 0.443f, 0.278f, 0.85f);
+		Color[ImGuiCol_HeaderHovered] = ImVec4(0.156f, 0.545f, 0.345f, 0.90f);
+		Color[ImGuiCol_HeaderActive] = ImVec4(0.086f, 0.360f, 0.227f, 1.0f);
 
-		Color[ImGuiCol_Header] = ImColor(10, 105, 56, 255);
-		Color[ImGuiCol_HeaderHovered] = ImColor(30, 125, 76, 255);
-		Color[ImGuiCol_HeaderActive] = ImColor(0, 95, 46, 255);
+		//分隔线 / 缩放手柄
+		Color[ImGuiCol_Separator] = ImVec4(0.180f, 0.200f, 0.231f, 1.0f);
+		Color[ImGuiCol_SeparatorHovered] = ImVec4(0.282f, 0.780f, 0.486f, 0.60f);
+		Color[ImGuiCol_SeparatorActive] = ImVec4(0.282f, 0.780f, 0.486f, 0.90f);
+		Color[ImGuiCol_ResizeGrip] = ImVec4(0.282f, 0.780f, 0.486f, 0.25f);
+		Color[ImGuiCol_ResizeGripHovered] = ImVec4(0.282f, 0.780f, 0.486f, 0.60f);
+		Color[ImGuiCol_ResizeGripActive] = ImVec4(0.282f, 0.780f, 0.486f, 0.90f);
+
+		//滚动条
+		Color[ImGuiCol_ScrollbarBg] = ImVec4(0.055f, 0.063f, 0.078f, 1.0f);
+		Color[ImGuiCol_ScrollbarGrab] = ImVec4(0.216f, 0.240f, 0.278f, 1.0f);
+		Color[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.282f, 0.310f, 0.353f, 1.0f);
+		Color[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.282f, 0.780f, 0.486f, 0.80f);
+
+		//标题条 / 菜单条 / 键盘导航高亮
+		Color[ImGuiCol_TitleBg] = ImVec4(0.086f, 0.098f, 0.117f, 1.0f);
+		Color[ImGuiCol_TitleBgActive] = ImVec4(0.113f, 0.443f, 0.278f, 1.0f);
+		Color[ImGuiCol_TitleBgCollapsed] = ImVec4(0.086f, 0.098f, 0.117f, 0.75f);
+		Color[ImGuiCol_MenuBarBg] = ImVec4(0.105f, 0.117f, 0.141f, 1.0f);
+		Color[ImGuiCol_NavHighlight] = ImVec4(0.282f, 0.780f, 0.486f, 0.80f);
+
+		//表格（设置界面用两列表格排「标签 + 控件」）
+		Color[ImGuiCol_TableHeaderBg] = ImVec4(0.129f, 0.145f, 0.172f, 1.0f);
+		Color[ImGuiCol_TableBorderStrong] = ImVec4(0.180f, 0.200f, 0.231f, 1.0f);
+		Color[ImGuiCol_TableBorderLight] = ImVec4(0.145f, 0.161f, 0.188f, 1.0f);
+		Color[ImGuiCol_TableRowBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+		Color[ImGuiCol_TableRowBgAlt] = ImVec4(1.0f, 1.0f, 1.0f, 0.02f);
+
+		Color[ImGuiCol_WindowBg].w = 1.0f;//多视口下窗口背景必须不透明
 
 		ImGuiCommandPoolS = new VulKan::CommandPool* [FormatCount];
 		ImGuiCommandBufferS = new VulKan::CommandBuffer* [FormatCount];
@@ -296,152 +420,457 @@ namespace GAME {
 	
 	
 
+	//语言文件里存的是带占位符的模板（%d 显示秒数、%s 显示文本），这里做替换，
+	//这样代码里不用出现非 ASCII 字面量。
+	static std::string AiTextWithNumber(const std::string& Tpl, int Value)
+	{
+		const std::string Num = std::to_string(Value);
+		std::string Result;
+		Result.reserve(Tpl.size() + Num.size());
+		for (size_t i = 0; i < Tpl.size(); i++)
+		{
+			if (Tpl[i] == '%' && (i + 1) < Tpl.size() && Tpl[i + 1] == 'd')
+			{
+				Result += Num;
+				i++;
+			}
+			else
+			{
+				Result += Tpl[i];
+			}
+		}
+		return Result;
+	}
+
+	static std::string AiTextWithString(const std::string& Tpl, const std::string& Value)
+	{
+		std::string Result;
+		Result.reserve(Tpl.size() + Value.size());
+		for (size_t i = 0; i < Tpl.size(); i++)
+		{
+			if (Tpl[i] == '%' && (i + 1) < Tpl.size() && Tpl[i + 1] == 's')
+			{
+				Result += Value;
+				i++;
+			}
+			else
+			{
+				Result += Tpl[i];
+			}
+		}
+		return Result;
+	}
+
+	//当前要翻译成哪种语言（Data.ini 里 Baidu_items 那套代码：zh、cht、jp…）
+	std::string ImGuiInterFace::AiTargetLangCode() const
+	{
+		if (mTranslate == nullptr) { return std::string(); }
+		const int Target = mTranslate->mTo;
+		if (Target >= 0 && Target < (int)Variable::Baiduitems.size()) { return Variable::Baiduitems[Target]; }
+		return std::string();
+	}
+
+	//统一的翻译入口：显示模式下都交给后台线程（普通源走 HTTP 线程，AI 走模型线程），结果由 UpdateTranslateTask() 落实；
+	bool ImGuiInterFace::RequestTranslate(const std::string& English, bool ReplaceClipboard, const std::string& ClipboardBackup)
+	{
+		if (mTranslate == nullptr) { return true; }
+
+		if (!mTranslate->IsAiTranslate())
+		{
+			//百度/爬虫/有道：走后台线程（和 AI 那条路一样）。
+			//「替换」模式（Ctrl+Alt+R）不弹窗口，还是同步做完，粘贴/还原剪贴板由调用方做（和以前一样）。
+			if (ReplaceClipboard)
+			{
+				Variable::zhong = mTranslate->TranslateAPI(English);
+				return true;
+			}
+
+			//显示模式：窗口必须「一按就出来」，不能等请求回来。所以这里先把窗口和「翻译中…」摆上，
+			//请求直接交给后台线程（WebBeginTranslation），结果由 UpdateTranslateTask() 每帧取。
+			Variable::eng = English;
+			Variable::zhong = Language::Translating;
+			memset(eng, 0, sizeof(eng));
+			memset(zhong, 0, sizeof(zhong));
+			TOOL::CopyToBuffer(eng, sizeof(eng), Variable::eng);
+			TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
+			if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum))
+			{
+				TranslateTime = clock();
+			}
+			else
+			{
+				SetInterFace(TranslateEnum);
+			}
+
+			//引擎和语言在这一刻定死再交给线程（Ctrl+Alt+R 会临时改 mTo，调用方随后就还原了）
+			if (mTranslate->WebBeginTranslation(English, mTranslate->mTranslate, mTranslate->mFrom, mTranslate->mTo))
+			{
+				WebTaskPending = true;
+				WebTaskSourceText = English;
+			}
+			return false;
+		}
+
+		if (AiTaskRunning) { return false; }//上一个 AI 翻译还没结束，这次不等它
+
+		AiTaskRunning = true;
+		AiTaskReplace = ReplaceClipboard;
+		AiTaskSourceText = English;
+		AiTaskClipboardBackup = ClipboardBackup;
+		AiTaskStartTime = clock();
+		Variable::eng = English;
+
+		if (AiTaskReplace)
+		{
+			//替换模式不弹窗口，算完直接粘贴（在 UpdateTranslateTask 里做）
+			mTranslate->AiBeginTranslation(English, AiTargetLangCode());
+			return false;
+		}
+
+		//显示模式：先把「正在加载/翻译中」写进去，窗口立刻显示进度，主循环里每帧刷新
+		Variable::zhong = AiTextWithNumber(Language::AILoading, 0);
+		memset(eng, 0, sizeof(eng));
+		memset(zhong, 0, sizeof(zhong));
+		TOOL::CopyToBuffer(eng, sizeof(eng), Variable::eng);
+		TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
+		//窗口已经开着就只把滞留计时续上；再调 SetInterFace() 会把窗口重新挪到鼠标位置（只有 AI 源走这条异步路径，所以只有它会跳）
+		if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum))
+		{
+			TranslateTime = clock();
+		}
+		else
+		{
+			SetInterFace(TranslateEnum);
+		}
+
+		mTranslate->AiBeginTranslation(English, AiTargetLangCode());
+		return false;
+	}
+
+	//主循环每帧一次：刷新进度文案 + 取回结果
+	void ImGuiInterFace::UpdateTranslateTask()
+	{
+		//模型闲置卸载要每帧检查，所以放在最前面（下面有空任务时的提前 return）
+		if (mTranslate != nullptr) { mTranslate->AiPollIdle(); }
+
+		//脚本已经交给后台线程在跑：主循环照常转，所以「翻译中」这段时间窗口能拖、能关。
+		//跑完了再把脚本写好的原文/译文同步到界面。
+		if (ScriptRunning)
+		{
+			//跑完之前把滞留计时续上，别让窗口被 DoYouWantToUpdateTheScreen() 提前关掉
+			if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum)) { TranslateTime = clock(); }
+			if (AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->IsRunning()) { return; }//还没跑完
+
+			//跑完了：脚本里的 SetInput()/SetOutput() 已经把原文/译文写好，同步到界面并开始计时
+			ScriptRunning = false;
+			memset(eng, 0, sizeof(eng));
+			memset(zhong, 0, sizeof(zhong));
+			TOOL::CopyToBuffer(eng, sizeof(eng), Variable::eng);
+			TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
+			if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum)) { TranslateTime = clock(); }
+			return;
+		}
+
+		//脚本模式：识别出的原文已经在上一帧画到界面上了，现在才把脚本交给后台线程跑。
+		//（脚本里的 TranslateAPI() 是同步接口，跑在后台线程里，不会再卡住主循环。）
+		if (ScriptPending)
+		{
+			ScriptPending = false;
+			ScriptRunning = true;
+			AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->BeginRun(
+				AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->ScreenshotFunction
+			);
+			return;
+		}
+
+		//截图翻译：OCR 还在后台跑就继续显示「识别中…」；文本出来后再走一次正常翻译流程。
+		if (OcrTaskPending)
+		{
+			//识别期间把滞留计时续上，别让「识别中…」被 DoYouWantToUpdateTheScreen() 提前关掉
+			if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum)) { TranslateTime = clock(); }
+
+			std::string Text;
+			const bool OcrDone = (mTesseract != nullptr) ? mTesseract->OcrTakeResult(Text) : true;
+			if (!OcrDone) { return; }//还没识别完，下一帧再来
+
+			OcrTaskPending = false;
+			if (Text.empty()) { TOOL::logger->warn("screenshot ocr: empty text"); }
+
+			//识别出来的原文先填进原文框（脚本模式要用它）：界面此时已经显示着「识别中…」，
+			//所以下面无论跑脚本还是起翻译线程，都不会再挡住窗口出现
+			Variable::eng = Text;
+			memset(eng, 0, sizeof(eng));
+			TOOL::CopyToBuffer(eng, sizeof(eng), Variable::eng);
+
+			if (ScriptAfterOcr)
+			{
+				//脚本模式：原文先显示出来（译文框留「翻译中…」），脚本等**下一帧**再跑。
+				//脚本里的 TranslateAPI() 是同步接口，跑起来主循环会卡住，不能让原文跟着一起等结果。
+				ScriptAfterOcr = false;
+				ScriptPending = true;
+				Variable::zhong = Language::Translating;
+				memset(zhong, 0, sizeof(zhong));
+				TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
+				if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum)) { TranslateTime = clock(); }
+				return;
+			}
+
+			//识别出来的原文交给统一入口：它会填原文框、把译文框置成「翻译中…」并起后台线程
+			RequestTranslate(Text);
+			return;
+		}
+
+		//普通翻译源（百度/爬虫/有道）：后台线程在跑就一直显示「翻译中…」，结果回来再更新界面。
+		if (mTranslate != nullptr && WebTaskPending)
+		{
+			//请求期间把滞留计时续上：正式计时从结果写进界面那一刻才重新开始，
+			//不然请求慢的时候「翻译中…」会被 DoYouWantToUpdateTheScreen() 提前关掉。
+			if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum)) { TranslateTime = clock(); }
+
+			std::string Result;
+			if (!mTranslate->WebTakeResult(Result)) { return; }//还没算完，下一帧再来
+
+			const std::string Source = WebTaskSourceText;
+			WebTaskSourceText.clear();
+			WebTaskPending = false;
+
+			if (Result.empty()) { TOOL::logger->warn("web translate failed: empty result"); }
+
+			Variable::eng = Source;
+			Variable::zhong = Result;
+			memset(eng, 0, sizeof(eng));
+			memset(zhong, 0, sizeof(zhong));
+			TOOL::CopyToBuffer(eng, sizeof(eng), Variable::eng);
+			TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
+			//译文已经写进界面了：显示时长（Variable::DisplayTime）从这一刻才开始算。
+			if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum))
+			{
+				TranslateTime = clock();
+			}
+			else
+			{
+				SetInterFace(TranslateEnum);
+			}
+			return;
+		}
+
+		if (!AiTaskRunning || mTranslate == nullptr) { return; }
+
+		const int ElapsedSeconds = (int)((clock() - AiTaskStartTime) / CLOCKS_PER_SEC);
+
+		if (!AiTaskReplace)
+		{
+			if (mTranslate->AiStage() == Translate::AiStageLoading)
+			{
+				Variable::zhong = AiTextWithNumber(Language::AILoading, ElapsedSeconds);
+			}
+			else
+			{
+				Variable::zhong = AiTextWithNumber(Language::AITranslating, ElapsedSeconds);
+			}
+			memset(zhong, 0, sizeof(zhong));
+			TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
+
+			//本地模型要算好几秒，而窗口滞留时间默认只有 5 秒（Variable::DisplayTime），
+			//不把计时器续上的话，结果还没出来窗口就被 DoYouWantToUpdateTheScreen() 关掉了。
+			TranslateTime = clock();
+		}
+
+		std::string Result;
+		if (!mTranslate->AiTakeResult(Result)) { return; }
+		AiTaskRunning = false;
+
+		const std::string Error = mTranslate->AiLastError();
+		if (Result.empty())
+		{
+			if (Error.empty()) { TOOL::logger->error("AI translate failed: empty result"); }
+			else { TOOL::logger->error("AI translate failed: {}", Error); }
+
+			if (AiTaskReplace)
+			{
+				//替换模式失败时不要把错误说明贴进用户的文档里
+				return;
+			}
+			Variable::zhong = Error.empty() ? Language::AIFailedEmpty : AiTextWithString(Language::AIFailed, Error);
+		}
+		else
+		{
+			Variable::zhong = Result;
+		}
+
+		if (AiTaskReplace)
+		{
+			TOOL::CopyToClipboard(TOOL::Utf8ToUnicode(Variable::zhong.c_str()));
+			TOOL::CtrlAndV();//粘贴出去 ctrl + v
+			Sleep(5);
+			TOOL::CopyToClipboard(AiTaskClipboardBackup);//还原原来剪切板的内容
+			return;
+		}
+
+		Variable::eng = AiTaskSourceText;
+		memset(eng, 0, sizeof(eng));
+		memset(zhong, 0, sizeof(zhong));
+		TOOL::CopyToBuffer(eng, sizeof(eng), Variable::eng);
+		TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
+
+		if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum))
+		{
+			//窗口已经开着：只续时间，别再 SetInterFace()（那会把窗口重新挪到鼠标位置）
+			TranslateTime = clock();
+		}
+		else
+		{
+			SetInterFace(TranslateEnum);
+		}
+	}
+
 	void ImGuiInterFace::TranslateInterface()
 	{
+		//自适应尺寸：宽度可以拖（记在 TranslateWinWidth，默认 380），高度每帧按内容算出来
+		static float TranslateWinWidth = 380.0f;//窗口宽度（拖动后被记住）
+		static float TranslateWinHeight = 320.0f;//窗口高度（每帧按内容重算，不用手拖）
+		static float TrChromeLast = 0.0f;//上一帧实测的「非文本框部分」高度（顶上那几行 + 内外边距），用来算窗口还放不放得下
 		if (TranslateBool) {
 			TranslateBool = false;
 			POINT MousePos = { 0,0 };
 			GetCursorPos(&MousePos);//获取鼠标位置
 			ImGui::SetNextWindowPos({ float(MousePos.x), float(MousePos.y) });//设置窗口生成位置
-			Variable::WrapSize = kuangshu / int(Variable::FontSize);
+			Variable::WrapSize = kuangshu / int(std::max(1.0f, Variable::FontSize));
 		}
+		ImGui::SetNextWindowSize(ImVec2(TranslateWinWidth, TranslateWinHeight));
+		ImGui::SetNextWindowSizeConstraints(ImVec2(300.0f, 160.0f), ImVec2(FLT_MAX, FLT_MAX));
 		ImGui::Begin(u8"TranslateUI", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//创建窗口
-		
+
+		//下拉框展开时鼠标落在弹出窗口上，主窗口的命中测试会失败——用 KeepAliveBool 把滞留计时续上
+		KeepAliveBool = ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) || ImGui::IsWindowHovered();
+
+		//Data.ini 里的语言列表可能被改短，下标兜个底
+		const int LangCount = (int)Variable::Baiduitems.size();
+		if (LangCount > 0) {
+			if (mTranslate->mFrom < 0 || mTranslate->mFrom >= LangCount) { mTranslate->mFrom = 0; }
+			if (mTranslate->mTo < 1 || mTranslate->mTo >= LangCount) { mTranslate->mTo = (LangCount > 1) ? 1 : 0; }
+		}
+		const char* FromName = (LangCount > 0) ? Variable::BaiduitemsName[mTranslate->mFrom].c_str() : "";
+		const char* ToName = (LangCount > 0) ? Variable::BaiduitemsName[mTranslate->mTo].c_str() : "";
+
+		//顶行：源语言 / 互换 / 目标语言 …… 右边是翻译源（点一下换下一个）
+		ImGui::SetNextItemWidth(140.0f);
+		if (ImGui::BeginCombo("##from", FromName)) {
+			for (int n = 0; n < LangCount; ++n) {
+				const bool Selected = (mTranslate->mFrom == n);
+				if (ImGui::Selectable(Variable::BaiduitemsName[n].c_str(), Selected)) { mTranslate->mFrom = n; }
+				if (Selected) { ImGui::SetItemDefaultFocus(); }
+			}
+			ImGui::EndCombo();
+		}
+		ImGui::SameLine();
+		const bool CanSwap = (mTranslate->mFrom > 0) && (mTranslate->mTo > 0) && (mTranslate->mFrom < LangCount) && (mTranslate->mTo < LangCount);
+		ImGui::BeginDisabled(!CanSwap);
+		if (ImGui::Button(Language::SwapLanguage.c_str())) {
+			const int FromLanguage = mTranslate->mFrom;
+			mTranslate->mFrom = mTranslate->mTo;
+			mTranslate->mTo = FromLanguage;
+		}
+		ImGui::EndDisabled();
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+			ImGui::SetTooltip("%s", CanSwap ? Language::SwapLanguage.c_str() : Language::SourceLanguage.c_str());
+		}
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(140.0f);
+		if (ImGui::BeginCombo("##to", ToName)) {
+			for (int n = 1; n < LangCount; ++n) {
+				const bool Selected = (mTranslate->mTo == n);
+				if (ImGui::Selectable(Variable::BaiduitemsName[n].c_str(), Selected)) { mTranslate->mTo = n; }
+				if (Selected) { ImGui::SetItemDefaultFocus(); }
+			}
+			ImGui::EndCombo();
+		}
+		//翻译源：点一下循环切换（百度 / 爬虫 / 有道 / AI模型）
+		const std::string EngineLabel = Language::Engine + ": " + mTranslate->TranslateName[mTranslate->mTranslate];
+		const float EngineWidth = ImGui::CalcTextSize(EngineLabel.c_str()).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+		//自适应：右边放得下就靠右同行，放不下就换到下一行，免得和语言下拉挤在一起
+		const float EngineRightX = ImGui::GetWindowWidth() - EngineWidth - ImGui::GetStyle().WindowPadding.x;
+		if (EngineRightX > ImGui::GetItemRectMax().x + ImGui::GetStyle().ItemSpacing.x) {
+			ImGui::SameLine(EngineRightX);
+		}
+		if (ImGui::Button(EngineLabel.c_str())) {
+			mTranslate->mTranslate++;
+			if (mTranslate->mTranslate > Translate::AiTranslate) { mTranslate->mTranslate = 0; }
+			//翻译源是模式开关：点一下立刻写回 Data.ini，不然重启后又变回百度
+			Variable::Translate = mTranslate->mTranslate;
+			Variable::SaveFile();
+		}
+
+		//文本框宽度（顺便算自动换行宽度，AngelScript 的 Autowrap 用）
+		kuangshu = (int)ImGui::GetContentRegionAvail().x;
+		Variable::WrapSize = kuangshu / int(std::max(1.0f, Variable::FontSize));
+
+		//文本框高度自适应：按文本在「文本框自身宽度」下换行后的真实高度算；长文到上限后交给文本框自己滚动
+		const ImGuiStyle& UiStyle = ImGui::GetStyle();
+		const float LineHeight = ImGui::GetTextLineHeight();
+		const float TextWrapWidth = std::max(40.0f, ImGui::GetContentRegionAvail().x - UiStyle.FramePadding.x * 2.0f);
+		const float MinBoxHeight = LineHeight * 3.0f + UiStyle.FramePadding.y * 2.0f;
+		const float TrScreenBottom = (float)GetSystemMetrics(SM_CYSCREEN) - 8.0f; const float TrChrome = (TrChromeLast > 1.0f) ? TrChromeLast : (LineHeight * 6.0f + UiStyle.ItemSpacing.y * 6.0f + UiStyle.WindowPadding.y * 2.0f); const float TrRoomForBoxes = TrScreenBottom - ImGui::GetWindowPos().y - TrChrome; float MaxBoxHeight = float(Variable::windows_Heigth) * 0.4f; if (TrRoomForBoxes > MinBoxHeight * 2.0f) { MaxBoxHeight = std::min(MaxBoxHeight, TrRoomForBoxes * 0.5f); } MaxBoxHeight = std::max(MinBoxHeight, MaxBoxHeight);//文本框高度上限：正常按窗口高度的 40%；窗口贴着屏幕底部弹出时再按「顶到屏幕底还剩多少」收一次，保证按钮和文本框都在屏幕里（ImGui 的 DisplaySize / GetMainViewport 在多视口下是 1x1，只能用系统屏幕尺寸）
+		auto AdaptiveBoxHeight = [&](const char* Text) -> float {
+			float Height = MinBoxHeight;
+			if (Text[0] != '\0') {
+				Height = ImGui::CalcTextSize(Text, NULL, false, TextWrapWidth).y + UiStyle.FramePadding.y * 2.0f + LineHeight * 0.5f;
+			}
+			return std::min(std::max(Height, MinBoxHeight), MaxBoxHeight);
+		};
+		const float EngBoxHeight = AdaptiveBoxHeight(eng);
+		const float ZhongBoxHeight = AdaptiveBoxHeight(zhong);
+
+		//原文
 		if (InputCursorBool) {
-			// 在窗口打开时自动将焦点设置到多行文本输入框上
-			ImGui::SetKeyboardFocusHere();
+			ImGui::SetKeyboardFocusHere();//窗口打开时把焦点放到原文框上
 		}
 		TranslateInputBool = true;
-		ImGui::InputTextMultiline("##eng", eng, IM_ARRAYSIZE(eng), ImVec2(kuangshu, ImGui::GetTextLineHeight() * RowsNumber), flags, MyText);
+		ImGui::InputTextMultiline("##eng", eng, IM_ARRAYSIZE(eng), ImVec2(-FLT_MIN, EngBoxHeight), flags, MyText);
 		if (InputCursorBool) {
 			InputTextMultilineText();//将剪贴板内容粘贴到输入光标位置
 		}
-		ImGui::SameLine();//让一个元素并排
-		ImGui::BeginGroup();
-		if (ImGui::Button(Language::TranslationKey.c_str())) {
-			Variable::zhong = mTranslate->TranslateAPI(eng);
+		TranslateInputBool = false;
+
+		//按钮行
+		if (ImGui::Button(Language::TranslationKey.c_str(), ImVec2(96.0f, 0.0f))) {
+			//普通翻译源（百度/爬虫/有道）在这里同步出结果；
+			//本地 AI 模型是后台算的，结果由 UpdateTranslateTask() 填进来
+			RequestTranslate(eng);
 			//zhong 是 1MB 的定长缓冲区，长文翻译结果直接 memcpy 会写爆且结尾没有 '\0'
 			memset(zhong, 0, sizeof(zhong));
 			TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
 		}
-		if (ImGui::Button(Language::From.c_str())) {
-			ChildWindowBool = !ChildWindowBool;
-			WhoBool = true;
+		ImGui::SameLine();
+		if (ImGui::Button(Language::Clear.c_str(), ImVec2(80.0f, 0.0f))) {
+			memset(eng, 0, sizeof(eng));
+			memset(zhong, 0, sizeof(zhong));
 		}
-		ImGui::EndGroup();
-		TranslateInputBool = false;
-		ImGui::InputTextMultiline("##zhong", zhong, IM_ARRAYSIZE(zhong), ImVec2(kuangshu, ImGui::GetTextLineHeight() * RowsNumber), flags, MyText);
-		ImGui::SameLine();//让一个元素并排
-		ImGui::BeginGroup();
-		if (ImGui::Button(Language::To.c_str())) {
-			ChildWindowBool = !ChildWindowBool;
-			WhoBool = false;
+		ImGui::SameLine();
+		ImGui::BeginDisabled(zhong[0] == '\0');
+		if (ImGui::Button(Language::CopyResult.c_str(), ImVec2(110.0f, 0.0f))) {
+			TOOL::CopyToClipboard(TOOL::Utf8ToUnicode(zhong));
 		}
-		//翻译API更换
-		if (ImGui::Button(mTranslate->TranslateName[mTranslate->mTranslate])) {
-			mTranslate->mTranslate++;
-			if (mTranslate->mTranslate > 2) {
-				mTranslate->mTranslate = 0;
-			}
-		}
-		ImGui::EndGroup();
-		ImGui::SetWindowSize(ImVec2(BeginWindowSizeX, BeginWindowSizeY));
-		BeginWindowPosX = ImGui::GetWindowPos().x;
-		BeginWindowPosY = ImGui::GetWindowPos().y;
-		//当鼠标点击时更新窗口大小
+		ImGui::EndDisabled();
+
+		//译文
+		ImGui::InputTextMultiline("##zhong", zhong, IM_ARRAYSIZE(zhong), ImVec2(-FLT_MIN, ZhongBoxHeight), flags, MyText);
+
+		//自适应尺寸：宽度只在拖动时记（默认 380，最小 300），高度永远等于内容实际需要的高度
 		if (GetKeyState(VK_LBUTTON) < 0) {
-			BeginWindowSizeX = ImGui::GetWindowWidth();
-			BeginWindowSizeY = ImGui::GetWindowHeight();
-			WindowRenewBool = true;
+			const float WinW = ImGui::GetWindowWidth();
+			if (WinW > 1.0f) { TranslateWinWidth = WinW; }
 		}
-		//判断鼠标是否在翻译界面上
-		/*if ((m_io->MousePos.x > BeginWindowPosX) && (m_io->MousePos.y > BeginWindowPosY) && (m_io->MousePos.x < (BeginWindowPosX + BeginWindowSizeX)) && (m_io->MousePos.y < (BeginWindowPosY + BeginWindowSizeY))) {
-			TranslateTime = clock();
-			fanbool = true;
-		}
-		else if ((clock() - TranslateTime) > Variable::DisplayTime) {
-			EndDisplayBool = true;
-			InterFaceBool = false;
-			ChildWindowBool = false;
-		}*/
+		if (TranslateWinWidth < 300.0f) { TranslateWinWidth = 300.0f; }
+		TranslateWinHeight = ImGui::GetCursorPosY() + UiStyle.WindowPadding.y;
+		TrChromeLast = TranslateWinHeight - (EngBoxHeight + ZhongBoxHeight);//量一下这一帧「非文本框部分」到底有多高，下一帧用它算上限（第一帧先用估算值）
+		ImGui::SetWindowSize(ImVec2(TranslateWinWidth, TranslateWinHeight));
+		BeginWindowPosX = (int)ImGui::GetWindowPos().x;
+		BeginWindowPosY = (int)ImGui::GetWindowPos().y;
 		ImGui::End();
-
-		
-		if (ChildWindowBool) {
-			ImGui::Begin(u8"ToFromUI", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);
-			ImGui::SetWindowPos(ImVec2(BeginWindowPosX + BeginWindowSizeX, BeginWindowPosY));
-			if (WhoBool) {
-				if (ImGui::BeginListBox("From", ImVec2(-FLT_MIN, RowsNumber * 2 * (ImGui::GetTextLineHeightWithSpacing() - 4))))
-				{
-					for (int n = 0; n < Variable::Baiduitems.size(); n++)
-					{
-						const bool is_selected = (mTranslate->mFrom == n);
-						if (ImGui::Selectable(Variable::BaiduitemsName[n].c_str(), is_selected))
-							mTranslate->mFrom = n;
-						if (is_selected)
-							ImGui::SetItemDefaultFocus();
-					}
-					ImGui::EndListBox();
-				}
-			}
-			else {
-				if (ImGui::BeginListBox("To", ImVec2(-FLT_MIN, RowsNumber * 2 * (ImGui::GetTextLineHeightWithSpacing() - 4))))
-				{
-					for (int n = 0; n < Variable::Baiduitems.size() - 1; n++)
-					{
-						const bool is_selected = (mTranslate->mTo == n + 1);
-						if (ImGui::Selectable(Variable::BaiduitemsName[n + 1].c_str(), is_selected))
-							mTranslate->mTo = n + 1;
-						if (is_selected)
-							ImGui::SetItemDefaultFocus();
-					}
-					ImGui::EndListBox();
-				}
-			}
-			BeginWindowSizeX_2 = ImGui::GetTextLineHeightWithSpacing() * 5 + 20;
-			ImGui::SetWindowSize(ImVec2(BeginWindowSizeX_2, BeginWindowSizeY));
-			//if ((m_io->MousePos.x > ImGui::GetWindowPos().x) && (m_io->MousePos.y > ImGui::GetWindowPos().y) && (m_io->MousePos.x < (ImGui::GetWindowPos().x + ImGui::GetWindowWidth())) && (m_io->MousePos.y < (ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
-			//	TranslateTime = clock();
-			//	fanbool = true;
-			//}
-			//else if ((clock() - TranslateTime) > Variable::DisplayTime) {
-			//	EndDisplayBool = true;
-			//	InterFaceBool = false;
-			//	ChildWindowBool = false;
-			//}
-			//else if ((GetKeyState(VK_LBUTTON) < 0) || (GetKeyState(VK_RBUTTON) < 0)) {//鼠标点击窗口之外的地方关闭窗口
-			//	ChildWindowBool = false;
-			//}
-			ImGui::End();
-		}
-
-		//std::cout << "ImGui::GetTextLineHeight()" << ImGui::GetTextLineHeight() << std::endl;
-		//std::cout << "ImGui::GetTextLineHeightWithSpacing()" << ImGui::GetTextLineHeightWithSpacing() << std::endl;
-
-		//当鼠标松开时 将窗口大小更新到合适大小
-		if ((GetKeyState(VK_LBUTTON) >= 0) && WindowRenewBool) {
-			WindowRenewBool = false;
-			RowsNumber = (BeginWindowSizeY - ImGui::GetTextLineHeightWithSpacing()) / (int(ImGui::GetTextLineHeight()) * 2);
-			if (RowsNumber < 3) {
-				RowsNumber = 3;
-			}
-			BeginWindowSizeY = (RowsNumber * int(ImGui::GetTextLineHeight()) * 2) + ImGui::GetTextLineHeightWithSpacing();
-			kuangshu = BeginWindowSizeX - (ImGui::GetTextLineHeightWithSpacing() * 3 + 16);
-
-			if (kuangshu < ImGui::GetTextLineHeightWithSpacing()) {
-				RowsNumber = ImGui::GetTextLineHeightWithSpacing();
-				BeginWindowSizeX = ImGui::GetTextLineHeightWithSpacing() * 4 + 16;
-			}
-			UpdateTheScreen = 2;//强制在刷新一次画面
-		}
-		
 
 		// 获取窗口句柄
 		HWND hwnd = FindWindow(NULL, "TranslateUI");
-		if (hwnd) {
-			SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-		}
-		hwnd = FindWindow(NULL, "ToFromUI");
 		if (hwnd) {
 			SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 		}
@@ -489,20 +918,21 @@ namespace GAME {
 			//鼠标左键松开事件
 			if (GetKeyState(VK_LBUTTON) >= 0) {
 
-				Variable::eng = mTesseract->IdentifyPictures(x, y, w, h, TData);
+				//先把界面切到翻译窗口：窗口**立刻**出现，识别/脚本/翻译都在它背后进行，结果回来再往界面上写
+				Variable::eng.clear();
+				Variable::zhong = Language::Recognizing;
+				//脚本模式（AngelScript 开着）也走后台识别：文本出来后再由 UpdateTranslateTask() 跑脚本，
+				//这样脚本里同步做的翻译不会再挡住「翻译内容显示界面」的出现
+				ScriptAfterOcr = AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->GetOpenBool() && Variable::ScriptBool;
 
-				
-				if (AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->GetOpenBool() && Variable::ScriptBool) {
-					//执行脚本
-					AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->RunFunction(
-						AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->ScreenshotFunction
-					);
-				}
-				else
+				//截图翻译：识别丢到后台线程，界面立刻显示「识别中…」，
+				//识别完由 UpdateTranslateTask() 接着发起翻译（普通源起 HTTP 线程，AI 源起模型线程）
+				if (!mTesseract->OcrBegin(x, y, w, h, TData))
 				{
-					Variable::zhong = mTranslate->TranslateAPI(Variable::eng);//翻译内容
+					Variable::zhong.clear();
+					TOOL::logger->warn("screenshot ocr: failed to start");
 				}
-
+				OcrTaskPending = mTesseract->OcrRunning();
 
 				//eng/zhong 各 1MB，长文识别+翻译结果直接 memcpy 会写爆数组，且结尾没有 '\0'
 				memset(eng, 0, sizeof(eng));
@@ -659,6 +1089,15 @@ namespace GAME {
 		static char SetYoudaoID[128];
 		static char SetYoudaoKey[128];
 
+		//本地 AI 模型（llama.cpp）：模型路径 + 推理参数
+		static char SetAiModelPath[260];
+		static int SetAiThreads;
+		static int SetAiNCtx;
+		static int SetAiMaxTokens;
+		static float SetAiTemperature;
+		static int SetAiIdleUnload;
+		static int SetTranslateSource;//设置界面里选的翻译源（0=百度 1=爬虫 2=有道 3=AI 模型）
+
 		static int SetMakeUp;
 		char* CharMakeUpS[2] = { "Alt","Ctrl" };
 		int MakeUpS[2] = { 18,17};
@@ -748,6 +1187,14 @@ namespace GAME {
 			TOOL::CopyToBuffer(SetYoudaoID, sizeof(SetYoudaoID), Variable::YoudaoAppid);
 			TOOL::CopyToBuffer(SetYoudaoKey, sizeof(SetYoudaoKey), Variable::YoudaoSecret_key);
 
+			TOOL::CopyToBuffer(SetAiModelPath, sizeof(SetAiModelPath), Variable::AiModelPath);
+			SetAiThreads = Variable::AiThreads;
+			SetAiNCtx = Variable::AiNCtx;
+			SetAiMaxTokens = Variable::AiMaxTokens;
+			SetAiTemperature = Variable::AiTemperature;
+			SetAiIdleUnload = Variable::AiIdleUnload;
+			SetTranslateSource = mTranslate->mTranslate;//打开设置界面时按当前实际生效的翻译源初始化
+
 			if (Variable::MakeUp == 17) { SetMakeUp = 1; }
 			TOOL::CopyToBuffer(SetScreenshotkey, sizeof(SetScreenshotkey), Variable::Screenshotkey);
 			TOOL::CopyToBuffer(SetChoicekey, sizeof(SetChoicekey), Variable::Choicekey);
@@ -830,445 +1277,26 @@ namespace GAME {
 			
 		}
 
-		
-		ImGui::Begin("SetUI", &SetBool, ImGuiWindowFlags_NoTitleBar);
+		//当前页（左侧导航选中项）
+		static int SetPage = 0;
+		//「已保存」提示的显示时刻
+		static clock_t SavedTime = 0;
+		//工程的版本号没有对应变量，先写死一个
+		const char* VersionText = "v2.0.0";
+		//左侧导航：8 个分类
+		const char* NavItems[8] = {
+			Language::NavTranslate.c_str(), Language::NavAI.c_str(), Language::NavHotkey.c_str(), Language::NavGeneral.c_str(),
+			Language::NavInterface.c_str(), Language::NavHitokoto.c_str(), Language::NavBackup.c_str(), Language::NavAbout.c_str()
+		};
+		//每页第一行的小标题：AI/快捷键沿用原来的段标题，其余用导航名
+		const char* PageTitles[8] = {
+			Language::NavTranslate.c_str(), Language::AIModel.c_str(), Language::ShortcutKeys.c_str(), Language::NavGeneral.c_str(),
+			Language::NavInterface.c_str(), Language::NavHitokoto.c_str(), Language::NavBackup.c_str(), Language::NavAbout.c_str()
+		};
 
-		if (ImGui::Button(Language::jianguoyunWebDav.c_str())) {
-			ShellExecute(NULL, "open", "https://www.jianguoyun.com/", NULL, NULL, SW_SHOWMAXIMIZED);
-		}
-		InputInfo.LText = SetWebDav_url;
-		ImGui::InputText(Language::ServerAddress.c_str(), SetWebDav_url, IM_ARRAYSIZE(SetWebDav_url), flags, &InputKeyEvent, &InputInfo);
-		InputInfo.LText = SetWebDav_username;
-		ImGui::InputText(Language::Account.c_str(), SetWebDav_username, IM_ARRAYSIZE(SetWebDav_username), flags, &InputKeyEvent, &InputInfo);
-		InputInfo.LText = SetWebDav_password;
-		ImGui::InputText(Language::SecretKey.c_str(), SetWebDav_password, IM_ARRAYSIZE(SetWebDav_password), flags, &InputKeyEvent, &InputInfo);
-		InputInfo.LText = SetWebDav_WebFile;
-		ImGui::InputText(Language::ApplyName.c_str(), SetWebDav_WebFile, IM_ARRAYSIZE(SetWebDav_WebFile), flags, &InputKeyEvent, &InputInfo);
-
-		ImGui::Checkbox("Opcode/", &LDirectory_Opcode);
-		ImGui::SameLine();
-		ImGui::Checkbox("Language/", &LDirectory_Language);
-		ImGui::SameLine();
-		ImGui::Checkbox("TessData/", &LDirectory_TessData);
-		ImGui::SameLine();
-		ImGui::Checkbox("TTF/", &LDirectory_TTF);
-		ImGui::SameLine();
-		ImGui::Text(Language::BackupsFolder.c_str());
-
-		if (ImGui::Button(Language::Backups.c_str())) {
-			
-			// 获取当前时间的时间戳
-			std::time_t now = std::time(nullptr);
-
-			// 使用本地时间进行格式化
-			std::tm* localTime = std::localtime(&now);
-
-			// 获取年份、月份和时间
-			int year = localTime->tm_year + 1900;  // 年份需要加上 1900
-			int month = localTime->tm_mon + 1;     // 月份从 0 开始，需要加上 1
-			int day = localTime->tm_mday;           // 当月的第几天
-			int hour = localTime->tm_hour;          // 小时
-			int minute = localTime->tm_min;         // 分钟
-			int second = localTime->tm_sec;         // 秒钟
-
-			char computerName[MAX_COMPUTERNAME_LENGTH + 1];
-			DWORD size = sizeof(computerName);
-
-			GetComputerNameA(computerName, &size);
-
-			std::string BackupsName = std::string(computerName) + "_" + toString(year) + "_" + toString(month) + "_" + toString(day)
-				/* + "_" + toString(hour) + "." + toString(minute) + "." + toString(second) */ ;
-			
-			std::cout << BackupsName << std::endl;
-
-			if (!WebDav_Directory(SetWebDav_WebFile, BackupsName)) {
-				WebDav_CreateFolder(BackupsName);
-			}
-
-			WebDav_Upload("./Data.ini", BackupsName);
-
-			char path_exe[MAX_PATH];
-			GetModuleFileName(NULL, path_exe, MAX_PATH);
-			std::string Exename = path_exe;
-			for (int i = Exename.size() - 1; i >= 0; i--)
-			{
-				if (Exename[i] == '\\') {
-					Exename = Exename.substr(0, i + 1);
-					break;
-				}
-			}
-			if (LDirectory_Opcode)WebDav_UploadDirectory(Exename + "Opcode\\", BackupsName, "Opcode");
-			if (LDirectory_Language)WebDav_UploadDirectory(Exename + "Language\\", BackupsName, "Language");
-			if (LDirectory_TessData)WebDav_UploadDirectory(Exename + "TessData\\", BackupsName, "TessData");
-			if (LDirectory_TTF)WebDav_UploadDirectory(Exename + "TTF\\", BackupsName, "TTF");
-		}
-		ImGui::SameLine(ImGui::GetWindowWidth() * 0.5f);
-		if (ImGui::Button(RecoveryWindow ? Language::Return.c_str() : Language::Recovery.c_str())) {
-			if (RecoveryWindow) {
-				RecoveryWindow = false;
-			}
-			else {
-				RecoveryWindow = true;
-				RecoveryList = WebDav_List(Variable::WebDav_WebFile + "/");
-				RecoveryIndex = 0;
-				RecoveryChoice = 0;
-
-				Variable::WebDav_url = SetWebDav_url;
-				Variable::WebDav_username = SetWebDav_username;
-				Variable::WebDav_password = SetWebDav_password;
-				Variable::WebDav_WebFile = SetWebDav_WebFile;
-			}
-		}
-
-		if (RecoveryWindow && (RecoveryList.size() != 0))
+		//保存动作：底部的「保存」按钮和 Ctrl+S 都走这一段（原来就是一整块，搬进 lambda 里不改逻辑）
+		auto DoSave = [&]()
 		{
-			if (ImGui::BeginCombo(Language::RecoveryList.c_str(), RecoveryList[RecoveryIndex].c_str(), flags))
-			{
-				for (int n = 0; n < RecoveryList.size(); n++)
-				{
-					const bool is_selected = (RecoveryIndex == n);
-					if (ImGui::Selectable(RecoveryList[n].c_str(), is_selected))
-						RecoveryIndex = n;
-					if (is_selected)
-						ImGui::SetItemDefaultFocus();
-				}
-				ImGui::EndCombo();
-			}
-
-			if (RecoveryChoice == 0) {
-				ImGui::SameLine();
-				if (ImGui::Button(Language::Restoration.c_str())) {
-					RecoveryChoice = 1;
-				}
-				ImGui::SameLine();
-				if (ImGui::Button(Language::Delete.c_str())) {
-					RecoveryChoice = 2;
-				}
-			}
-			else if(RecoveryChoice == 1){
-				ImGui::SameLine();
-				if (ImGui::Button(Language::Cancel.c_str())) {
-					RecoveryChoice = 0;
-				}
-				ImGui::SameLine();
-				if (ImGui::Button(Language::Confirm.c_str())) {
-					RecoveryChoice = 0;
-					RecoveryWindow = false;
-					WebDav_DownloadDirectory(RecoveryList[RecoveryIndex]);
-
-					SetBool = true;
-					Variable::ReadFile(iniData);
-				}
-			}
-			else {
-				ImGui::SameLine();
-				if (ImGui::Button(Language::Confirm.c_str())) {
-					RecoveryChoice = 0;
-					WebDav_Delete(RecoveryList[RecoveryIndex].c_str());
-					RecoveryList[RecoveryIndex] = RecoveryList.back();
-					RecoveryList.pop_back();
-					RecoveryIndex = 0;
-					if (RecoveryList.size() == 0) {
-						RecoveryWindow = false;
-					}
-				}
-				ImGui::SameLine();
-				if (ImGui::Button(Language::Cancel.c_str())) {
-					RecoveryChoice = 0;
-				}
-			}
-			
-		}
-		
-
-		ImGui::Text(Language::AccountKey.c_str());
-		InputInfo.LText = SetBaiduID;
-		ImGui::InputText(Language::BaiduID.c_str(), SetBaiduID, IM_ARRAYSIZE(SetBaiduID), flags, &InputKeyEvent, &InputInfo);
-		InputInfo.LText = SetBaiduKey;
-		ImGui::InputText(Language::BaiduKey.c_str(), SetBaiduKey, IM_ARRAYSIZE(SetBaiduKey), flags, &InputKeyEvent, &InputInfo);
-		InputInfo.LText = SetYoudaoID;
-		ImGui::InputText(Language::YoudaoID.c_str(), SetYoudaoID, IM_ARRAYSIZE(SetYoudaoID), flags, &InputKeyEvent, &InputInfo);
-		InputInfo.LText = SetYoudaoKey;
-		ImGui::InputText(Language::YoudaoKey.c_str(), SetYoudaoKey, IM_ARRAYSIZE(SetYoudaoKey), flags, &InputKeyEvent, &InputInfo);
-		ImGui::Text(Language::ShortcutKeys.c_str());
-		if (ImGui::BeginCombo(Language::KeyCombination.c_str(), CharMakeUpS[SetMakeUp], flags))
-		{
-			for (int n = 0; n < 2; n++)
-			{
-				const bool is_selected = (SetMakeUp == n);
-				if (ImGui::Selectable(CharMakeUpS[n], is_selected))
-					SetMakeUp = n;
-				if (is_selected)
-					ImGui::SetItemDefaultFocus();
-			}
-			ImGui::EndCombo();
-		}
-		ImGui::InputText(Language::ScreenshotTranslation.c_str(), SetScreenshotkey, IM_ARRAYSIZE(SetScreenshotkey));
-		ImGui::InputText(Language::SelectTranslation.c_str(), SetChoicekey, IM_ARRAYSIZE(SetChoicekey));
-		ImGui::InputText(Language::ReplaceTranslation.c_str(), SetReplacekey, IM_ARRAYSIZE(SetReplacekey));
-		ImGui::Text(Language::Set.c_str());
-		ImGui::Checkbox(Language::Startup.c_str(), &Variable::Startup);
-		ImGui::InputInt(Language::ResidenceTime.c_str(), &Variable::DisplayTime);
-		ImGui::InputFloat(Language::FontSize.c_str(), &Variable::FontSize, 0.1f, 1.0f);
-		InputText();
-
-		if (ModelS.size() != 0) {
-			if (ImGui::BeginCombo(Language::TesseractModel.c_str(), ModelS[ModelIndex].c_str(), flags))
-			{
-				for (int n = 0; n < ModelS.size(); n++)
-				{
-					const bool is_selected = (ModelIndex == n);
-					if (ImGui::Selectable(ModelS[n].c_str(), is_selected))
-						ModelIndex = n;
-					if (is_selected)
-						ImGui::SetItemDefaultFocus();
-				}
-				ImGui::EndCombo();
-			}
-		}
-		else {
-			ImGui::Text(Language::NotTesseractModelText.c_str());
-		}
-		ImGui::Checkbox(Language::UseTTF_Typeface.c_str(), &Variable::FontBool);
-		ImGui::SameLine();
-		if (ImGui::Button(Language::TTF_Folder.c_str())) {
-			TCHAR buffer[MAX_PATH] = { 0 };
-			GetCurrentDirectory(MAX_PATH, buffer);//获取启动器路径
-			//拼接为绝对路径
-			ShellExecute(NULL, "open", (std::string(buffer) + "\\TTF").c_str(), NULL, NULL, SW_SHOWDEFAULT);//打开文件夹
-		}
-		ImGui::SameLine();
-		if (ImGui::Button(Language::TessDataFolder.c_str())) {
-			TCHAR buffer[MAX_PATH] = { 0 };
-			GetCurrentDirectory(MAX_PATH, buffer);//获取启动器路径
-			//拼接为绝对路径
-			ShellExecute(NULL, "open", (std::string(buffer) + "\\TessData").c_str(), NULL, NULL, SW_SHOWDEFAULT);//打开文件夹
-		}
-		if (Variable::FontBool) {
-			if (FontS.size() != 0) {
-				if (ImGui::BeginCombo(Language::TTF_Typeface.c_str(), FontS[FontIndex].c_str(), flags))
-				{
-					for (int n = 0; n < FontS.size(); n++)
-					{
-						const bool is_selected = (FontIndex == n);
-						if (ImGui::Selectable(FontS[n].c_str(), is_selected))
-							FontIndex = n;
-						if (is_selected)
-							ImGui::SetItemDefaultFocus();
-					}
-					ImGui::EndCombo();
-				}
-			}
-			else {
-				ImGui::Text(Language::NotTTF_TypefaceText.c_str());
-			}
-		}
-
-		if (ImGui::BeginCombo(Language::ReplaceLanguage.c_str(), Variable::BaiduitemsName[Variable::ReplaceLanguage].c_str(), flags))
-		{
-			for (int n = 0; n < Variable::BaiduitemsName.size()-1; n++)
-			{
-				const bool is_selected = (Variable::ReplaceLanguage == n);
-				if (ImGui::Selectable(Variable::BaiduitemsName[n].c_str(), is_selected))
-					Variable::ReplaceLanguage = n;
-				if (is_selected)
-					ImGui::SetItemDefaultFocus();
-			}
-			ImGui::EndCombo();
-		}
-
-
-		if (ImGui::BeginCombo(Language::Language.c_str(), LanguageS[LanguageIndex].c_str(), flags))
-		{
-			for (int n = 0; n < LanguageS.size(); n++)
-			{
-				const bool is_selected = (LanguageIndex == n);
-				if (ImGui::Selectable(LanguageS[n].c_str(), is_selected))
-					LanguageIndex = n;
-				if (is_selected)
-					ImGui::SetItemDefaultFocus();
-			}
-			ImGui::EndCombo();
-		}
-
-		//渲染设备选择。下拉框的内容每帧重建：前三项固定，后面每项对应一台识别到的设备。
-		{
-			static std::vector<std::string> RenderDeviceLabels;
-			static std::vector<const char*> RenderDeviceItems;
-			RenderDeviceLabels.clear();
-			RenderDeviceItems.clear();
-			RenderDeviceLabels.push_back(Language::RenderDeviceAutoBest);
-			RenderDeviceLabels.push_back(Language::RenderDeviceAutoWorst);
-			RenderDeviceLabels.push_back(Language::RenderDeviceCPU);
-			for (size_t i = 0; i < Variable::VulkanDetectedDevices.size(); i++)
-			{
-				const Variable::VulkanDeviceInfo& Device = Variable::VulkanDetectedDevices[i];
-				std::string TypeText;
-				switch (Device.deviceType)
-				{
-				case 1: TypeText = Language::RenderDeviceTypeIGPU; break;
-				case 2: TypeText = Language::RenderDeviceTypeDGPU; break;
-				case 3: TypeText = Language::RenderDeviceTypeVirtual; break;
-				case 4: TypeText = Language::RenderDeviceTypeCPU; break;
-				default: TypeText = Language::RenderDeviceTypeOther; break;
-				}
-				if (Device.usable)
-				{
-					RenderDeviceLabels.push_back(FillDeviceText(Language::RenderDeviceItem, { Device.name, TypeText }));
-				}
-				else
-				{
-					RenderDeviceLabels.push_back(FillDeviceText(Language::RenderDeviceItemBad, { Device.name, TypeText, Language::RenderDeviceUnusable }));
-				}
-			}
-			for (size_t i = 0; i < RenderDeviceLabels.size(); i++)
-			{
-				RenderDeviceItems.push_back(RenderDeviceLabels[i].c_str());
-			}
-			if (SetVulkanDeviceMode < 0 || SetVulkanDeviceMode >= (int)RenderDeviceItems.size())
-			{
-				SetVulkanDeviceMode = 0;//列表变了（比如换了显卡）就退回第一项，避免越界
-			}
-			if (ImGui::BeginCombo(Language::RenderDevice.c_str(), RenderDeviceItems[SetVulkanDeviceMode], flags))
-			{
-				for (int n = 0; n < (int)RenderDeviceItems.size(); n++)
-				{
-					const bool is_selected = (SetVulkanDeviceMode == n);
-					if (ImGui::Selectable(RenderDeviceItems[n], is_selected))
-					{
-						SetVulkanDeviceMode = n;
-						if (n >= 3 && (size_t)(n - 3) < Variable::VulkanDetectedDevices.size())
-						{
-							//第 3 项往后都是具体设备，记下名字，重启后按名字找
-							PendingVulkanDeviceMode = Variable::VulkanDeviceModeEnum::Specific;
-							PendingVulkanDeviceName = Variable::VulkanDetectedDevices[n - 3].name;
-						}
-						else
-						{
-							const int Mode = (n < 0) ? 0 : ((n > 2) ? 2 : n);
-							PendingVulkanDeviceMode = (Variable::VulkanDeviceModeEnum)Mode;
-						}
-					}
-					if (is_selected)
-						ImGui::SetItemDefaultFocus();
-				}
-				ImGui::EndCombo();
-			}
-			VulkanDeviceModeChanged = (PendingVulkanDeviceMode != Variable::VulkanDeviceMode)
-				|| (PendingVulkanDeviceMode == Variable::VulkanDeviceModeEnum::Specific && PendingVulkanDeviceName != Variable::VulkanDeviceName);
-			if (VulkanDeviceModeChanged)
-			{
-				ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "%s", Language::RenderDeviceRestart.c_str());
-			}
-			else if (Variable::IsSpecificDeviceMode())
-			{
-				//设置里指定了设备，但这轮探测没看到它，Vulkan 层会自动改用最高性能的那台
-				bool DeviceFound = false;
-				for (size_t i = 0; i < Variable::VulkanDetectedDevices.size(); i++)
-				{
-					if (Variable::VulkanDetectedDevices[i].name == Variable::VulkanDeviceName)
-					{
-						DeviceFound = true;
-						break;
-					}
-				}
-				if (!DeviceFound)
-				{
-					ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "%s", FillDeviceText(Language::RenderDeviceMissing, { Variable::VulkanDeviceName }).c_str());
-				}
-			}
-			//这次实际跑在哪台设备上
-			if (Variable::RunningOnSoftwareRenderer)
-			{
-				ImGui::Text("%s", FillDeviceText(Language::RenderDeviceCurrentCPU, { Variable::RunningDeviceName }).c_str());
-			}
-			else if (Variable::IsSpecificDeviceMode())
-			{
-				ImGui::Text("%s", FillDeviceText(Language::RenderDeviceCurrentSpecific, { Variable::RunningDeviceName }).c_str());
-			}
-			else
-			{
-				ImGui::Text("%s", FillDeviceText(Language::RenderDeviceCurrentGPU, { Variable::RunningDeviceName }).c_str());
-			}
-			if (Variable::RunningOnSoftwareRenderer && !Variable::CpuSoftwareRenderReason.empty())
-			{
-				ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "%s", FillDeviceText(Language::RenderDeviceDegrade, { Variable::CpuSoftwareRenderReason }).c_str());
-			}
-			ImGui::SameLine();
-			ImGui::TextDisabled("(?)");
-			if (ImGui::IsItemHovered())
-			{
-				ImGui::BeginTooltip();
-				ImGui::TextUnformatted(Language::RenderDeviceHelp1.c_str());
-				ImGui::TextUnformatted(Language::RenderDeviceHelp2.c_str());
-				ImGui::TextUnformatted(Language::RenderDeviceHelp3.c_str());
-				ImGui::TextUnformatted(Language::RenderDeviceHelp4.c_str());
-				ImGui::TextUnformatted(Language::RenderDeviceHelp5.c_str());
-				ImGui::TextUnformatted(Language::RenderDeviceHelp6.c_str());
-				ImGui::TextUnformatted(Language::RenderDeviceHelp7.c_str());
-				ImGui::EndTooltip();
-			}
-		}
-
-		ImGui::ColorEdit4(Language::ScreenshotColor.c_str(), (float*)&ScreenshotColor, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_Float);
-
-		
-		ImGui::Checkbox((Language::Script + " ").c_str(), &LScriptBool);//同名会出现冲突
-		if (LScriptBool) {
-			if (ScriptS.size() != 0) {
-				if (ImGui::BeginCombo(Language::Script.c_str(), ScriptS[ScriptIndex].c_str(), flags))
-				{
-					for (int n = 0; n < ScriptS.size(); n++)
-					{
-						const bool is_selected = (ScriptIndex == n);
-						if (ImGui::Selectable(ScriptS[n].c_str(), is_selected))
-							ScriptIndex = n;
-						if (is_selected)
-							ImGui::SetItemDefaultFocus();
-					}
-					ImGui::EndCombo();
-				}
-			}
-			else {
-				ImGui::Text(Language::NotScript.c_str());
-			}
-		}
-
-		ImGui::Checkbox(Language::PopUpNotification.c_str(), &SetPopUpNotificationBool);
-		if (SetPopUpNotificationBool) {
-			ImGui::SameLine();
-			ImGui::Checkbox(Language::IndependentTypeface.c_str(), &SetHitokotoFontBool);
-			if (SetHitokotoFontBool) {
-				ImGui::SameLine();
-				ImGui::Checkbox(Language::InternalFontPattern.c_str(), &SetHitokotoTTFBool);
-				if (!SetHitokotoTTFBool) {
-					if (FontS.size() != 0) {
-						if (ImGui::BeginCombo(Language::TTF_Typeface.c_str(), FontS[SetHitokotoFontIndex].c_str(), flags))
-						{
-							for (int n = 0; n < FontS.size(); n++)
-							{
-								const bool is_selected = (SetHitokotoFontIndex == n);
-								if (ImGui::Selectable(FontS[n].c_str(), is_selected))
-									SetHitokotoFontIndex = n;
-								if (is_selected)
-									ImGui::SetItemDefaultFocus();
-							}
-							ImGui::EndCombo();
-						}
-					}
-					else {
-						ImGui::Text(Language::NotTTF_TypefaceText.c_str());
-					}
-				}
-			}
-			ImGui::SliderFloat(Language::PositionX.c_str(), &SetHitokotoPosX, 0.0f, 1.0f);
-			ImGui::SliderFloat(Language::PositionY.c_str(), &SetHitokotoPosY, 0.0f, 1.0f);
-			ImGui::InputInt(Language::HitokotoTimeInterval.c_str(), &SetHitokotoTimeInterval);
-			ImGui::InputInt(Language::HitokotoDisplayDuration.c_str(), &SetHitokotoDisplayDuration);
-			ImGui::InputFloat(Language::HitokotoFontSize.c_str(), &SetHitokotoFontSize);
-		}
-		
-		if (ImGui::Button(Language::Save.c_str())) {
 			bool updata = false;//判断是否要重启软件
 			Variable::PopUpNotificationBool = SetPopUpNotificationBool;
 			Variable::HitokotoTimeInterval = SetHitokotoTimeInterval;
@@ -1324,6 +1352,22 @@ namespace GAME {
 			Variable::BaiduSecret_key = SetBaiduKey;
 			Variable::YoudaoAppid = SetYoudaoID;
 			Variable::YoudaoSecret_key = SetYoudaoKey;
+			//翻译源：保存后立刻生效，并写回 Data.ini 的 [FT] Translate
+			Variable::Translate = SetTranslateSource;
+			mTranslate->SetTranslate(SetTranslateSource);
+
+			//AI 模型：路径或推理参数改了就把已加载的模型卸掉，下次翻译按新设置重新加载
+			const bool AiSettingChanged = (Variable::AiModelPath != SetAiModelPath) || (Variable::AiThreads != SetAiThreads) ||
+				(Variable::AiNCtx != SetAiNCtx) || (Variable::AiMaxTokens != SetAiMaxTokens) ||
+				(Variable::AiTemperature != SetAiTemperature);
+			Variable::AiModelPath = SetAiModelPath;
+			Variable::AiThreads = SetAiThreads;
+			Variable::AiNCtx = SetAiNCtx;
+			Variable::AiMaxTokens = SetAiMaxTokens;
+			Variable::AiTemperature = SetAiTemperature;
+			//闲置卸载时间只是给主循环判断用的，不算「推理参数变了」，不必重载模型
+			Variable::AiIdleUnload = SetAiIdleUnload;
+			if (AiSettingChanged) { mTranslate->AiUnloadModel(); }
 			
 			//转为大写
 			Variable::MakeUp = MakeUpS[SetMakeUp];
@@ -1406,6 +1450,744 @@ namespace GAME {
 			EndDisplayBool = true;
 			InterFaceBool = false;
 			SetBool = true;
+			SavedTime = clock();
+		};
+
+		ImGui::SetNextWindowSize(ImVec2(760.0f, 640.0f), ImGuiCond_FirstUseEver);//第一次显示时的默认大小
+		ImGui::SetNextWindowSizeConstraints(ImVec2(560.0f, 380.0f), ImVec2(FLT_MAX, FLT_MAX));
+		ImGui::Begin("SetUI", &SetBool, ImGuiWindowFlags_NoTitleBar);//创建窗口
+
+		//主题色（标题条竖线 / 导航选中项 / 「已保存」提示）
+		const ImVec4 AccentColor(0.282f, 0.780f, 0.486f, 1.0f);
+		const ImU32 AccentU32 = ImGui::GetColorU32(AccentColor);
+
+		//标题条：一条绿色竖条 + 标题 + 右侧灰色版本号
+		{
+			ImDrawList* DrawList = ImGui::GetWindowDrawList();
+			const ImVec2 Pos = ImGui::GetCursorScreenPos();
+			const float Width = ImGui::GetContentRegionAvail().x;
+			const float Height = ImGui::GetTextLineHeight() + 8.0f;
+			DrawList->AddRectFilled(ImVec2(Pos.x, Pos.y + 5.0f), ImVec2(Pos.x + 3.0f, Pos.y + Height - 3.0f), AccentU32, 2.0f);
+			DrawList->AddText(ImVec2(Pos.x + 11.0f, Pos.y + 4.0f), ImGui::GetColorU32(ImGuiCol_Text), Language::Set.c_str());
+			const float VersionWidth = ImGui::CalcTextSize(VersionText).x;
+			DrawList->AddText(ImVec2(Pos.x + Width - VersionWidth, Pos.y + 4.0f), ImGui::GetColorU32(ImGuiCol_TextDisabled), VersionText);
+			ImGui::Dummy(ImVec2(Width, Height));
+		}
+		ImGui::Separator();
+
+		//底部栏高度：一行按钮 + 一点边距；左右两块内容区都按它留出底部空间
+		const float FooterH = ImGui::GetFrameHeightWithSpacing() + 8.0f;
+		//两列表格：左列固定宽度的标签，右列控件
+		auto BeginSettingsTable = [](const char* Id) -> bool
+		{
+			if (!ImGui::BeginTable(Id, 2, ImGuiTableFlags_SizingStretchProp)) {
+				return false;
+			}
+			ImGui::TableSetupColumn("##label", ImGuiTableColumnFlags_WidthStretch, 0.38f);
+			ImGui::TableSetupColumn("##value", ImGuiTableColumnFlags_WidthStretch, 0.62f);
+			return true;
+		};
+		auto RowLabel = [](const char* Label)
+		{
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::AlignTextToFramePadding();
+			ImGui::TextWrapped(Label);
+			ImGui::TableNextColumn();
+		};
+
+		//左侧分类导航
+		ImGui::BeginChild("##nav", ImVec2(132.0f, -FooterH), true);
+		{
+			for (int i = 0; i < 8; i++)
+			{
+				ImGui::PushID(i);
+				const bool Selected = (SetPage == i);
+				if (Selected) {
+					//selected item: translucent accent background, bright text stays readable
+					ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(AccentColor.x, AccentColor.y, AccentColor.z, 0.22f));
+					ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(AccentColor.x, AccentColor.y, AccentColor.z, 0.50f));
+					ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(AccentColor.x, AccentColor.y, AccentColor.z, 0.65f));
+				}
+				const ImVec2 ItemPos = ImGui::GetCursorScreenPos();
+				if (ImGui::Selectable(NavItems[i], Selected, ImGuiSelectableFlags_SpanAvailWidth, ImVec2(0.0f, 26.0f))) {
+					SetPage = i;
+				}
+				if (Selected) {
+					ImGui::PopStyleColor(3);
+					//accent bar drawn inside the child window left padding
+					ImDrawList* DrawList = ImGui::GetWindowDrawList();
+					DrawList->AddRectFilled(ImVec2(ItemPos.x - 9.0f, ItemPos.y + 5.0f), ImVec2(ItemPos.x - 6.0f, ItemPos.y + 21.0f), AccentU32, 2.0f);
+				}
+				ImGui::PopID();
+			}
+		}
+		ImGui::EndChild();
+		ImGui::SameLine();
+
+		//右侧内容区
+		ImGui::BeginChild("##page", ImVec2(0.0f, -FooterH));
+		{
+			//页面小标题
+			ImGui::TextUnformatted(PageTitles[SetPage]);
+			ImGui::Separator();
+
+			switch (SetPage)
+			{
+			case 0://翻译服务：百度 / 有道的账号密钥
+			{
+				ImGui::TextUnformatted(Language::AccountKey.c_str());
+				//翻译源：决定按快捷键 / 点「翻译」时用哪个引擎（翻译窗口右上角的按钮和托盘菜单里的「翻译源」都是这个值）
+				if (BeginSettingsTable("##tbl_source"))
+				{
+					RowLabel(Language::Engine.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					if (ImGui::BeginCombo("##translate_source", mTranslate->TranslateName[SetTranslateSource]))
+					{
+						for (int i = 0; i <= Translate::AiTranslate; i++)
+						{
+							const bool SourceChosen = (SetTranslateSource == i);
+							if (ImGui::Selectable(mTranslate->TranslateName[i], SourceChosen)) {
+								SetTranslateSource = i;
+								//翻译源是模式开关：选中就立刻生效并写盘，不用等「保存」
+								Variable::Translate = i;
+								mTranslate->SetTranslate(i);
+								Variable::SaveFile();
+							}
+							if (SourceChosen) { ImGui::SetItemDefaultFocus(); }
+						}
+						ImGui::EndCombo();
+					}
+					ImGui::EndTable();
+				}
+				ImGui::TextWrapped(Language::EngineHint.c_str());
+				ImGui::Spacing();
+				if (BeginSettingsTable("##tbl_translate"))
+				{
+					RowLabel(Language::BaiduID.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					InputInfo.LText = SetBaiduID;
+					ImGui::InputText("##baidu_id", SetBaiduID, IM_ARRAYSIZE(SetBaiduID), flags, &InputKeyEvent, &InputInfo);
+					RowLabel(Language::BaiduKey.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					InputInfo.LText = SetBaiduKey;
+					ImGui::InputText("##baidu_key", SetBaiduKey, IM_ARRAYSIZE(SetBaiduKey), flags, &InputKeyEvent, &InputInfo);
+					RowLabel(Language::YoudaoID.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					InputInfo.LText = SetYoudaoID;
+					ImGui::InputText("##youdao_id", SetYoudaoID, IM_ARRAYSIZE(SetYoudaoID), flags, &InputKeyEvent, &InputInfo);
+					RowLabel(Language::YoudaoKey.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					InputInfo.LText = SetYoudaoKey;
+					ImGui::InputText("##youdao_key", SetYoudaoKey, IM_ARRAYSIZE(SetYoudaoKey), flags, &InputKeyEvent, &InputInfo);
+					ImGui::EndTable();
+				}
+				break;
+			}
+			case 1://AI 模型（本地 llama.cpp）
+			{
+				if (BeginSettingsTable("##tbl_ai"))
+				{
+					RowLabel(Language::AIModelPath.c_str());
+					ImGui::SetNextItemWidth(-96.0f);
+					InputInfo.LText = SetAiModelPath;
+					ImGui::InputText("##ai_path", SetAiModelPath, IM_ARRAYSIZE(SetAiModelPath), flags, &InputKeyEvent, &InputInfo);
+					ImGui::SameLine();
+					if (ImGui::Button(Language::AIModelDefault.c_str(), ImVec2(88.0f, 0.0f))) {
+						TOOL::CopyToBuffer(SetAiModelPath, sizeof(SetAiModelPath), Translate::DefaultAiModelPath());
+					}
+					RowLabel(Language::AIThreads.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					ImGui::InputInt("##ai_threads", &SetAiThreads);
+					if (SetAiThreads < 0) { SetAiThreads = 0; }
+					RowLabel(Language::AINCtx.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					ImGui::InputInt("##ai_nctx", &SetAiNCtx);
+					if (SetAiNCtx < 256) { SetAiNCtx = 256; }
+					RowLabel(Language::AIMaxTokens.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					ImGui::InputInt("##ai_maxtokens", &SetAiMaxTokens);
+					if (SetAiMaxTokens < 16) { SetAiMaxTokens = 16; }
+					RowLabel(Language::AITemperature.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					ImGui::InputFloat("##ai_temperature", &SetAiTemperature, 0.05f, 0.1f);
+					if (SetAiTemperature < 0.01f || SetAiTemperature > 2.0f) { SetAiTemperature = 0.7f; }
+					//模型闲置多久自动卸载（秒，0 = 一直留着）；只影响主循环的判断，改了不用重新加载模型
+					RowLabel(Language::AIIdleUnload.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					ImGui::InputInt("##ai_idleunload", &SetAiIdleUnload);
+					if (SetAiIdleUnload < 0) { SetAiIdleUnload = 0; }
+					if (SetAiIdleUnload > 86400) { SetAiIdleUnload = 86400; }
+					ImGui::EndTable();
+				}
+				ImGui::Text(Language::AIHint.c_str());
+				if (mTranslate != nullptr) {
+					//状态行：没加载 / 正在加载 / 正在翻译 / 已加载（模型常驻内存，只有退出或换参数才卸载）
+					if (mTranslate->AiStage() == Translate::AiStageLoading) {
+						ImGui::Text(Language::AIStatusLoading.c_str());
+					}
+					else if (mTranslate->AiStage() == Translate::AiStageGenerating) {
+						ImGui::Text(Language::AIStatusGenerating.c_str());
+					}
+					else if (mTranslate->AiModelLoaded()) {
+						std::string Status = AiTextWithString(Language::AIStatusLoaded, mTranslate->AiModelDesc());
+						//开了「闲置卸载」就把倒计时一起显示，方便确认它真的会到点卸载
+						const int IdleLeft = mTranslate->AiIdleRemaining();
+						if (IdleLeft >= 0) { Status += AiTextWithNumber(Language::AIIdleLeft, IdleLeft); }
+						ImGui::Text("%s", Status.c_str());
+					}
+					else {
+						ImGui::Text(Language::AIStatusNotLoaded.c_str());
+					}
+					if (ImGui::Button(Language::AILoad.c_str())) {
+						mTranslate->AiBeginLoad();//后台加载，界面不卡
+					}
+					ImGui::SameLine();
+					if (ImGui::Button(Language::AIUnload.c_str())) {
+						mTranslate->AiUnloadModel();//正在翻译时会忽略这次点击
+					}
+				}
+				break;
+			}
+			case 2://快捷键
+			{
+				if (BeginSettingsTable("##tbl_hotkey"))
+				{
+					RowLabel(Language::KeyCombination.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					if (ImGui::BeginCombo("##makeup", CharMakeUpS[SetMakeUp], flags))
+					{
+						for (int n = 0; n < 2; n++)
+						{
+							const bool is_selected = (SetMakeUp == n);
+							if (ImGui::Selectable(CharMakeUpS[n], is_selected))
+								SetMakeUp = n;
+							if (is_selected)
+								ImGui::SetItemDefaultFocus();
+						}
+						ImGui::EndCombo();
+					}
+					RowLabel(Language::ScreenshotTranslation.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					ImGui::InputText("##screenshot_key", SetScreenshotkey, IM_ARRAYSIZE(SetScreenshotkey));
+					RowLabel(Language::SelectTranslation.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					ImGui::InputText("##choice_key", SetChoicekey, IM_ARRAYSIZE(SetChoicekey));
+					RowLabel(Language::ReplaceTranslation.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					ImGui::InputText("##replace_key", SetReplacekey, IM_ARRAYSIZE(SetReplacekey));
+					ImGui::EndTable();
+				}
+				break;
+			}
+			case 3://常规
+			{
+				if (BeginSettingsTable("##tbl_general"))
+				{
+					RowLabel(Language::Startup.c_str());
+					ImGui::Checkbox("##startup", &Variable::Startup);
+					RowLabel(Language::ResidenceTime.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					ImGui::InputInt("##displaytime", &Variable::DisplayTime);
+					RowLabel(Language::FontSize.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					ImGui::InputFloat("##fontsize", &Variable::FontSize, 0.1f, 1.0f);
+					ImGui::EndTable();
+				}
+				break;
+			}
+			case 4://界面
+			{
+				if (BeginSettingsTable("##tbl_interface"))
+				{
+					RowLabel(Language::TesseractModel.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					if (ModelS.size() != 0) {
+						if (ImGui::BeginCombo("##tesseract_model", ModelS[ModelIndex].c_str(), flags))
+						{
+							for (int n = 0; n < ModelS.size(); n++)
+							{
+								const bool is_selected = (ModelIndex == n);
+								if (ImGui::Selectable(ModelS[n].c_str(), is_selected))
+									ModelIndex = n;
+								if (is_selected)
+									ImGui::SetItemDefaultFocus();
+							}
+							ImGui::EndCombo();
+						}
+					}
+					else {
+						ImGui::Text(Language::NotTesseractModelText.c_str());
+					}
+					RowLabel(Language::UseTTF_Typeface.c_str());
+					ImGui::Checkbox("##use_ttf", &Variable::FontBool);
+					ImGui::SameLine();
+					if (ImGui::Button(Language::TTF_Folder.c_str())) {
+						TCHAR buffer[MAX_PATH] = { 0 };
+						GetCurrentDirectory(MAX_PATH, buffer);//获取启动器路径
+						//拼接为绝对路径
+						ShellExecute(NULL, "open", (std::string(buffer) + "\\TTF").c_str(), NULL, NULL, SW_SHOWDEFAULT);//打开文件夹
+					}
+					ImGui::SameLine();
+					if (ImGui::Button(Language::TessDataFolder.c_str())) {
+						TCHAR buffer[MAX_PATH] = { 0 };
+						GetCurrentDirectory(MAX_PATH, buffer);//获取启动器路径
+						//拼接为绝对路径
+						ShellExecute(NULL, "open", (std::string(buffer) + "\\TessData").c_str(), NULL, NULL, SW_SHOWDEFAULT);//打开文件夹
+					}
+					RowLabel(Language::TTF_Typeface.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					if (Variable::FontBool) {
+						if (FontS.size() != 0) {
+							if (ImGui::BeginCombo("##ttf_typeface", FontS[FontIndex].c_str(), flags))
+							{
+								for (int n = 0; n < FontS.size(); n++)
+								{
+									const bool is_selected = (FontIndex == n);
+									if (ImGui::Selectable(FontS[n].c_str(), is_selected))
+										FontIndex = n;
+									if (is_selected)
+										ImGui::SetItemDefaultFocus();
+								}
+								ImGui::EndCombo();
+							}
+						}
+						else {
+							ImGui::Text(Language::NotTTF_TypefaceText.c_str());
+						}
+					}
+					else {
+						//没有内嵌字模了：不勾这一项时，用的是程序目录 ./TTF 里的默认字体，这里把它显示出来
+						ImGui::Text(Language::DefaultTypeface.c_str(), DefaultTypefacePath().c_str());
+					}
+					RowLabel(Language::ReplaceLanguage.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					if (ImGui::BeginCombo("##replace_language", Variable::BaiduitemsName[Variable::ReplaceLanguage].c_str(), flags))
+					{
+						for (int n = 0; n < Variable::BaiduitemsName.size()-1; n++)
+						{
+							const bool is_selected = (Variable::ReplaceLanguage == n);
+							if (ImGui::Selectable(Variable::BaiduitemsName[n].c_str(), is_selected))
+								Variable::ReplaceLanguage = n;
+							if (is_selected)
+								ImGui::SetItemDefaultFocus();
+						}
+						ImGui::EndCombo();
+					}
+					RowLabel(Language::Language.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					if (ImGui::BeginCombo("##interface_language", LanguageS[LanguageIndex].c_str(), flags))
+					{
+						for (int n = 0; n < LanguageS.size(); n++)
+						{
+							const bool is_selected = (LanguageIndex == n);
+							if (ImGui::Selectable(LanguageS[n].c_str(), is_selected))
+								LanguageIndex = n;
+							if (is_selected)
+								ImGui::SetItemDefaultFocus();
+						}
+						ImGui::EndCombo();
+					}
+					ImGui::EndTable();
+				}
+
+				//渲染设备选择。下拉框的内容每帧重建：前三项固定，后面每项对应一台识别到的设备。
+				if (BeginSettingsTable("##tbl_renderdevice"))
+				{
+					RowLabel(Language::RenderDevice.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					{
+						static std::vector<std::string> RenderDeviceLabels;
+						static std::vector<const char*> RenderDeviceItems;
+						RenderDeviceLabels.clear();
+						RenderDeviceItems.clear();
+						RenderDeviceLabels.push_back(Language::RenderDeviceAutoBest);
+						RenderDeviceLabels.push_back(Language::RenderDeviceAutoWorst);
+						RenderDeviceLabels.push_back(Language::RenderDeviceCPU);
+						for (size_t i = 0; i < Variable::VulkanDetectedDevices.size(); i++)
+						{
+							const Variable::VulkanDeviceInfo& Device = Variable::VulkanDetectedDevices[i];
+							std::string TypeText;
+							switch (Device.deviceType)
+							{
+							case 1: TypeText = Language::RenderDeviceTypeIGPU; break;
+							case 2: TypeText = Language::RenderDeviceTypeDGPU; break;
+							case 3: TypeText = Language::RenderDeviceTypeVirtual; break;
+							case 4: TypeText = Language::RenderDeviceTypeCPU; break;
+							default: TypeText = Language::RenderDeviceTypeOther; break;
+							}
+							if (Device.usable)
+							{
+								RenderDeviceLabels.push_back(FillDeviceText(Language::RenderDeviceItem, { Device.name, TypeText }));
+							}
+							else
+							{
+								RenderDeviceLabels.push_back(FillDeviceText(Language::RenderDeviceItemBad, { Device.name, TypeText, Language::RenderDeviceUnusable }));
+							}
+						}
+						for (size_t i = 0; i < RenderDeviceLabels.size(); i++)
+						{
+							RenderDeviceItems.push_back(RenderDeviceLabels[i].c_str());
+						}
+						if (SetVulkanDeviceMode < 0 || SetVulkanDeviceMode >= (int)RenderDeviceItems.size())
+						{
+							SetVulkanDeviceMode = 0;//列表变了（比如换了显卡）就退回第一项，避免越界
+						}
+						if (ImGui::BeginCombo("##render_device", RenderDeviceItems[SetVulkanDeviceMode], flags))
+						{
+							for (int n = 0; n < (int)RenderDeviceItems.size(); n++)
+							{
+								const bool is_selected = (SetVulkanDeviceMode == n);
+								if (ImGui::Selectable(RenderDeviceItems[n], is_selected))
+								{
+									SetVulkanDeviceMode = n;
+									if (n >= 3 && (size_t)(n - 3) < Variable::VulkanDetectedDevices.size())
+									{
+										//第 3 项往后都是具体设备，记下名字，重启后按名字找
+										PendingVulkanDeviceMode = Variable::VulkanDeviceModeEnum::Specific;
+										PendingVulkanDeviceName = Variable::VulkanDetectedDevices[n - 3].name;
+									}
+									else
+									{
+										const int Mode = (n < 0) ? 0 : ((n > 2) ? 2 : n);
+										PendingVulkanDeviceMode = (Variable::VulkanDeviceModeEnum)Mode;
+									}
+								}
+								if (is_selected)
+									ImGui::SetItemDefaultFocus();
+							}
+							ImGui::EndCombo();
+						}
+						VulkanDeviceModeChanged = (PendingVulkanDeviceMode != Variable::VulkanDeviceMode)
+							|| (PendingVulkanDeviceMode == Variable::VulkanDeviceModeEnum::Specific && PendingVulkanDeviceName != Variable::VulkanDeviceName);
+					}
+					ImGui::EndTable();
+				}
+				if (VulkanDeviceModeChanged)
+				{
+					ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "%s", Language::RenderDeviceRestart.c_str());
+				}
+				else if (Variable::IsSpecificDeviceMode())
+				{
+					//设置里指定了设备，但这轮探测没看到它，Vulkan 层会自动改用最高性能的那台
+					bool DeviceFound = false;
+					for (size_t i = 0; i < Variable::VulkanDetectedDevices.size(); i++)
+					{
+						if (Variable::VulkanDetectedDevices[i].name == Variable::VulkanDeviceName)
+						{
+							DeviceFound = true;
+							break;
+						}
+					}
+					if (!DeviceFound)
+					{
+						ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "%s", FillDeviceText(Language::RenderDeviceMissing, { Variable::VulkanDeviceName }).c_str());
+					}
+				}
+				//这次实际跑在哪台设备上
+				if (Variable::RunningOnSoftwareRenderer)
+				{
+					ImGui::Text("%s", FillDeviceText(Language::RenderDeviceCurrentCPU, { Variable::RunningDeviceName }).c_str());
+				}
+				else if (Variable::IsSpecificDeviceMode())
+				{
+					ImGui::Text("%s", FillDeviceText(Language::RenderDeviceCurrentSpecific, { Variable::RunningDeviceName }).c_str());
+				}
+				else
+				{
+					ImGui::Text("%s", FillDeviceText(Language::RenderDeviceCurrentGPU, { Variable::RunningDeviceName }).c_str());
+				}
+				if (Variable::RunningOnSoftwareRenderer && !Variable::CpuSoftwareRenderReason.empty())
+				{
+					ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "%s", FillDeviceText(Language::RenderDeviceDegrade, { Variable::CpuSoftwareRenderReason }).c_str());
+				}
+				ImGui::SameLine();
+				{
+					//7 条提示拼成一个多行 tooltip，交给已有的 HelpMarker
+					const std::string HelpText = Language::RenderDeviceHelp1 + "\n" + Language::RenderDeviceHelp2 + "\n"
+						+ Language::RenderDeviceHelp3 + "\n" + Language::RenderDeviceHelp4 + "\n"
+						+ Language::RenderDeviceHelp5 + "\n" + Language::RenderDeviceHelp6 + "\n" + Language::RenderDeviceHelp7;
+					HelpMarker(HelpText.c_str());
+				}
+
+				if (BeginSettingsTable("##tbl_interface2"))
+				{
+					RowLabel(Language::ScreenshotColor.c_str());
+					ImGui::ColorEdit4("##screenshot_color", (float*)&ScreenshotColor, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_Float);
+					RowLabel(Language::Script.c_str());
+					ImGui::Checkbox("##script", &LScriptBool);//同名会出现冲突
+					if (LScriptBool) {
+						if (ScriptS.size() != 0) {
+							ImGui::SameLine();
+							ImGui::SetNextItemWidth(-FLT_MIN);
+							if (ImGui::BeginCombo("##script_combo", ScriptS[ScriptIndex].c_str(), flags))
+							{
+								for (int n = 0; n < ScriptS.size(); n++)
+								{
+									const bool is_selected = (ScriptIndex == n);
+									if (ImGui::Selectable(ScriptS[n].c_str(), is_selected))
+										ScriptIndex = n;
+									if (is_selected)
+										ImGui::SetItemDefaultFocus();
+								}
+								ImGui::EndCombo();
+							}
+						}
+						else {
+							ImGui::Text(Language::NotScript.c_str());
+						}
+					}
+					ImGui::EndTable();
+				}
+				break;
+			}
+			case 5://一言
+			{
+				if (BeginSettingsTable("##tbl_hitokoto"))
+				{
+					RowLabel(Language::PopUpNotification.c_str());
+					ImGui::Checkbox("##popup_notification", &SetPopUpNotificationBool);
+					if (SetPopUpNotificationBool) {
+						RowLabel(Language::IndependentTypeface.c_str());
+						ImGui::Checkbox("##hitokoto_font", &SetHitokotoFontBool);
+						if (SetHitokotoFontBool) {
+							RowLabel(Language::InternalFontPattern.c_str());
+							ImGui::Checkbox("##hitokoto_ttf", &SetHitokotoTTFBool);
+							RowLabel(Language::TTF_Typeface.c_str());
+							ImGui::SetNextItemWidth(-FLT_MIN);
+							if (!SetHitokotoTTFBool) {
+								if (FontS.size() != 0) {
+									if (ImGui::BeginCombo("##hitokoto_typeface", FontS[SetHitokotoFontIndex].c_str(), flags))
+									{
+										for (int n = 0; n < FontS.size(); n++)
+										{
+											const bool is_selected = (SetHitokotoFontIndex == n);
+											if (ImGui::Selectable(FontS[n].c_str(), is_selected))
+												SetHitokotoFontIndex = n;
+											if (is_selected)
+												ImGui::SetItemDefaultFocus();
+										}
+										ImGui::EndCombo();
+									}
+								}
+								else {
+									ImGui::Text(Language::NotTTF_TypefaceText.c_str());
+								}
+							}
+							else {
+								//「默认字模」= 程序目录 ./TTF 里的字体
+								ImGui::Text(Language::DefaultTypeface.c_str(), DefaultTypefacePath().c_str());
+							}
+						}
+						RowLabel(Language::PositionX.c_str());
+						ImGui::SetNextItemWidth(-FLT_MIN);
+						ImGui::SliderFloat("##hitokoto_posx", &SetHitokotoPosX, 0.0f, 1.0f);
+						RowLabel(Language::PositionY.c_str());
+						ImGui::SetNextItemWidth(-FLT_MIN);
+						ImGui::SliderFloat("##hitokoto_posy", &SetHitokotoPosY, 0.0f, 1.0f);
+						RowLabel(Language::HitokotoTimeInterval.c_str());
+						ImGui::SetNextItemWidth(-FLT_MIN);
+						ImGui::InputInt("##hitokoto_interval", &SetHitokotoTimeInterval);
+						RowLabel(Language::HitokotoDisplayDuration.c_str());
+						ImGui::SetNextItemWidth(-FLT_MIN);
+						ImGui::InputInt("##hitokoto_duration", &SetHitokotoDisplayDuration);
+						RowLabel(Language::HitokotoFontSize.c_str());
+						ImGui::SetNextItemWidth(-FLT_MIN);
+						ImGui::InputFloat("##hitokoto_fontsize", &SetHitokotoFontSize);
+					}
+					ImGui::EndTable();
+				}
+				break;
+			}
+			case 6://备份（坚果云 WebDav）
+			{
+				if (ImGui::Button(Language::jianguoyunWebDav.c_str())) {
+					ShellExecute(NULL, "open", "https://www.jianguoyun.com/", NULL, NULL, SW_SHOWMAXIMIZED);
+				}
+				if (BeginSettingsTable("##tbl_backup"))
+				{
+					RowLabel(Language::ServerAddress.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					InputInfo.LText = SetWebDav_url;
+					ImGui::InputText("##webdav_url", SetWebDav_url, IM_ARRAYSIZE(SetWebDav_url), flags, &InputKeyEvent, &InputInfo);
+					RowLabel(Language::Account.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					InputInfo.LText = SetWebDav_username;
+					ImGui::InputText("##webdav_username", SetWebDav_username, IM_ARRAYSIZE(SetWebDav_username), flags, &InputKeyEvent, &InputInfo);
+					RowLabel(Language::SecretKey.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					InputInfo.LText = SetWebDav_password;
+					ImGui::InputText("##webdav_password", SetWebDav_password, IM_ARRAYSIZE(SetWebDav_password), flags, &InputKeyEvent, &InputInfo);
+					RowLabel(Language::ApplyName.c_str());
+					ImGui::SetNextItemWidth(-FLT_MIN);
+					InputInfo.LText = SetWebDav_WebFile;
+					ImGui::InputText("##webdav_webfile", SetWebDav_WebFile, IM_ARRAYSIZE(SetWebDav_WebFile), flags, &InputKeyEvent, &InputInfo);
+					ImGui::EndTable();
+				}
+
+				ImGui::Checkbox("Opcode/", &LDirectory_Opcode);
+				ImGui::SameLine();
+				ImGui::Checkbox("Language/", &LDirectory_Language);
+				ImGui::SameLine();
+				ImGui::Checkbox("TessData/", &LDirectory_TessData);
+				ImGui::SameLine();
+				ImGui::Checkbox("TTF/", &LDirectory_TTF);
+				ImGui::SameLine();
+				ImGui::Text(Language::BackupsFolder.c_str());
+
+				if (ImGui::Button(Language::Backups.c_str())) {
+					
+					// 获取当前时间的时间戳
+					std::time_t now = std::time(nullptr);
+
+					// 使用本地时间进行格式化
+					std::tm* localTime = std::localtime(&now);
+
+					// 获取年份、月份和时间
+					int year = localTime->tm_year + 1900;  // 年份需要加上 1900
+					int month = localTime->tm_mon + 1;     // 月份从 0 开始，需要加上 1
+					int day = localTime->tm_mday;           // 当月的第几天
+					int hour = localTime->tm_hour;          // 小时
+					int minute = localTime->tm_min;         // 分钟
+					int second = localTime->tm_sec;         // 秒钟
+
+					char computerName[MAX_COMPUTERNAME_LENGTH + 1];
+					DWORD size = sizeof(computerName);
+
+					GetComputerNameA(computerName, &size);
+
+					std::string BackupsName = std::string(computerName) + "_" + toString(year) + "_" + toString(month) + "_" + toString(day)
+						/* + "_" + toString(hour) + "." + toString(minute) + "." + toString(second) */ ;
+					
+					std::cout << BackupsName << std::endl;
+
+					if (!WebDav_Directory(SetWebDav_WebFile, BackupsName)) {
+						WebDav_CreateFolder(BackupsName);
+					}
+
+					WebDav_Upload("./Data.ini", BackupsName);
+
+					char path_exe[MAX_PATH];
+					GetModuleFileName(NULL, path_exe, MAX_PATH);
+					std::string Exename = path_exe;
+					for (int i = Exename.size() - 1; i >= 0; i--)
+					{
+						if (Exename[i] == '\\') {
+							Exename = Exename.substr(0, i + 1);
+							break;
+						}
+					}
+					if (LDirectory_Opcode)WebDav_UploadDirectory(Exename + "Opcode\\", BackupsName, "Opcode");
+					if (LDirectory_Language)WebDav_UploadDirectory(Exename + "Language\\", BackupsName, "Language");
+					if (LDirectory_TessData)WebDav_UploadDirectory(Exename + "TessData\\", BackupsName, "TessData");
+					if (LDirectory_TTF)WebDav_UploadDirectory(Exename + "TTF\\", BackupsName, "TTF");
+				}
+				ImGui::SameLine(ImGui::GetWindowWidth() * 0.5f);
+				if (ImGui::Button(RecoveryWindow ? Language::Return.c_str() : Language::Recovery.c_str())) {
+					if (RecoveryWindow) {
+						RecoveryWindow = false;
+					}
+					else {
+						RecoveryWindow = true;
+						RecoveryList = WebDav_List(Variable::WebDav_WebFile + "/");
+						RecoveryIndex = 0;
+						RecoveryChoice = 0;
+
+						Variable::WebDav_url = SetWebDav_url;
+						Variable::WebDav_username = SetWebDav_username;
+						Variable::WebDav_password = SetWebDav_password;
+						Variable::WebDav_WebFile = SetWebDav_WebFile;
+					}
+				}
+
+				if (RecoveryWindow && (RecoveryList.size() != 0))
+				{
+					if (ImGui::BeginCombo(Language::RecoveryList.c_str(), RecoveryList[RecoveryIndex].c_str(), flags))
+					{
+						for (int n = 0; n < RecoveryList.size(); n++)
+						{
+							const bool is_selected = (RecoveryIndex == n);
+							if (ImGui::Selectable(RecoveryList[n].c_str(), is_selected))
+								RecoveryIndex = n;
+							if (is_selected)
+								ImGui::SetItemDefaultFocus();
+						}
+						ImGui::EndCombo();
+					}
+
+					if (RecoveryChoice == 0) {
+						ImGui::SameLine();
+						if (ImGui::Button(Language::Restoration.c_str())) {
+							RecoveryChoice = 1;
+						}
+						ImGui::SameLine();
+						if (ImGui::Button(Language::Delete.c_str())) {
+							RecoveryChoice = 2;
+						}
+					}
+					else if(RecoveryChoice == 1){
+						ImGui::SameLine();
+						if (ImGui::Button(Language::Cancel.c_str())) {
+							RecoveryChoice = 0;
+						}
+						ImGui::SameLine();
+						if (ImGui::Button(Language::Confirm.c_str())) {
+							RecoveryChoice = 0;
+							RecoveryWindow = false;
+							WebDav_DownloadDirectory(RecoveryList[RecoveryIndex]);
+
+							SetBool = true;
+							Variable::ReadFile(iniData);
+						}
+					}
+					else {
+						ImGui::SameLine();
+						if (ImGui::Button(Language::Confirm.c_str())) {
+							RecoveryChoice = 0;
+							WebDav_Delete(RecoveryList[RecoveryIndex].c_str());
+							RecoveryList[RecoveryIndex] = RecoveryList.back();
+							RecoveryList.pop_back();
+							RecoveryIndex = 0;
+							if (RecoveryList.size() == 0) {
+								RecoveryWindow = false;
+							}
+						}
+						ImGui::SameLine();
+						if (ImGui::Button(Language::Cancel.c_str())) {
+							RecoveryChoice = 0;
+						}
+					}
+					
+				}
+				break;
+			}
+			case 7://关于
+			{
+				ImGui::TextUnformatted(Language::AboutText.c_str());
+				ImGui::Separator();
+				ImGui::TextUnformatted(VersionText);
+				if (ImGui::Button(u8"GitHub")) {
+					ShellExecute(NULL, "open", "https://github.com/wuxingwushu/TranslatorKyi", NULL, NULL, SW_SHOWMAXIMIZED);//打开链接
+				}
+				ImGui::Spacing();
+				break;
+			}
+			default:
+			{
+				SetPage = 0;
+				break;
+			}
+			}
+
+			//所有输入框都画完了：延迟粘贴（Ctrl+V）统一在这里落到当前输入框里
+			InputText();
+		}
+		ImGui::EndChild();
+
+		//底部固定栏：保存 / GitHub / 关闭 + 「已保存」提示
+		ImGui::Separator();
+		if (ImGui::Button(Language::Save.c_str(), ImVec2(96.0f, 0.0f))) {
+			DoSave();
 		}
 		ImGui::SameLine();
 		if (ImGui::Button(u8"GitHub")) {
@@ -1417,59 +2199,115 @@ namespace GAME {
 			InterFaceBool = false;
 			SetBool = true;
 		}
-
+		ImGui::SameLine();
 		ImGui::Text(Hitokoto.c_str());
+		if ((SavedTime != 0) && ((clock() - SavedTime) < (2 * CLOCKS_PER_SEC))) {
+			//右对齐显示「已保存」
+			const float SavedWidth = ImGui::CalcTextSize(Language::Saved.c_str()).x;
+			ImGui::SameLine(ImGui::GetWindowWidth() - SavedWidth - ImGui::GetStyle().WindowPadding.x);
+			ImGui::TextColored(AccentColor, "%s", Language::Saved.c_str());
+		}
+		//Ctrl+S 也触发保存（焦点在窗口里，含子窗口）
+		ImGuiIO& io = ImGui::GetIO();
+		if (ImGui::IsWindowFocused(ImGuiHoveredFlags_ChildWindows) && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
+			DoSave();
+		}
 
-		BeginWindowPosX = ImGui::GetWindowPos().x;
-		BeginWindowPosY = ImGui::GetWindowPos().y;
-		BeginWindowSizeX = ImGui::GetWindowWidth();
-		BeginWindowSizeY = ImGui::GetWindowHeight();
+		BeginWindowPosX = (int)ImGui::GetWindowPos().x;
+		BeginWindowPosY = (int)ImGui::GetWindowPos().y;
+		BeginWindowSizeX = (int)ImGui::GetWindowWidth();
+		BeginWindowSizeY = (int)ImGui::GetWindowHeight();
 		ImGui::End();
 	}
 
 	void ImGuiInterFace::MenuInterface()
 	{
-		//设置生成位置在鼠标的右上角
 		if (MenuBool) {
-			static POINT pt = { 0,0 };
-			GetCursorPos(&pt);//获取鼠标位置
-			ImGui::SetNextWindowPos({ float(pt.x), float(pt.y) - (ImGui::GetTextLineHeightWithSpacing() * 3) - 24 });//设置窗口生成位置
 			MenuBool = false;
+			POINT pt = { 0,0 };
+			GetCursorPos(&pt);//获取鼠标位置
+			//托盘在屏幕右下角，菜单往鼠标左上方长，并保证不跑出屏幕
+			const float MenuWidth = 120.0f;
+			const float MenuHeight = ImGui::GetTextLineHeightWithSpacing() * 5.0f + 46.0f;
+			const ImGuiViewport* Viewport = ImGui::GetMainViewport();
+			float PosX = float(pt.x) - MenuWidth;
+			float PosY = float(pt.y) - MenuHeight;
+			if (PosX < Viewport->WorkPos.x) { PosX = Viewport->WorkPos.x; }
+			if (PosY < Viewport->WorkPos.y) { PosY = Viewport->WorkPos.y; }
+			ImGui::SetNextWindowPos(ImVec2(PosX, PosY));
+			ImGui::SetNextWindowSize(ImVec2(MenuWidth, 0.0f));//宽度固定，高度自适应
 		}
-		ImGui::Begin("MenuUI", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);//创建窗口
-		//设置按键
-		if (ImGui::Button(Language::Set.c_str())) {
+		ImGui::Begin("MenuUI", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);//创建窗口
+
+		ImGui::Separator();
+
+		//一行菜单项：整行可点、悬浮整行高亮、左边一条绿色竖条、右边灰色提示
+		auto MenuRow = [](const char* Label, const char* Hint, bool Accent) -> bool
+		{
+			ImGui::PushID(Label);
+			const float RowHeight = 26.0f;
+			const ImVec2 Pos = ImGui::GetCursorScreenPos();
+			const float Width = ImGui::GetContentRegionAvail().x;
+			const bool Clicked = ImGui::Selectable("##row", false, ImGuiSelectableFlags_None, ImVec2(Width, RowHeight));
+			const bool Hovered = ImGui::IsItemHovered();
+			ImDrawList* DrawList = ImGui::GetWindowDrawList();
+			if (Hovered) {
+				DrawList->AddRectFilled(Pos, ImVec2(Pos.x + Width, Pos.y + RowHeight), ImGui::GetColorU32(ImGuiCol_Header), 4.0f);
+			}
+			const float TextY = Pos.y + (RowHeight - ImGui::GetTextLineHeight()) * 0.5f;
+			DrawList->AddRectFilled(ImVec2(Pos.x, Pos.y + 5.0f), ImVec2(Pos.x + 3.0f, Pos.y + RowHeight - 5.0f),
+				Accent ? IM_COL32(72, 199, 124, 255) : IM_COL32(72, 199, 124, 110), 2.0f);
+			DrawList->AddText(ImVec2(Pos.x + 12.0f, TextY), ImGui::GetColorU32(ImGuiCol_Text), Label);
+			if ((Hint != nullptr) && (Hint[0] != '\0')) {
+				const float HintWidth = ImGui::CalcTextSize(Hint).x;
+				DrawList->AddText(ImVec2(Pos.x + Width - HintWidth - 10.0f, TextY), ImGui::GetColorU32(ImGuiCol_TextDisabled), Hint);
+			}
+			ImGui::PopID();
+			return Clicked;
+		};
+
+		//设置
+		if (MenuRow(Language::Set.c_str(), "", true)) {
 			SetInterFace(SetUpEnum);
 		}
+		//翻译源：点一下换下一个（菜单不关，方便连点）
+		if (MenuRow(Language::Engine.c_str(), mTranslate->TranslateName[mTranslate->mTranslate], false)) {
+			mTranslate->mTranslate++;
+			if (mTranslate->mTranslate > Translate::AiTranslate) { mTranslate->mTranslate = 0; }
+			//翻译源是模式开关：点一下立刻写回 Data.ini
+			Variable::Translate = mTranslate->mTranslate;
+			Variable::SaveFile();
+		}
+		//弹窗通知开关（按钮文字是「接下来要做的操作」）
 		if (Variable::PopUpNotificationBool) {
-			if (ImGui::Button(Language::ShutUp.c_str())) {
+			if (MenuRow(Language::ShutUp.c_str(), "", false)) {
 				Variable::PopUpNotificationBool = false;
 				Variable::SaveFile();
 			}
 		}
 		else {
-			if (ImGui::Button(Language::Speak.c_str())) {
+			if (MenuRow(Language::Speak.c_str(), "", false)) {
 				Variable::PopUpNotificationBool = true;
 				Variable::SaveFile();
 			}
 		}
-		if (ImGui::Button(Language::Exit.c_str())) {
+		//退出
+		if (MenuRow(Language::Exit.c_str(), "", false)) {
 			exit(0);
 		}
-		BeginWindowPosX = ImGui::GetWindowPos().x;
-		BeginWindowPosY = ImGui::GetWindowPos().y;
-		BeginWindowSizeX = ImGui::GetWindowWidth();
-		BeginWindowSizeY = ImGui::GetWindowHeight();
+
+		BeginWindowPosX = (int)ImGui::GetWindowPos().x;
+		BeginWindowPosY = (int)ImGui::GetWindowPos().y;
+		BeginWindowSizeX = (int)ImGui::GetWindowWidth();
+		BeginWindowSizeY = (int)ImGui::GetWindowHeight();
 		ImGui::End();
 
-		
 		// 获取窗口句柄
 		HWND hwnd = FindWindow(NULL, "MenuUI");
 		if (hwnd) {
 			SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 		}
 	}
-
 
 	void ImGuiInterFace::HitokotoSentence() {
 		static std::string Hitokoto;

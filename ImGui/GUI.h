@@ -7,7 +7,6 @@
 #include "imstb_rectpack.h"
 #include "imstb_textedit.h"
 #include "imstb_truetype.h"
-#include "Font.h"
 
 static void HelpMarker(const char* desc)
 {

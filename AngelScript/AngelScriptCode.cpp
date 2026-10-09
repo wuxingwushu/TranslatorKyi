@@ -4,6 +4,7 @@
 #include "../Variable.h"
 #include <iostream>
 #include "FunctionalFunctions.h"
+#include "../Tool/Tool.h"
 
 
 
@@ -25,7 +26,12 @@ void SetOutput(std::string str) {
 
 Translate* AngelScriptTranslate = nullptr;
 
+//脚本里调用的翻译接口：脚本现在整个跑在后台线程里（AngelScriptCode::BeginRun），
+//所以这里直接同步翻译，主循环不会被它占住。
+//注意：不能用 context->Suspend() 去等后台结果 —— AngelScript 恢复执行时不会重新调用
+//被挂起的系统函数，脚本拿到的是挂起前那个返回值（空串），译文就会是空的。
 std::string TranslateAPI(std::string str) {
+    if (AngelScriptTranslate == nullptr) { return str; }
     return AngelScriptTranslate->TranslateAPI(str);
 }
 
@@ -131,29 +137,52 @@ namespace AngelScriptOpcode {
         delete builder;
 	}
 
-    void AngelScriptCode::RunFunction(asIScriptFunction* Function) {
-        int r;
+    //真正执行脚本：RunFunction（主线程，同步）和 BeginRun 的后台线程都调它
+    void AngelScriptCode::RunScriptFunction(asIScriptFunction* Function) {
+        if (Function == nullptr || context == nullptr) { return; }
+
         // 准备执行脚本
-        r = context->Prepare(Function);
+        int r = context->Prepare(Function);
         if (r < 0) {
             std::cout << "Failed to prepare script context" << std::endl;
-            context->Release();
-            engine->ShutDownAndRelease();
+            TOOL::logger->warn("script prepare failed, r={}", r);
             return;
         }
 
-        // 执行脚本
+        // 执行脚本（脚本里的 TranslateAPI() 是同步的，可能跑很久）
         r = context->Execute();
         if (r != asEXECUTION_FINISHED) {
             std::cout << "Failed to execute script" << std::endl;
+            TOOL::logger->warn("script execute failed, r={}", r);
         }
+    }
+
+    void AngelScriptCode::RunFunction(asIScriptFunction* Function) {
+        //同步入口（替换模式）：要是后台脚本还在跑，先等它跑完，免得两个线程同时用一个 context
+        WaitRunning();
+        RunScriptFunction(Function);
+    }
+
+    bool AngelScriptCode::BeginRun(asIScriptFunction* Function) {
+        if (Function == nullptr || context == nullptr) { return false; }
+        if (mScriptRunning.load()) { return false; }//上一次还在跑（AI 翻译很慢），别用同一个 context 再开一个
+        if (mScriptThread.joinable()) { mScriptThread.join(); }
+
+        mScriptRunning = true;
+        mScriptThread = std::thread([this, Function]() {
+            RunScriptFunction(Function);
+            mScriptRunning = false;
+        });
+        return true;
     }
 
 
 	AngelScriptCode::~AngelScriptCode() {
+        //后台脚本可能还在跑（比如 AI 翻译很慢）：先等它跑完，再释放 context/engine，免得踩空
+        if (mScriptThread.joinable()) { mScriptThread.join(); }
         // 释放资源
-        context->Release();
-        engine->ShutDownAndRelease();
+        if (context != nullptr) { context->Release(); }
+        if (engine != nullptr) { engine->ShutDownAndRelease(); }
         mAngelScriptCode = nullptr;
 	}
 

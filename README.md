@@ -11,13 +11,13 @@
 
 + 图形API：[VulKan](https://vulkan.lunarg.com/)
 + 窗口构建：[GLFW](https://www.glfw.org/)
-+ 图片识别：[Tesseract-OCR](https://tesseract-ocr.github.io/tessdoc/Home.html)
++ 日志：[SpdLog](https://github.com/gabime/spdlog)
 + UI界面：[ImGui](https://github.com/ocornut/imgui)
-+ 网络请求：[Curl](https://github.com/curl/curl)
 + 解析数据：[JsonCpp](https://github.com/open-source-parsers/jsoncpp)
 + 数据加密：[OpenSSL](https://github.com/openssl/openssl)
-+ 日志：[SpdLog](https://github.com/gabime/spdlog)
++ 网络请求：[Curl](https://github.com/curl/curl)
 + 脚本：[AngelScript](https://www.angelcode.com/angelscript/)
++ 图片识别：[Tesseract-OCR](https://tesseract-ocr.github.io/tessdoc/Home.html)
 
 > 文件结构
 

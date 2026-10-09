@@ -1,0 +1,620 @@
+#include "LlamaTranslate.h"
+
+#include <llama.h>
+
+#include <algorithm>
+#include <cctype>
+#include <cstdio>
+#include <cstring>
+#include <mutex>
+#include <thread>
+#include <vector>
+
+// ============================================================================
+//  Hunyuan 系（GGUF 架构 hunyuan-dense，如 Hy-MT2-1.8B）对话模板里的特殊 token 文本
+//  必须与 GGUF 词表里的字节完全一致：竖线是 U+FF5C（｜），下划线是 U+2581（▁）
+//  模板（模型自带）：<｜hy_begin▁of▁sentence｜> [<system 文本><｜hy_place▁holder▁no▁3｜>]
+//                    <｜hy_User｜><用户内容><｜hy_Assistant｜><助手内容><｜hy_place▁holder▁no▁2｜>
+// ============================================================================
+static const char* HY_BOS		= "<｜hy_begin▁of▁sentence｜>";		//token 120000
+static const char* HY_USER		= "<｜hy_User｜>";					//token 120006
+static const char* HY_ASSISTANT	= "<｜hy_Assistant｜>";				//token 120007
+static const char* HY_SYS_END	= "<｜hy_place▁holder▁no▁3｜>";		//token 120021（system 结束）
+static const char* HY_EOS		= "<｜hy_place▁holder▁no▁2｜>";		//token 120020（= eos，助手回答结束）
+
+static std::string gDefaultModelPath = "Environment/Hy-MT2-1.8B-Q4_K_M.gguf";
+
+// 只打印错误/警告，避免 llama.cpp 的日志刷屏
+static void TkLlamaLog(enum ggml_log_level level, const char* text, void* /*user_data*/)
+{
+	if (level >= GGML_LOG_LEVEL_ERROR && text)
+	{
+		fprintf(stderr, "%s", text);
+	}
+}
+
+// 判断 p 处是不是全角竖线「｜」(U+FF5C = EF BD 9C)
+static bool IsFullWidthBar(const char* p)
+{
+	return (unsigned char)p[0] == 0xEF && (unsigned char)p[1] == 0xBD && (unsigned char)p[2] == 0x9C;
+}
+
+// 去掉输出里的特殊 token 文本（形如 <｜hy_...｜>），并去掉首尾空白
+static std::string StripSpecialMarks(const std::string& text)
+{
+	std::string out;
+	out.reserve(text.size());
+
+	size_t i = 0;
+	while (i < text.size())
+	{
+		if (text[i] == '<' && i + 4 < text.size() && IsFullWidthBar(text.c_str() + i + 1))
+		{
+			//向后找配对的「｜>」
+			size_t j = i + 4;
+			bool closed = false;
+			while (j + 3 < text.size())
+			{
+				if (IsFullWidthBar(text.c_str() + j) && text[j + 3] == '>')
+				{
+					j += 4;
+					closed = true;
+					break;
+				}
+				++j;
+			}
+			if (closed)
+			{
+				i = j;
+				continue;
+			}
+		}
+		out.push_back(text[i]);
+		++i;
+	}
+
+	const size_t b = out.find_first_not_of(" \t\r\n");
+	if (b == std::string::npos)
+	{
+		return std::string();
+	}
+	const size_t e = out.find_last_not_of(" \t\r\n");
+	return out.substr(b, e - b + 1);
+}
+
+static bool FileExists(const std::string& path)
+{
+	if (path.empty())
+	{
+		return false;
+	}
+	FILE* f = fopen(path.c_str(), "rb");
+	if (!f)
+	{
+		return false;
+	}
+	fclose(f);
+	return true;
+}
+
+static bool EqualsNoCase(const std::string& a, const char* b)
+{
+	const size_t n = strlen(b);
+	if (a.size() != n)
+	{
+		return false;
+	}
+	for (size_t i = 0; i < n; ++i)
+	{
+		if (std::tolower((unsigned char)a[i]) != std::tolower((unsigned char)b[i]))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+// 语言代码/别名 → 英文语言名（模型按英文名理解目标语言）
+namespace
+{
+	struct LangEntry
+	{
+		const char* Code;
+		const char* Name;
+	};
+
+	const LangEntry LANG_TABLE[] =
+	{
+		{ "zh", "Chinese" }, { "zh-cn", "Chinese" }, { "zh_cn", "Chinese" }, { "cn", "Chinese" },
+		{ "中文", "Chinese" }, { "汉语", "Chinese" }, { "简体", "Chinese" }, { "简体中文", "Chinese" }, { "chinese", "Chinese" },
+		{ "zh-tw", "Traditional Chinese" }, { "zh_tw", "Traditional Chinese" }, { "繁体", "Traditional Chinese" },
+		{ "繁体中文", "Traditional Chinese" }, { "traditional chinese", "Traditional Chinese" },
+		{ "en", "English" }, { "eng", "English" }, { "英文", "English" }, { "英语", "English" }, { "english", "English" },
+		{ "ja", "Japanese" }, { "jp", "Japanese" }, { "日文", "Japanese" }, { "日语", "Japanese" }, { "japanese", "Japanese" },
+		{ "ko", "Korean" }, { "kr", "Korean" }, { "韩语", "Korean" }, { "韩文", "Korean" }, { "korean", "Korean" },
+		{ "fr", "French" }, { "fra", "French" }, { "法语", "French" }, { "french", "French" },
+		{ "de", "German" }, { "deu", "German" }, { "德语", "German" }, { "german", "German" },
+		{ "es", "Spanish" }, { "spa", "Spanish" }, { "西班牙语", "Spanish" }, { "spanish", "Spanish" },
+		{ "ru", "Russian" }, { "rus", "Russian" }, { "俄语", "Russian" }, { "russian", "Russian" },
+		{ "pt", "Portuguese" }, { "por", "Portuguese" }, { "葡萄牙语", "Portuguese" }, { "portuguese", "Portuguese" },
+		{ "it", "Italian" }, { "ita", "Italian" }, { "意大利语", "Italian" }, { "italian", "Italian" },
+		{ "ar", "Arabic" }, { "ara", "Arabic" }, { "阿拉伯语", "Arabic" }, { "arabic", "Arabic" },
+		{ "th", "Thai" }, { "tha", "Thai" }, { "泰语", "Thai" }, { "thai", "Thai" },
+		{ "vi", "Vietnamese" }, { "vie", "Vietnamese" }, { "越南语", "Vietnamese" }, { "vietnamese", "Vietnamese" },
+		{ "id", "Indonesian" }, { "ind", "Indonesian" }, { "印尼语", "Indonesian" }, { "indonesian", "Indonesian" },
+		{ "ms", "Malay" }, { "may", "Malay" }, { "马来语", "Malay" }, { "malay", "Malay" },
+		{ "tr", "Turkish" }, { "tur", "Turkish" }, { "土耳其语", "Turkish" }, { "turkish", "Turkish" },
+		{ "pl", "Polish" }, { "pol", "Polish" }, { "波兰语", "Polish" }, { "polish", "Polish" },
+		{ "nl", "Dutch" }, { "nld", "Dutch" }, { "荷兰语", "Dutch" }, { "dutch", "Dutch" },
+		{ "sv", "Swedish" }, { "swe", "Swedish" }, { "瑞典语", "Swedish" }, { "swedish", "Swedish" },
+		{ "da", "Danish" }, { "dan", "Danish" }, { "丹麦语", "Danish" }, { "danish", "Danish" },
+		{ "fi", "Finnish" }, { "fin", "Finnish" }, { "芬兰语", "Finnish" }, { "finnish", "Finnish" },
+		{ "cs", "Czech" }, { "ces", "Czech" }, { "捷克语", "Czech" }, { "czech", "Czech" },
+		{ "hu", "Hungarian" }, { "hun", "Hungarian" }, { "匈牙利语", "Hungarian" }, { "hungarian", "Hungarian" },
+		{ "ro", "Romanian" }, { "ron", "Romanian" }, { "罗马尼亚语", "Romanian" }, { "romanian", "Romanian" },
+		{ "bg", "Bulgarian" }, { "bul", "Bulgarian" }, { "保加利亚语", "Bulgarian" }, { "bulgarian", "Bulgarian" },
+		{ "el", "Greek" }, { "ell", "Greek" }, { "希腊语", "Greek" }, { "greek", "Greek" },
+		{ "he", "Hebrew" }, { "heb", "Hebrew" }, { "希伯来语", "Hebrew" }, { "hebrew", "Hebrew" },
+		{ "hi", "Hindi" }, { "hin", "Hindi" }, { "印地语", "Hindi" }, { "hindi", "Hindi" },
+		{ "bn", "Bengali" }, { "ben", "Bengali" }, { "孟加拉语", "Bengali" }, { "bengali", "Bengali" },
+		{ "ta", "Tamil" }, { "tam", "Tamil" }, { "泰米尔语", "Tamil" }, { "tamil", "Tamil" },
+		{ "te", "Telugu" }, { "tel", "Telugu" }, { "泰卢固语", "Telugu" }, { "telugu", "Telugu" },
+		{ "ur", "Urdu" }, { "urd", "Urdu" }, { "乌尔都语", "Urdu" }, { "urdu", "Urdu" },
+		{ "fa", "Persian" }, { "fas", "Persian" }, { "波斯语", "Persian" }, { "persian", "Persian" },
+		{ "uk", "Ukrainian" }, { "ukr", "Ukrainian" }, { "乌克兰语", "Ukrainian" }, { "ukrainian", "Ukrainian" },
+		{ "no", "Norwegian" }, { "nor", "Norwegian" }, { "挪威语", "Norwegian" }, { "norwegian", "Norwegian" },
+		{ "sk", "Slovak" }, { "slk", "Slovak" }, { "斯洛伐克语", "Slovak" }, { "slovak", "Slovak" },
+		{ "sl", "Slovenian" }, { "slv", "Slovenian" }, { "斯洛文尼亚语", "Slovenian" }, { "slovenian", "Slovenian" },
+		{ "hr", "Croatian" }, { "hrv", "Croatian" }, { "克罗地亚语", "Croatian" }, { "croatian", "Croatian" },
+		{ "sr", "Serbian" }, { "srp", "Serbian" }, { "塞尔维亚语", "Serbian" }, { "serbian", "Serbian" },
+		{ "lt", "Lithuanian" }, { "lit", "Lithuanian" }, { "立陶宛语", "Lithuanian" }, { "lithuanian", "Lithuanian" },
+		{ "lv", "Latvian" }, { "lav", "Latvian" }, { "拉脱维亚语", "Latvian" }, { "latvian", "Latvian" },
+		{ "et", "Estonian" }, { "est", "Estonian" }, { "爱沙尼亚语", "Estonian" }, { "estonian", "Estonian" },
+		{ "ca", "Catalan" }, { "cat", "Catalan" }, { "加泰罗尼亚语", "Catalan" }, { "catalan", "Catalan" },
+		{ "tl", "Filipino" }, { "fil", "Filipino" }, { "菲律宾语", "Filipino" }, { "filipino", "Filipino" },
+		{ "my", "Burmese" }, { "缅甸语", "Burmese" }, { "burmese", "Burmese" },
+		{ "km", "Khmer" }, { "高棉语", "Khmer" }, { "khmer", "Khmer" },
+		{ "lo", "Lao" }, { "老挝语", "Lao" }, { "lao", "Lao" },
+		{ "ne", "Nepali" }, { "尼泊尔语", "Nepali" }, { "nepali", "Nepali" },
+		{ "si", "Sinhala" }, { "僧伽罗语", "Sinhala" }, { "sinhala", "Sinhala" },
+	};
+}
+
+std::string LlamaTranslate::LanguageName(const std::string& lang)
+{
+	if (lang.empty())
+	{
+		return lang;
+	}
+	for (const LangEntry& e : LANG_TABLE)
+	{
+		if (EqualsNoCase(lang, e.Code))
+		{
+			return e.Name;
+		}
+	}
+	return lang;	//查不到就认为调用方给的就是语言名（例如 "Chinese" 本身）
+}
+
+const std::string& LlamaTranslate::DefaultModelPath()
+{
+	return gDefaultModelPath;
+}
+
+void LlamaTranslate::SetDefaultModelPath(const std::string& path)
+{
+	gDefaultModelPath = path;
+}
+
+// 相对路径解析：先按给的路径找，再按可执行文件目录逐级向上找 Environment/xxx
+std::string LlamaTranslate::ResolveModelPath(const std::string& path)
+{
+	if (path.empty() || FileExists(path))
+	{
+		return path;
+	}
+	const size_t slash = path.find_last_of("/\\");
+	const std::string name = (slash == std::string::npos) ? path : path.substr(slash + 1);
+	static const char* PREFIX[] = { "", "./Environment/", "../Environment/", "../../Environment/",
+	                                "../../../Environment/", "../../../../Environment/" };
+	for (const char* p : PREFIX)
+	{
+		const std::string candidate = std::string(p) + name;
+		if (FileExists(candidate))
+		{
+			return candidate;
+		}
+	}
+	//再试试原始相对路径本身
+	return path;
+}
+
+LlamaTranslate::LlamaTranslate()
+{
+}
+
+LlamaTranslate::~LlamaTranslate()
+{
+	Unload();
+}
+
+bool LlamaTranslate::Load(const std::string& modelPath)
+{
+	Params params;
+	params.ModelPath = modelPath;
+	return Load(params);
+}
+
+bool LlamaTranslate::Load(const Params& params)
+{
+	std::lock_guard<std::mutex> lock(mMutex);
+
+	//先卸载旧模型
+	ReleaseContext();
+	if (mModel)
+	{
+		llama_model_free(mModel);
+		mModel = nullptr;
+		mVocab = nullptr;
+	}
+	mModelDesc.clear();
+	mLastError.clear();
+
+	mParams = params;
+	if (mParams.ModelPath.empty())
+	{
+		mParams.ModelPath = gDefaultModelPath;
+	}
+	const std::string path = ResolveModelPath(mParams.ModelPath);
+	if (!FileExists(path))
+	{
+		mLastError = "找不到模型文件：" + path;
+		fprintf(stderr, "[LlamaTranslate] %s\n", mLastError.c_str());
+		return false;
+	}
+	mParams.ModelPath = path;
+
+	//llama 后端与日志只需要初始化一次
+	static std::once_flag sOnce;
+	std::call_once(sOnce, []()
+	{
+		llama_log_set(TkLlamaLog, nullptr);
+		llama_backend_init();
+	});
+
+	//1) 加载模型
+	llama_model_params modelParams = llama_model_default_params();
+	modelParams.n_gpu_layers = mParams.NGpuLayers;
+	modelParams.load_mode = LLAMA_LOAD_MODE_MMAP;	//该版本没有 use_mmap 字段了
+	mModel = llama_model_load_from_file(path.c_str(), modelParams);
+	if (!mModel)
+	{
+		mLastError = "加载模型失败：" + path;
+		fprintf(stderr, "[LlamaTranslate] %s\n", mLastError.c_str());
+		return false;
+	}
+	mVocab = llama_model_get_vocab(mModel);
+
+	char desc[256] = { 0 };
+	if (llama_model_desc(mModel, desc, sizeof(desc)) > 0)
+	{
+		mModelDesc = desc;
+	}
+
+	//2) 创建上下文
+	int nCtx = mParams.NCtx > 0 ? mParams.NCtx : 4096;
+	const int nCtxTrain = (int)llama_model_n_ctx_train(mModel);
+	if (nCtxTrain > 0 && nCtx > nCtxTrain)
+	{
+		nCtx = nCtxTrain;
+	}
+	int nThreads = mParams.NThreads > 0 ? mParams.NThreads : (int)std::thread::hardware_concurrency();
+	if (nThreads <= 0)
+	{
+		nThreads = 4;
+	}
+
+	llama_context_params ctxParams = llama_context_default_params();
+	ctxParams.n_ctx = (uint32_t)nCtx;
+	ctxParams.n_batch = (uint32_t)nCtx;	//让整段 prompt 一次就能喂进去
+	ctxParams.n_threads = (uint32_t)nThreads;
+	ctxParams.n_threads_batch = (uint32_t)nThreads;
+	ctxParams.no_perf = true;
+
+	mCtx = llama_init_from_model(mModel, ctxParams);
+	if (!mCtx)
+	{
+		mLastError = "创建 llama_context 失败（内存不足？可减小 NCtx）";
+		fprintf(stderr, "[LlamaTranslate] %s\n", mLastError.c_str());
+		llama_model_free(mModel);
+		mModel = nullptr;
+		mVocab = nullptr;
+		return false;
+	}
+
+	//3) 批处理对象与采样链
+	mBatch = llama_batch_ext_init(mCtx);
+	if (!mBatch)
+	{
+		mLastError = "创建 batch 失败";
+		ReleaseContext();
+		llama_model_free(mModel);
+		mModel = nullptr;
+		mVocab = nullptr;
+		return false;
+	}
+	ApplySamplerParams();
+
+	//4) 自检：确认模板里的特殊 token 在词表里是单个 token（否则说明模型与模板不匹配）
+	{
+		const char* marks[] = { HY_BOS, HY_USER, HY_ASSISTANT, HY_SYS_END, HY_EOS };
+		std::vector<llama_token> probe(8);
+		for (const char* mark : marks)
+		{
+			const int n = llama_tokenize(mVocab, mark, (int32_t)strlen(mark), probe.data(),
+			                             (int32_t)probe.size(), false, true);
+			if (n != 1)
+			{
+				fprintf(stderr, "[LlamaTranslate] 警告：特殊 token \"%s\" 没有被解析成单个 token（n=%d），"
+				                "当前模型可能不是 Hy-MT2/Hunyuan 系模型\n", mark, n);
+			}
+		}
+	}
+
+	fprintf(stderr, "[LlamaTranslate] 模型已加载：%s（ctx=%d, threads=%d）\n",
+	        mModelDesc.c_str(), nCtx, nThreads);
+	return true;
+}
+
+void LlamaTranslate::Unload()
+{
+	std::lock_guard<std::mutex> lock(mMutex);
+	ReleaseContext();
+	if (mModel)
+	{
+		llama_model_free(mModel);
+		mModel = nullptr;
+		mVocab = nullptr;
+	}
+	mModelDesc.clear();
+}
+
+void LlamaTranslate::ReleaseContext()
+{
+	if (mSampler)
+	{
+		llama_sampler_free(mSampler);
+		mSampler = nullptr;
+	}
+	if (mBatch)
+	{
+		llama_batch_ext_free(mBatch);
+		mBatch = nullptr;
+	}
+	if (mCtx)
+	{
+		llama_free(mCtx);
+		mCtx = nullptr;
+	}
+}
+
+void LlamaTranslate::ApplySamplerParams()
+{
+	if (mSampler)
+	{
+		llama_sampler_free(mSampler);
+		mSampler = nullptr;
+	}
+	if (!mCtx || !mVocab)
+	{
+		return;
+	}
+
+	llama_sampler_chain_params chainParams = llama_sampler_chain_default_params();
+	chainParams.no_perf = true;
+	mSampler = llama_sampler_chain_init(chainParams);
+
+	llama_sampler_chain_add(mSampler, llama_sampler_init_penalties(llama_vocab_n_tokens(mVocab),
+	                        mParams.RepeatLastN, mParams.RepeatPenalty, 0.0f, 0.0f));
+	llama_sampler_chain_add(mSampler, llama_sampler_init_top_k(mParams.TopK));
+	llama_sampler_chain_add(mSampler, llama_sampler_init_top_p(mParams.TopP, 1));
+	llama_sampler_chain_add(mSampler, llama_sampler_init_temp(mParams.Temperature));
+	llama_sampler_chain_add(mSampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+}
+
+// 按模型自带的对话模板拼 prompt：<bos><｜hy_User｜>内容<｜hy_Assistant｜>
+std::string LlamaTranslate::MakePrompt(const std::string& userContent) const
+{
+	std::string prompt;
+	prompt.reserve(userContent.size() + 64);
+	prompt += HY_BOS;
+	prompt += HY_USER;
+	prompt += userContent;
+	prompt += HY_ASSISTANT;
+	return prompt;
+}
+
+std::string LlamaTranslate::Translate(const std::string& text, const std::string& targetLang, const std::string& sourceLang)
+{
+	if (text.empty())
+	{
+		return std::string();
+	}
+	const std::string target = LanguageName(targetLang);
+	std::string instruction;
+	if (sourceLang.empty() || EqualsNoCase(sourceLang, "auto"))
+	{
+		instruction = "Translate the following segment into " + target + ", without additional explanation.\n\n";
+	}
+	else
+	{
+		instruction = "Translate the following " + LanguageName(sourceLang) + " segment into " + target
+		            + ", without additional explanation.\n\n";
+	}
+	return TranslateWithInstruction(instruction, text);
+}
+
+std::string LlamaTranslate::TranslateWithInstruction(const std::string& instruction, const std::string& text)
+{
+	if (text.empty() && instruction.empty())
+	{
+		return std::string();
+	}
+	if (!IsLoaded())
+	{
+		mLastError = "模型尚未加载，请先调用 Load()";
+		fprintf(stderr, "[LlamaTranslate] %s\n", mLastError.c_str());
+		return std::string();
+	}
+
+	//指令里可以写 {text} 占位符；没有占位符就把原文接在指令后面
+	std::string body;
+	const std::string placeholder = "{text}";
+	const size_t at = instruction.find(placeholder);
+	if (at != std::string::npos)
+	{
+		body = instruction;
+		body.replace(at, placeholder.size(), text);
+	}
+	else
+	{
+		body = instruction + text;
+	}
+
+	std::lock_guard<std::mutex> lock(mMutex);
+	return StripSpecialMarks(Generate(MakePrompt(body)));
+}
+
+std::string LlamaTranslate::Generate(const std::string& prompt)
+{
+	std::string result;
+	mLastError.clear();
+	if (!mCtx || !mVocab || !mSampler || !mBatch)
+	{
+		mLastError = "上下文无效";
+		return result;
+	}
+
+	//1) 分词：BOS 已经写在 prompt 里，所以 add_special=false；parse_special=true 让 <｜hy_...｜> 变成单个特殊 token
+	std::vector<llama_token> tokens(prompt.size() + 8);
+	int32_t n = llama_tokenize(mVocab, prompt.c_str(), (int32_t)prompt.size(), tokens.data(),
+	                           (int32_t)tokens.size(), false, true);
+	if (n < 0)
+	{
+		tokens.resize((size_t)(-n));
+		n = llama_tokenize(mVocab, prompt.c_str(), (int32_t)prompt.size(), tokens.data(),
+		                   (int32_t)tokens.size(), false, true);
+	}
+	if (n <= 0)
+	{
+		mLastError = "分词失败";
+		return result;
+	}
+	tokens.resize((size_t)n);
+
+	const int nCtx = (int)llama_n_ctx(mCtx);
+	if (n + mParams.MaxTokens > nCtx)
+	{
+		fprintf(stderr, "[LlamaTranslate] 警告：prompt %d token + 最多生成 %d token 超过上下文 %d，输出可能被截断\n",
+		        n, mParams.MaxTokens, nCtx);
+	}
+
+	//2) 每次翻译都是全新的单轮对话：清空 KV 缓存、复位采样链
+	llama_memory_clear(llama_get_memory(mCtx), true);
+	llama_sampler_reset(mSampler);
+
+	//3) 喂 prompt（超过 n_batch 就分块），只要最后一个 token 的 logits
+	const int nBatch = (int)llama_n_batch(mCtx);
+	llama_pos pos = 0;
+	for (int32_t off = 0; off < n; )
+	{
+		const int32_t cnt = std::min<int32_t>(n - off, std::max(nBatch, 1));
+		llama_batch_ext_clear(mBatch);
+		for (int32_t i = 0; i < cnt; ++i)
+		{
+			const int32_t idx = llama_batch_ext_add_token(mBatch, 0, tokens[(size_t)(off + i)]);
+			if (idx < 0)
+			{
+				mLastError = "batch 已满（prompt 太长）";
+				return result;
+			}
+			const llama_pos p = pos + i;
+			llama_batch_ext_set_pos(mBatch, idx, &p);
+		}
+		if (off + cnt >= n)
+		{
+			llama_batch_ext_set_output_logits(mBatch, cnt - 1, true);
+		}
+		if (llama_process(mCtx, LLAMA_PROCESS_TYPE_DECODE, mBatch) != 0)
+		{
+			mLastError = "解码失败（上下文长度不足或内存不足）";
+			return result;
+		}
+		pos += cnt;
+		off += cnt;
+	}
+
+	//4) 逐 token 采样
+	int generated = 0;
+
+	while (generated < mParams.MaxTokens)
+	{
+		const llama_token id = llama_sampler_sample(mSampler, mCtx, -1);
+		llama_sampler_accept(mSampler, id);
+		if (llama_vocab_is_eog(mVocab, id))
+		{
+			break;	//遇到 <｜hy_place▁holder▁no▁2｜> 等结束标记
+		}
+
+		char buf[256];
+		int32_t np = llama_token_to_piece(mVocab, id, buf, (int32_t)sizeof(buf), 0, true);
+		if (np < 0)
+		{
+			std::vector<char> big((size_t)(-np));
+			np = llama_token_to_piece(mVocab, id, big.data(), (int32_t)big.size(), 0, true);
+			if (np > 0)
+			{
+				result.append(big.data(), (size_t)np);
+			}
+		}
+		else if (np > 0)
+		{
+			result.append(buf, (size_t)np);
+		}
+
+		//把刚生成的 token 送回模型，继续下一步
+		llama_batch_ext_clear(mBatch);
+		const int32_t idx = llama_batch_ext_add_token(mBatch, 0, id);
+		if (idx < 0)
+		{
+			mLastError = "batch 已满";
+			break;
+		}
+		const llama_pos p = pos;
+		llama_batch_ext_set_pos(mBatch, idx, &p);
+		llama_batch_ext_set_output_logits(mBatch, idx, true);
+		if (llama_process(mCtx, LLAMA_PROCESS_TYPE_DECODE, mBatch) != 0)
+		{
+			mLastError = "解码失败";
+			break;
+		}
+		pos += 1;
+		++generated;
+	}
+
+	return result;
+}
+
+std::string LlamaTranslateText(const std::string& text, const std::string& targetLang)
+{
+	static LlamaTranslate sInstance;	//模型只加载一次，之后常驻
+	if (!sInstance.IsLoaded())
+	{
+		if (!sInstance.Load(LlamaTranslate::Params()))
+		{
+			fprintf(stderr, "[LlamaTranslate] 加载模型失败：%s\n", sInstance.LastError().c_str());
+			return std::string();
+		}
+	}
+	return sInstance.Translate(text, targetLang);
+}

@@ -31,13 +31,6 @@
 #include "Tool/Tool.h"
 #include "Variable.h"
 
-
-//开启的测试模式
-const std::vector<const char*> validationLayers = {
-	"VK_LAYER_KHRONOS_validation"//测试类型
-};
-
-
 struct VPMatrices {
 	glm::mat4 mViewMatrix;
 	glm::mat4 mProjectionMatrix;

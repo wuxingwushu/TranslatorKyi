@@ -89,6 +89,14 @@ namespace Variable {
 	extern int From;//被翻译的语言
 	extern int To;//翻译成什么语言
 
+	//AI 模型翻译（llama.cpp 加载本地 GGUF 模型）
+	extern std::string AiModelPath;	//模型文件路径（空 = 用默认的 Environment/Hy-MT2-1.8B-Q4_K_M.gguf）
+	extern int AiThreads;			//推理线程数（0 = 让 llama.cpp 自己决定）
+	extern int AiNCtx;				//上下文长度
+	extern int AiMaxTokens;			//单次最多生成的 token 数
+	extern float AiTemperature;		//采样温度
+	extern int AiIdleUnload;		//模型闲置多少秒后自动卸载（0 = 一直留着）
+
 	//OCR识别模型
 	extern std::string Model;//模型
 
@@ -145,7 +153,7 @@ namespace Language {
 	extern std::string HitokotoTimeInterval;	//弹窗时间间隔
 	extern std::string HitokotoDisplayDuration;	//弹窗显示时长
 	extern std::string IndependentTypeface;		//独立字模
-	extern std::string InternalFontPattern;		//内部字模
+	extern std::string InternalFontPattern;		//默认字模（勾上时用程序目录 TTF 里的默认字体）
 	extern std::string PositionX;				//位置X
 	extern std::string PositionY;				//位置Y
 	extern std::string HitokotoFontSize;		//一言字体大小
@@ -168,6 +176,49 @@ namespace Language {
 	extern std::string BaiduKey;				//百度Key
 	extern std::string YoudaoID;				//有道ID
 	extern std::string YoudaoKey;				//有道Key
+
+	//界面重构新增：设置界面左侧分类导航 / 翻译窗口 / 关于页
+	extern std::string NavTranslate;			//导航-翻译服务
+	extern std::string NavAI;					//导航-AI模型
+	extern std::string NavHotkey;				//导航-快捷键
+	extern std::string NavGeneral;				//导航-常规
+	extern std::string NavInterface;			//导航-界面
+	extern std::string NavHitokoto;				//导航-一言
+	extern std::string NavBackup;				//导航-备份
+	extern std::string NavAbout;				//导航-关于
+	extern std::string Saved;					//提示-已保存
+	extern std::string Clear;					//翻译窗-清空
+	extern std::string CopyResult;				//翻译窗-复制译文
+	extern std::string SwapLanguage;			//翻译窗-互换源/目标语言
+	extern std::string Engine;					//翻译窗-翻译源
+	extern std::string EngineHint;
+	extern std::string SourceLanguage;			//翻译窗-源语言
+	extern std::string TargetLanguage;			//翻译窗-目标语言
+	extern std::string AboutText;				//关于页说明文字
+
+	//本地 AI 模型（设置界面）
+	extern std::string AIModel;				//AI模型（本地llama.cpp）
+	extern std::string AIModelPath;			//模型路径
+	extern std::string AIModelDefault;		//恢复默认路径
+	extern std::string AIThreads;			//推理线程数
+	extern std::string AINCtx;				//上下文长度
+	extern std::string AIMaxTokens;			//单次最多生成
+	extern std::string AITemperature;		//采样温度
+	extern std::string AIIdleUnload;		//空闲多少秒后自动卸载模型（0 = 不卸载）
+	extern std::string AIIdleLeft;			//｜空闲 %d 秒后自动卸载（带 %d，秒数）
+	extern std::string AIHint;				//使用提示
+	extern std::string AIStatusLoaded;		//状态：已加载（带 %s，模型信息）
+	extern std::string AIStatusNotLoaded;	//状态：未加载
+	extern std::string AIStatusLoading;		//状态：正在加载模型
+	extern std::string AIStatusGenerating;	//状态：正在翻译
+	extern std::string AILoad;				//加载模型按钮
+	extern std::string AIUnload;			//卸载模型按钮
+	extern std::string AILoading;			//正在加载模型…（带 %d，已用秒数）
+	extern std::string AITranslating;		//AI 翻译中…（带 %d，已用秒数）
+	extern std::string Recognizing;			//截图识别中…（截图翻译先 OCR 再翻）
+	extern std::string Translating;			//翻译中…（普通翻译源，如百度/有道）
+	extern std::string AIFailed;			//翻译失败（带 %s，错误信息）
+	extern std::string AIFailedEmpty;		//翻译失败（没有错误信息）
 	extern std::string ShortcutKeys;			//快捷键
 	extern std::string KeyCombination;			//组合键
 	extern std::string ScreenshotTranslation;	//截图翻译
@@ -183,6 +234,7 @@ namespace Language {
 	extern std::string TessDataFolder;			//TessData文件夹
 	extern std::string TTF_Typeface;			//TTF字体
 	extern std::string NotTTF_TypefaceText;		//你没有TTF字体，字体放在当前程序位置的TTF
+	extern std::string DefaultTypeface;			//默认字模（含 %s，界面里换成字体路径）
 	extern std::string ReplaceLanguage;			//替换语言
 	extern std::string Save;					//保存
 	extern std::string Close;					//关闭
@@ -223,6 +275,7 @@ namespace Language {
 	extern std::string ShutUp;					//言闭
 	extern std::string Speak;					//言开
 	extern std::string Exit;					//退出
+	extern std::string OpenFolder;				//打开程序目录
 	extern std::string strncpy;					//人家叫翻译姬！
 
 }

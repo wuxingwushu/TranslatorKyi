@@ -1,5 +1,6 @@
 #include "Window.h"
 #include "../application.h"
+#include "../Tool/Tool.h"
 
 GAME::Application* mAppcpp;
 
@@ -97,11 +98,42 @@ namespace VulKan {
 		NOTIFYICONDATA nidApp = { sizeof(nidApp) };
 		nidApp.hWnd = hwnd;
 		nidApp.uID = 1;
-		//strncpy_s(nidApp.szTip, TEXT("MyNameIsTranslatorJi!"), sizeof(TEXT("MyNameIsTranslatorJi!")));//鼠标停止系统托盘上的提示
 		nidApp.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_SHOWTIP | NIF_GUID;
 		nidApp.uCallbackMessage = WM_USER + 1;
-		nidApp.hIcon = (HICON)LoadImage(NULL, TEXT("product.ico"), IMAGE_ICON, 0, 0, LR_LOADFROMFILE);//ico 图片 只支持32x32  ,  16x16
-		Shell_NotifyIcon(NIM_ADD, &nidApp);
+		lstrcpyn(nidApp.szTip, TEXT("TranslatorKyi"), ARRAYSIZE(nidApp.szTip));//鼠标停在系统托盘图标上的提示（原来是空字符串）
+
+		//图标一律优先取 exe 自己带的资源（resource.rc 里：IDI_ICON1 ICON "product.ico"）。
+		//原来这里写的是 LoadImage(NULL, TEXT("product.ico"), ..., LR_LOADFROMFILE)：
+		//那是「当前工作目录下的 product.ico」，而 CMake 只把 product.ico 复制到构建树根
+		//（build/release），exe 所在目录（build/release/Release）里并没有这个文件 ——
+		//于是 LoadImage 返回 NULL，托盘里图标位置在、右键也能弹菜单，但图完全是透明的，
+		//就是「图标看不见」的原因。从资源里取图标就不会再依赖工作目录。
+		int IconCx = GetSystemMetrics(SM_CXSMICON);//按系统小图标尺寸取，高 DPI 下会自动缩放
+		int IconCy = GetSystemMetrics(SM_CYSMICON);
+		HINSTANCE hInstance = GetModuleHandle(NULL);
+		const char* IconSource = "exe 资源 IDI_ICON1";
+		nidApp.hIcon = (HICON)LoadImage(hInstance, TEXT("IDI_ICON1"), IMAGE_ICON, IconCx, IconCy, LR_DEFAULTCOLOR);
+		if (nidApp.hIcon == NULL) {
+			IconSource = "工作目录下的 product.ico";
+			nidApp.hIcon = (HICON)LoadImage(NULL, TEXT("product.ico"), IMAGE_ICON, IconCx, IconCy, LR_LOADFROMFILE | LR_DEFAULTCOLOR);
+		}
+		if (nidApp.hIcon == NULL) {
+			IconSource = "系统默认图标（上面两种都失败）";
+			nidApp.hIcon = LoadIcon(NULL, IDI_APPLICATION);//兜底：宁可显示系统默认图标，也不要一个透明的空位
+		}
+
+		BOOL TrayOk = Shell_NotifyIcon(NIM_ADD, &nidApp);
+		if (!TrayOk) {
+			TrayOk = Shell_NotifyIcon(NIM_MODIFY, &nidApp);//已经有同 id 的图标时 NIM_ADD 会失败，改成更新
+		}
+		if (TOOL::logger != nullptr) {
+			if (TrayOk) {
+				TOOL::logger->info("托盘图标已添加，图标来源：{}", IconSource);
+			}
+			else {
+				TOOL::logger->error("Shell_NotifyIcon 失败，GetLastError={}，图标来源：{}", GetLastError(), IconSource);
+			}
+		}
 	}
 
 	//销毁Window

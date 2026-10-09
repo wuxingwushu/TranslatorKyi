@@ -13,6 +13,9 @@ namespace VulKan {
 		mViewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 		mRasterState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 		mSampleState.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+		//【修正】以前 rasterizationSamples 一直是 0（结构体只填了 sType），而 0 不是合法的
+		//VkSampleCountFlagBits。本工程 RenderPass 的附件是 1x（application.cpp:99），所以必须写 1x。
+		mSampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 		mBlendState.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 		mDepthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 		mLayoutState.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

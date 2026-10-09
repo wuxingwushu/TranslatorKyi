@@ -1,0 +1,46 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 25,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "release",
+            "displayName": "Windows x64 Release",
+            "description": "Release 构建（Visual Studio 生成器 + x64）。编译器由 VS 生成器自己找，不依赖 PATH/工具包环境；VS IDE 与 VS Code 通用",
+            "generator": "Visual Studio 18 2026",
+            "architecture": "x64",
+            "binaryDir": "${sourceDir}/build/release",
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "TRUE"
+            }
+        },
+        {
+            "name": "debug",
+            "displayName": "Windows x64 Debug",
+            "description": "Debug 构建（Visual Studio 生成器 + x64）。与 release 各用一棵独立构建树，互不干扰，也避免被别处跑偏的工具包缓存污染",
+            "generator": "Visual Studio 18 2026",
+            "architecture": "x64",
+            "binaryDir": "${sourceDir}/build/debug",
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "TRUE"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "release",
+            "configurePreset": "release",
+            "configuration": "Release",
+            "jobs": 4
+        },
+        {
+            "name": "debug",
+            "configurePreset": "debug",
+            "configuration": "Debug",
+            "jobs": 4
+        }
+    ]
+}

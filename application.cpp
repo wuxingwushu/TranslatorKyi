@@ -79,7 +79,16 @@ namespace GAME {
 		init_info.Subpass = 0;
 		//init_info.MinImageCount = g_MinImageCount;
 		init_info.ImageCount = mSwapChain->getImageCount();
-		init_info.MSAASamples = mDevice->getMaxUsableSampleCount();
+		//【修正】本工程的主 render pass（Application::createRenderPass）只声明了 1 个
+		//VK_SAMPLE_COUNT_1_BIT 的颜色附件，没有多采样附件、也没有 Resolve 附件；而 ImGui 的
+		//bd->Pipeline 正是用这里的 MSAASamples 当 rasterizationSamples 建的
+		//（Environment\imgui\backends\imgui_impl_vulkan.cpp:833）。以前这里写
+		//getMaxUsableSampleCount()（本机 SwiftShader = 4x，见 Vulkan\device.cpp:438-455），
+		//等于把一个 4x 的管线绑到 1x 的 render pass 上——Vulkan 规范禁止的采样数不匹配，
+		//SwiftShader 会按 4 采样往 1 采样的附件里写，越界写坏堆，表现为
+		//「右键托盘菜单偶发 vk_swiftshader.dll 访问冲突」。主窗口只有 1×1，越界量极小所以从不崩；
+		//弹出来的菜单视口是 56x90，越界几十 KB 就会踩坏别的对象。这里改成 1x 与之匹配。
+		init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 		init_info.Allocator = nullptr;//内存分配器
 		init_info.CheckVkResultFn = check_vk_result;//错误处理
 
@@ -199,6 +208,7 @@ namespace GAME {
 
 			mWindow->pollEvents();
 			KeyBoardEvents();//监听键盘
+			InterFace->UpdateTranslateTask();//后台任务每帧取一次结果（截图 OCR / 普通源 HTTP / AI 模型）
 
 			
 			if (InterFace->GetInterFaceBool()) {
@@ -238,6 +248,8 @@ namespace GAME {
 					mWindow->pollEvents();
 					Sleep(20);
 				}
+				//上一次的脚本（截图脚本）可能还在后台翻译：先等它跑完，别跟它抢 Variable::eng/zhong
+				AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->WaitRunning();
 				std::string strS = TOOL::ClipboardTochar();//读取当前剪切板的内容，保存起来
 
 				//获取当前选择的内容 ctrl + c
@@ -253,7 +265,9 @@ namespace GAME {
 				}
 				else
 				{
-					Variable::zhong = InterFace->mTranslate->TranslateAPI(Variable::eng);//翻译内容
+					//普通翻译源（百度/爬虫/有道）这里同步出结果；
+					//本地 AI 模型是后台算的，结果由 UpdateTranslateTask() 显示出来
+					InterFace->RequestTranslate(Variable::eng);
 				}
 				
 				//按目标缓冲区的容量截断并且保证结尾有 '\0'：这两个数组各 1MB，
@@ -273,6 +287,8 @@ namespace GAME {
 					mWindow->pollEvents();
 					Sleep(20);
 				}
+				//上一次的脚本可能还在后台翻译：先等它跑完，别跟它抢 Variable::eng/zhong
+				AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->WaitRunning();
 				std::string strS = TOOL::ClipboardTochar();//读取当前剪切板的内容，保存起来
 
 				//获取当前选择的内容 ctrl + c
@@ -285,30 +301,39 @@ namespace GAME {
 				int LTo = InterFace->mTranslate->mTo;
 				InterFace->mTranslate->mTo = Variable::ReplaceLanguage;
 				if (AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->GetOpenBool() && Variable::ScriptBool) {
-					//执行脚本
+					//替换模式必须同步拿到译文才能立即粘贴：RunFunction 是同步入口
+					//（要是还有后台脚本在跑，它会先等那个跑完）
 					AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->RunFunction(
 						AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->ReplaceFunction
 					);
 				}
 				else
 				{
-					Variable::zhong = InterFace->mTranslate->TranslateAPI(Variable::eng);//翻译内容
+					//普通翻译源在这里同步拿到译文；本地 AI 模型交给后台线程，
+					//算完了由 UpdateTranslateTask() 粘贴（下面那段粘贴/还原会跳过）
+					InterFace->RequestTranslate(Variable::eng, true, strS);
 				}
 				InterFace->mTranslate->mTo = LTo;
 
 
-				TOOL::CopyToClipboard(TOOL::Utf8ToUnicode(Variable::zhong.c_str()));
-				//粘贴出去 ctrl + v
-				TOOL::CtrlAndV();
-				Sleep(5);
-				TOOL::CopyToClipboard(strS);//还原原来剪切板的内容
+				if (!InterFace->AiReplaceTaskRunning()) {
+					//AI 模型在后台翻译时这里不贴：UpdateTranslateTask() 拿到结果后自己贴并还原剪贴板
+					TOOL::CopyToClipboard(TOOL::Utf8ToUnicode(Variable::zhong.c_str()));
+					//粘贴出去 ctrl + v
+					TOOL::CtrlAndV();
+					Sleep(5);
+					TOOL::CopyToClipboard(strS);//还原原来剪切板的内容
+				}
 				return;
 			}
 
 			if ((GetKeyState(Variable::Screenshotkey[0]) < 0) && ((GetKeyState(Variable::Screenshotkey[0]) < 0) != mButton)) {
-				buffer = TOOL::screen(buffer);//获取截图数据
-				InterFace->LoadTextureFromFile(buffer, &InterFace->mTextureData);//生成图片ID
-				InterFace->SetInterFace(ScreenshotEnum);//设置显示类
+				//后台识别还在跑的时候就别再截图了：TOOL::screen() 会改写那块缓冲区，识别线程会读到新画面
+				if (InterFace->mTesseract == nullptr || !InterFace->mTesseract->OcrRunning()) {
+					buffer = TOOL::screen(buffer);//获取截图数据
+					InterFace->LoadTextureFromFile(buffer, &InterFace->mTextureData);//生成图片ID
+					InterFace->SetInterFace(ScreenshotEnum);//设置显示类
+				}
 			}
 			mButton = (GetKeyState(Variable::Screenshotkey[0]) < 0);
 		}

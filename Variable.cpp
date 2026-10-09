@@ -41,6 +41,21 @@ namespace Variable {
 		From = iniData->Get<int>("FT", "From");
 		To = iniData->Get<int>("FT", "To");
 
+		//AI 模型翻译。老配置文件里没有这几个键，Get 的三参数版本会返回默认值。
+		AiModelPath = iniData->Get<std::string>("FT", "AIModelPath", std::string(""));
+		AiThreads = iniData->Get<int>("FT", "AIThreads", 0);
+		AiNCtx = iniData->Get<int>("FT", "AINCtx", 4096);
+		AiMaxTokens = iniData->Get<int>("FT", "AIMaxTokens", 2048);
+		AiTemperature = iniData->Get<float>("FT", "AITemperature", 0.7f);
+		AiIdleUnload = iniData->Get<int>("FT", "AIIdleUnload", 0);
+		//配置被改坏时退回能用的值，免得 llama.cpp 直接报错
+		if (AiThreads < 0) { AiThreads = 0; }
+		if (AiNCtx < 256) { AiNCtx = 4096; }
+		if (AiMaxTokens < 16) { AiMaxTokens = 2048; }
+		if (AiTemperature <= 0.0f || AiTemperature > 2.0f) { AiTemperature = 0.7f; }
+		if (AiIdleUnload < 0) { AiIdleUnload = 0; }			//0 = 不自动卸载
+		if (AiIdleUnload > 86400) { AiIdleUnload = 86400; }	//最多一天
+
 		MakeUp = iniData->Get<int>("Key", "MakeUp");
 		Screenshotkey = iniData->Get<std::string>("Key", "Screenshotkey");
 		Choicekey = iniData->Get<std::string>("Key", "Choicekey");
@@ -116,6 +131,13 @@ namespace Variable {
 		iniData->UpdateEntry("FT", "Translate", Translate);
 		iniData->UpdateEntry("FT", "From", From);
 		iniData->UpdateEntry("FT", "To", To);
+		//保存 AI 模型翻译配置
+		iniData->UpdateEntry("FT", "AIModelPath", AiModelPath);
+		iniData->UpdateEntry("FT", "AIThreads", AiThreads);
+		iniData->UpdateEntry("FT", "AINCtx", AiNCtx);
+		iniData->UpdateEntry("FT", "AIMaxTokens", AiMaxTokens);
+		iniData->UpdateEntry("FT", "AITemperature", AiTemperature);
+		iniData->UpdateEntry("FT", "AIIdleUnload", AiIdleUnload);
 		//保存 快捷键位
 		iniData->UpdateEntry("Key", "MakeUp", MakeUp);
 		iniData->UpdateEntry("Key", "Screenshotkey", Screenshotkey);
@@ -187,6 +209,14 @@ namespace Variable {
 	int From;//被翻译的语言
 	int To;//翻译成什么语言
 
+	//AI 模型翻译（llama.cpp）
+	std::string AiModelPath;
+	int AiThreads;
+	int AiNCtx;
+	int AiMaxTokens;
+	float AiTemperature;
+	int AiIdleUnload;
+
 	//一言
 	bool PopUpNotificationBool;
 	int HitokotoTimeInterval;
@@ -250,6 +280,7 @@ namespace Language {
 		HitokotoDisplayDuration = iniData.Get<std::string>("Set", "HitokotoDisplayDuration_");
 		IndependentTypeface = iniData.Get<std::string>("Set", "IndependentTypeface_");
 		InternalFontPattern = iniData.Get<std::string>("Set", "InternalFontPattern_");
+		DefaultTypeface = iniData.Get<std::string>("Set", "DefaultTypeface_");
 		PositionX = iniData.Get<std::string>("Set", "PositionX_");
 		PositionY = iniData.Get<std::string>("Set", "PositionY_");
 		HitokotoFontSize = iniData.Get<std::string>("Set", "HitokotoFontSize_");
@@ -272,6 +303,49 @@ namespace Language {
 		BaiduKey = iniData.Get<std::string>("Set", "BaiduKey_");
 		YoudaoID = iniData.Get<std::string>("Set", "YoudaoID_");
 		YoudaoKey = iniData.Get<std::string>("Set", "YoudaoKey_");
+
+		//界面重构新增：分类导航 / 翻译窗 / 关于页
+		NavTranslate = iniData.Get<std::string>("Set", "NavTranslate_");
+		NavAI = iniData.Get<std::string>("Set", "NavAI_");
+		NavHotkey = iniData.Get<std::string>("Set", "NavHotkey_");
+		NavGeneral = iniData.Get<std::string>("Set", "NavGeneral_");
+		NavInterface = iniData.Get<std::string>("Set", "NavInterface_");
+		NavHitokoto = iniData.Get<std::string>("Set", "NavHitokoto_");
+		NavBackup = iniData.Get<std::string>("Set", "NavBackup_");
+		NavAbout = iniData.Get<std::string>("Set", "NavAbout_");
+		Saved = iniData.Get<std::string>("Set", "Saved_");
+		Clear = iniData.Get<std::string>("Set", "Clear_");
+		CopyResult = iniData.Get<std::string>("Set", "CopyResult_");
+		SwapLanguage = iniData.Get<std::string>("Set", "SwapLanguage_");
+		Engine = iniData.Get<std::string>("Set", "Engine_");
+		EngineHint = iniData.Get<std::string>("Set", "EngineHint_");
+		SourceLanguage = iniData.Get<std::string>("Set", "SourceLanguage_");
+		TargetLanguage = iniData.Get<std::string>("Set", "TargetLanguage_");
+		AboutText = iniData.Get<std::string>("Set", "AboutText_");
+
+		//本地 AI 模型（设置界面）
+		AIModel = iniData.Get<std::string>("Set", "AIModel_");
+		AIModelPath = iniData.Get<std::string>("Set", "AIModelPath_");
+		AIModelDefault = iniData.Get<std::string>("Set", "AIModelDefault_");
+		AIThreads = iniData.Get<std::string>("Set", "AIThreads_");
+		AINCtx = iniData.Get<std::string>("Set", "AINCtx_");
+		AIMaxTokens = iniData.Get<std::string>("Set", "AIMaxTokens_");
+		AITemperature = iniData.Get<std::string>("Set", "AITemperature_");
+		AIHint = iniData.Get<std::string>("Set", "AIHint_");
+		AIStatusLoaded = iniData.Get<std::string>("Set", "AIStatusLoaded_");
+		AIStatusNotLoaded = iniData.Get<std::string>("Set", "AIStatusNotLoaded_");
+		AIStatusLoading = iniData.Get<std::string>("Set", "AIStatusLoading_");
+		AIStatusGenerating = iniData.Get<std::string>("Set", "AIStatusGenerating_");
+		AILoad = iniData.Get<std::string>("Set", "AILoad_");
+		AIUnload = iniData.Get<std::string>("Set", "AIUnload_");
+		AILoading = iniData.Get<std::string>("Set", "AILoading_");
+		AITranslating = iniData.Get<std::string>("Set", "AITranslating_");
+		Recognizing = iniData.Get<std::string>("Set", "Recognizing_");
+		Translating = iniData.Get<std::string>("Set", "Translating_");
+		AIFailed = iniData.Get<std::string>("Set", "AIFailed_");
+		AIFailedEmpty = iniData.Get<std::string>("Set", "AIFailedEmpty_");
+		AIIdleUnload = iniData.Get<std::string>("Set", "AIIdleUnload_");
+		AIIdleLeft = iniData.Get<std::string>("Set", "AIIdleLeft_");
 		ShortcutKeys = iniData.Get<std::string>("Set", "ShortcutKeys_");
 		KeyCombination = iniData.Get<std::string>("Set", "KeyCombination_");
 		ScreenshotTranslation = iniData.Get<std::string>("Set", "ScreenshotTranslation_");
@@ -326,6 +400,7 @@ namespace Language {
 		ShutUp = iniData.Get<std::string>("tray", "ShutUp_");
 		Speak = iniData.Get<std::string>("tray", "Speak_");
 		Exit = iniData.Get<std::string>("tray", "Exit_");
+		OpenFolder = iniData.Get<std::string>("tray", "OpenFolder_");
 		strncpy = iniData.Get<std::string>("tray", "strncpy_");
 	}
 
@@ -339,7 +414,7 @@ namespace Language {
 	std::string HitokotoTimeInterval;	//弹窗时间间隔
 	std::string HitokotoDisplayDuration;//弹窗显示时长
 	std::string IndependentTypeface;	//独立字模
-	std::string InternalFontPattern;	//内部字模
+	std::string InternalFontPattern;	//默认字模
 	std::string PositionX;				//位置X
 	std::string PositionY;				//位置Y
 	std::string HitokotoFontSize;		//一言字体大小
@@ -362,6 +437,47 @@ namespace Language {
 	std::string BaiduKey;				//百度Key
 	std::string YoudaoID;				//有道ID
 	std::string YoudaoKey;				//有道Key
+	//界面重构新增
+	std::string NavTranslate;			//导航-翻译服务
+	std::string NavAI;					//导航-AI模型
+	std::string NavHotkey;				//导航-快捷键
+	std::string NavGeneral;				//导航-常规
+	std::string NavInterface;			//导航-界面
+	std::string NavHitokoto;			//导航-一言
+	std::string NavBackup;				//导航-备份
+	std::string NavAbout;				//导航-关于
+	std::string Saved;					//已保存
+	std::string Clear;					//清空
+	std::string CopyResult;				//复制译文
+	std::string SwapLanguage;			//互换
+	std::string Engine;					//翻译源
+	std::string EngineHint;
+	std::string SourceLanguage;			//源语言
+	std::string TargetLanguage;			//目标语言
+	std::string AboutText;				//关于说明
+	//本地 AI 模型（设置界面）
+	std::string AIModel;				//AI模型（本地llama.cpp）
+	std::string AIModelPath;			//模型路径
+	std::string AIModelDefault;			//恢复默认路径
+	std::string AIThreads;				//推理线程数
+	std::string AINCtx;					//上下文长度
+	std::string AIMaxTokens;			//单次最多生成
+	std::string AITemperature;			//采样温度
+	std::string AIHint;					//使用提示
+	std::string AIStatusLoaded;			//状态：已加载（带 %s）
+	std::string AIStatusNotLoaded;		//状态：未加载
+	std::string AIStatusLoading;		//状态：正在加载模型
+	std::string AIStatusGenerating;		//状态：正在翻译
+	std::string AILoad;					//加载模型按钮
+	std::string AIUnload;				//卸载模型按钮
+	std::string AILoading;				//正在加载模型…（带 %d）
+	std::string AITranslating;			//AI 翻译中…（带 %d）
+	std::string Recognizing;			//截图识别中…（截图翻译先 OCR 再翻）
+	std::string Translating;			//翻译中…（普通翻译源）
+	std::string AIFailed;				//翻译失败（带 %s）
+	std::string AIFailedEmpty;			//翻译失败（没有错误信息）
+	std::string AIIdleUnload;			//闲置多久自动卸载模型（秒，0＝不卸载）
+	std::string AIIdleLeft;				//｜空闲 %d 秒后自动卸载
 	std::string ShortcutKeys;			//快捷键
 	std::string KeyCombination;			//组合键
 	std::string ScreenshotTranslation;	//截图翻译
@@ -372,11 +488,12 @@ namespace Language {
 	std::string FontSize;				//字体大小
 	std::string TesseractModel;			//Tesseract模型
 	std::string NotTesseractModelText;	//你没有Tesseract模型，模型放在当前程序位置的TessData
-	std::string UseTTF_Typeface;		//使用TTF字体
+	std::string UseTTF_Typeface;		//自定义TTF字体
 	std::string TTF_Folder;				//TTF文件夹
 	std::string TessDataFolder;			//TessData文件夹
 	std::string TTF_Typeface;			//TTF字体
 	std::string NotTTF_TypefaceText;	//你没有TTF字体，字体放在当前程序位置的TTF
+	std::string DefaultTypeface;		//默认字模（含 %s，界面里换成字体路径）
 	std::string ReplaceLanguage;		//替换语言
 	std::string Save;					//保存
 	std::string Close;					//关闭
@@ -417,5 +534,6 @@ namespace Language {
 	std::string ShutUp;					//言闭
 	std::string Speak;					//言开
 	std::string Exit;					//退出
+	std::string OpenFolder;				//打开程序目录
 	std::string strncpy;				//人家叫翻译姬！
 }

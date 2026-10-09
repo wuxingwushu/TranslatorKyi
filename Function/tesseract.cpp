@@ -13,8 +13,45 @@ Tesseract::Tesseract(const char* Model)
 
 Tesseract::~Tesseract()
 {
+    OcrWait();//后台识别还在用 api，析构前先等它结束
     api->End();
     delete api;
+}
+
+//截图翻译专用：把识别丢到后台线程，截图界面就不用等 OCR 做完才切换。
+//data/x/y/w/h 在这里按值拷进线程；调用方要保证这次识别没结束前不会再截图，
+//否则 TOOL::screen() 会改写那块缓冲区，后台线程就读到别的画面了。
+bool Tesseract::OcrBegin(l_int32 x, l_int32 y, l_int32 w, l_int32 h, char* data)
+{
+    if (mOcrRunning.load()) { return false; }//上一次还没识别完，这次不等它
+    OcrWait();                               //回收上一次已经结束的线程
+    mOcrResult.clear();
+    mOcrDone = false;
+    mOcrRunning = true;
+    mOcrThread = std::thread([this, x, y, w, h, data]() {
+        std::string Result;
+        try { Result = IdentifyPictures(x, y, w, h, data); }
+        catch (...) { Result.clear(); }
+        mOcrResult = Result;
+        mOcrRunning = false;
+        mOcrDone = true;
+    });
+    return true;
+}
+
+bool Tesseract::OcrTakeResult(std::string& Result)
+{
+    if (!mOcrDone.load()) { return false; }//还没识别完，调用方下一帧再来
+    OcrWait();//等线程真的退出再读 mOcrResult
+    Result = mOcrResult;
+    mOcrResult.clear();
+    mOcrDone = false;
+    return true;
+}
+
+void Tesseract::OcrWait()
+{
+    if (mOcrThread.joinable()) { mOcrThread.join(); }
 }
 
 std::string Tesseract::IdentifyPictures(l_int32 x, l_int32 y, l_int32 w, l_int32 h, char* data) {
