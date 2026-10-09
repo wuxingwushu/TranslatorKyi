@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -22,7 +23,17 @@ static const char* HY_ASSISTANT	= "<｜hy_Assistant｜>";				//token 120007
 static const char* HY_SYS_END	= "<｜hy_place▁holder▁no▁3｜>";		//token 120021（system 结束）
 static const char* HY_EOS		= "<｜hy_place▁holder▁no▁2｜>";		//token 120020（= eos，助手回答结束）
 
-static std::string gDefaultModelPath = "Environment/Hy-MT2-1.8B-Q4_K_M.gguf";
+//模型统一放在程序目录的 Modes 文件夹里（Modes/Modes.txt 里也这么写着）；
+//老版本放在 Environment/ 下，ResolveModelPath() 两边都会找，不会影响老配置
+static std::string gDefaultModelPath = "Modes/Hy-MT2-1.8B-Q4_K_M.gguf";
+
+//模型文件夹的查找阶梯：程序一般跑在 build/<preset>/<配置> 里（那里也有一份 CMake 拷过去的 Modes），
+//而模型可能只放在仓库根的 Modes/，所以从当前目录开始逐级向上找
+static const char* const MODEL_DIR_LADDER[] = { "./Modes/", "../Modes/", "../../Modes/",
+                                                "../../../Modes/", "../../../../Modes/" };
+//老版本把模型放在 Environment/ 下：解析路径时一并找，老配置不会失效
+static const char* const LEGACY_DIR_LADDER[] = { "./Environment/", "../Environment/", "../../Environment/",
+                                                 "../../../Environment/", "../../../../Environment/" };
 
 // 只打印错误/警告，避免 llama.cpp 的日志刷屏
 static void TkLlamaLog(enum ggml_log_level level, const char* text, void* /*user_data*/)
@@ -105,6 +116,30 @@ static bool EqualsNoCase(const std::string& a, const char* b)
 		return false;
 	}
 	for (size_t i = 0; i < n; ++i)
+	{
+		if (std::tolower((unsigned char)a[i]) != std::tolower((unsigned char)b[i]))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+// 路径里的文件名："./Modes/foo.gguf" → "foo.gguf"
+static std::string FileNameOf(const std::string& path)
+{
+	const size_t slash = path.find_last_of("/\\");
+	return (slash == std::string::npos) ? path : path.substr(slash + 1);
+}
+
+// 大小写无关的字符串相等（Windows 的文件名不区分大小写）
+static bool SameText(const std::string& a, const std::string& b)
+{
+	if (a.size() != b.size())
+	{
+		return false;
+	}
+	for (size_t i = 0; i < a.size(); ++i)
 	{
 		if (std::tolower((unsigned char)a[i]) != std::tolower((unsigned char)b[i]))
 		{
@@ -206,7 +241,68 @@ void LlamaTranslate::SetDefaultModelPath(const std::string& path)
 	gDefaultModelPath = path;
 }
 
-// 相对路径解析：先按给的路径找，再按可执行文件目录逐级向上找 Environment/xxx
+const char* LlamaTranslate::ModelsFolder()
+{
+	return "Modes";
+}
+
+// 扫描模型文件夹：按查找阶梯从程序目录逐级向上找 Modes，把里面的 .gguf 都列出来。
+// 返回的是能直接用的相对路径（例如 "./Modes/Hy-MT2-1.8B-Q4_K_M.gguf"）；
+// 同一个文件名只在离程序最近的那层出现一次（build 目录里那份和仓库根那份不会重复列）。
+std::vector<std::string> LlamaTranslate::ListModelFiles()
+{
+	std::vector<std::string> Files;
+	for (const char* Dir : MODEL_DIR_LADDER)
+	{
+		std::error_code DirEc;
+		std::filesystem::directory_iterator It(Dir, DirEc);
+		if (DirEc)	//这层没有 Modes 文件夹（或者读不了），接着往上找
+		{
+			continue;
+		}
+		std::vector<std::string> Found;
+		for (const std::filesystem::directory_entry& Entry : It)
+		{
+			std::error_code EntryEc;
+			if (!Entry.is_regular_file(EntryEc))
+			{
+				continue;
+			}
+			std::string Extension = Entry.path().extension().string();
+			for (size_t i = 0; i < Extension.size(); ++i)
+			{
+				Extension[i] = (char)std::tolower((unsigned char)Extension[i]);
+			}
+			if (Extension != ".gguf")
+			{
+				continue;
+			}
+			Found.push_back(std::string(Dir) + FileNameOf(Entry.path().string()));
+		}
+		std::sort(Found.begin(), Found.end());
+		for (const std::string& Candidate : Found)
+		{
+			const std::string Name = FileNameOf(Candidate);
+			bool Duplicate = false;
+			for (const std::string& Existing : Files)
+			{
+				if (SameText(FileNameOf(Existing), Name))
+				{
+					Duplicate = true;
+					break;
+				}
+			}
+			if (!Duplicate)
+			{
+				Files.push_back(Candidate);
+			}
+		}
+	}
+	return Files;
+}
+
+// 相对路径解析：先按给的路径找，找不到就只取文件名，去「模型文件夹（Modes）」里逐级向上找，
+// 再兼容老版本放模型的 Environment/；都没有就原样返回，让上层报「找不到模型文件」
 std::string LlamaTranslate::ResolveModelPath(const std::string& path)
 {
 	if (path.empty() || FileExists(path))
@@ -215,9 +311,19 @@ std::string LlamaTranslate::ResolveModelPath(const std::string& path)
 	}
 	const size_t slash = path.find_last_of("/\\");
 	const std::string name = (slash == std::string::npos) ? path : path.substr(slash + 1);
-	static const char* PREFIX[] = { "", "./Environment/", "../Environment/", "../../Environment/",
-	                                "../../../Environment/", "../../../../Environment/" };
-	for (const char* p : PREFIX)
+	if (FileExists(name))	//程序当前目录下就有一份同名的
+	{
+		return name;
+	}
+	for (const char* p : MODEL_DIR_LADDER)
+	{
+		const std::string candidate = std::string(p) + name;
+		if (FileExists(candidate))
+		{
+			return candidate;
+		}
+	}
+	for (const char* p : LEGACY_DIR_LADDER)
 	{
 		const std::string candidate = std::string(p) + name;
 		if (FileExists(candidate))

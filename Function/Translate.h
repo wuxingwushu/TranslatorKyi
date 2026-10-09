@@ -6,6 +6,7 @@
 #include <atomic>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 class Translate
 {
@@ -120,6 +121,9 @@ public:
 
 	//默认模型路径（相对程序位置；设置界面里的「恢复默认」用）
 	static std::string DefaultAiModelPath();
+	//模型文件夹名（Modes）；扫描它列出手上有的模型给设置界面选
+	static const char* AiModelsFolder();
+	static std::vector<std::string> AiModelFiles();
 
 private:
 	const char* mBaiduAppid;

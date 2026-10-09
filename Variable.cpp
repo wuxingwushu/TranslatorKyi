@@ -327,6 +327,9 @@ namespace Language {
 		AIModel = iniData.Get<std::string>("Set", "AIModel_");
 		AIModelPath = iniData.Get<std::string>("Set", "AIModelPath_");
 		AIModelDefault = iniData.Get<std::string>("Set", "AIModelDefault_");
+		AIModelSelect = iniData.Get<std::string>("Set", "AIModelSelect_");
+		AIModelRefresh = iniData.Get<std::string>("Set", "AIModelRefresh_");
+		NotAiModelText = iniData.Get<std::string>("Set", "NotAiModelText_");
 		AIThreads = iniData.Get<std::string>("Set", "AIThreads_");
 		AINCtx = iniData.Get<std::string>("Set", "AINCtx_");
 		AIMaxTokens = iniData.Get<std::string>("Set", "AIMaxTokens_");
@@ -459,6 +462,9 @@ namespace Language {
 	std::string AIModel;				//AI模型（本地llama.cpp）
 	std::string AIModelPath;			//模型路径
 	std::string AIModelDefault;			//恢复默认路径
+	std::string AIModelSelect;			//选择模型（扫描 Modes 文件夹）
+	std::string AIModelRefresh;			//刷新模型列表
+	std::string NotAiModelText;			//没有找到模型
 	std::string AIThreads;				//推理线程数
 	std::string AINCtx;					//上下文长度
 	std::string AIMaxTokens;			//单次最多生成

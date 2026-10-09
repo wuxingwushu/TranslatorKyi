@@ -413,6 +413,16 @@ std::string Translate::DefaultAiModelPath()
 	return LlamaTranslate::DefaultModelPath();
 }
 
+const char* Translate::AiModelsFolder()
+{
+	return LlamaTranslate::ModelsFolder();
+}
+
+std::vector<std::string> Translate::AiModelFiles()
+{
+	return LlamaTranslate::ListModelFiles();
+}
+
 
 unsigned char Translate::ToHex(unsigned char x)
 {

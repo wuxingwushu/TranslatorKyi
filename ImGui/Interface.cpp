@@ -51,6 +51,48 @@ namespace GAME {
 		return Files.front();
 	}
 
+	//=== AI 模型列表 ===========================================================
+	//设置界面「选择模型」的来源：Translate::AiModelFiles() 扫描程序目录（含逐级向上）里的
+	//Modes 文件夹，把 .gguf 都列出来；这里只做「路径 → 文件名」和「按文件名定位下标」两件小事。
+
+	//路径里的文件名："./Modes/foo.gguf" → "foo.gguf"
+	static std::string PathFileName(const std::string& Path) {
+		const size_t Slash = Path.find_last_of("/\\");
+		return (Slash == std::string::npos) ? Path : Path.substr(Slash + 1);
+	}
+
+	//Windows 的文件名大小写不敏感
+	static bool SameFileName(const std::string& A, const std::string& B) {
+		if (A.size() != B.size()) {
+			return false;
+		}
+		for (size_t i = 0; i < A.size(); i++) {
+			if (std::tolower((unsigned char)A[i]) != std::tolower((unsigned char)B[i])) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	//当前实际会用的模型（设置里没填就是默认的那个）在列表里是第几个；找不到返回 -1
+	static int FindAiModelIndex(const std::vector<std::string>& List, const std::string& CurrentPath) {
+		const std::string Wanted = PathFileName(CurrentPath.empty() ? Translate::DefaultAiModelPath() : CurrentPath);
+		for (size_t i = 0; i < List.size(); i++) {
+			if (SameFileName(PathFileName(List[i]), Wanted)) {
+				return (int)i;
+			}
+		}
+		return -1;
+	}
+
+	//当前实际会用的模型文件名（下拉框上显示的当前项）
+	static std::string CurrentAiModelName(const std::vector<std::string>& List, int Index, const std::string& CurrentPath) {
+		if (Index >= 0 && Index < (int)List.size()) {
+			return PathFileName(List[Index]);
+		}
+		return PathFileName(CurrentPath.empty() ? Translate::DefaultAiModelPath() : CurrentPath);
+	}
+
 	//当前实际会使用的默认字模路径（设置界面里显示给用户看）
 	static std::string DefaultTypefacePath() {
 		if (FontFileReadable(DefaultFontFileName)) {
@@ -1097,6 +1139,9 @@ namespace GAME {
 		static float SetAiTemperature;
 		static int SetAiIdleUnload;
 		static int SetTranslateSource;//设置界面里选的翻译源（0=百度 1=爬虫 2=有道 3=AI 模型）
+		//扫描 Modes 文件夹得到的模型列表（下拉框用）和当前选中的下标（-1 = 列表里没有）
+		static int SetAiModelIndex;
+		static std::vector<std::string> SetAiModelList;
 
 		static int SetMakeUp;
 		char* CharMakeUpS[2] = { "Alt","Ctrl" };
@@ -1194,6 +1239,10 @@ namespace GAME {
 			SetAiTemperature = Variable::AiTemperature;
 			SetAiIdleUnload = Variable::AiIdleUnload;
 			SetTranslateSource = mTranslate->mTranslate;//打开设置界面时按当前实际生效的翻译源初始化
+
+			//Modes 文件夹里的模型（逐级向上找），并按当前生效的模型定位下拉框选项
+			SetAiModelList = Translate::AiModelFiles();
+			SetAiModelIndex = FindAiModelIndex(SetAiModelList, SetAiModelPath);
 
 			if (Variable::MakeUp == 17) { SetMakeUp = 1; }
 			TOOL::CopyToBuffer(SetScreenshotkey, sizeof(SetScreenshotkey), Variable::Screenshotkey);
@@ -1588,6 +1637,35 @@ namespace GAME {
 			{
 				if (BeginSettingsTable("##tbl_ai"))
 				{
+					//模型选择：列出 Modes 文件夹（程序目录含逐级向上）里扫到的 .gguf；
+					//选中一项就写进下面的模型路径，点「保存」时按变化自动卸载模型、下次翻译用新模型
+					const std::string AiModelName = CurrentAiModelName(SetAiModelList, SetAiModelIndex, SetAiModelPath);
+					RowLabel(Language::AIModelSelect.c_str());
+					ImGui::SetNextItemWidth(-96.0f);
+					if (!SetAiModelList.empty()) {
+						if (ImGui::BeginCombo("##ai_model_list", AiModelName.c_str(), flags)) {
+							for (int n = 0; n < (int)SetAiModelList.size(); n++) {
+								const bool is_selected = (SetAiModelIndex == n);
+								if (ImGui::Selectable(PathFileName(SetAiModelList[n]).c_str(), is_selected)) {
+									SetAiModelIndex = n;
+									TOOL::CopyToBuffer(SetAiModelPath, sizeof(SetAiModelPath), SetAiModelList[n]);
+								}
+								if (is_selected) {
+									ImGui::SetItemDefaultFocus();
+								}
+							}
+							ImGui::EndCombo();
+						}
+					}
+					else {
+						ImGui::TextUnformatted(Language::NotAiModelText.c_str());
+					}
+					ImGui::SameLine();
+					if (ImGui::Button(Language::AIModelRefresh.c_str(), ImVec2(88.0f, 0.0f))) {
+						//重新扫一遍 Modes（模型是程序跑起来之后才放进去的，不用重开程序刷新）
+						SetAiModelList = Translate::AiModelFiles();
+						SetAiModelIndex = FindAiModelIndex(SetAiModelList, SetAiModelPath);
+					}
 					RowLabel(Language::AIModelPath.c_str());
 					ImGui::SetNextItemWidth(-96.0f);
 					InputInfo.LText = SetAiModelPath;

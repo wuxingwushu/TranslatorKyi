@@ -1,10 +1,12 @@
 #pragma once
 #include <string>
+#include <vector>
 #include <mutex>
 
 // ============================================================================
 //  LlamaTranslate —— 用 llama.cpp 加载本地 GGUF 大模型做翻译
-//  默认模型：Environment/Hy-MT2-1.8B-Q4_K_M.gguf（腾讯混元 Hy-MT2 1.8B 翻译模型）
+//  默认模型：Modes/Hy-MT2-1.8B-Q4_K_M.gguf（腾讯混元 Hy-MT2 1.8B 翻译模型）
+//  模型都放在程序目录下的 Modes 文件夹里，设置界面的「选择模型」会扫描它列出来
 //
 //  典型用法：
 //      LlamaTranslate t;
@@ -78,6 +80,12 @@ public:
 	// 全局默认模型路径（相对路径会按可执行文件所在目录逐级向上查找）
 	static const std::string& DefaultModelPath();
 	static void SetDefaultModelPath(const std::string& path);
+
+	// 模型文件夹名（相对程序位置）：AI 模型都放这里
+	static const char* ModelsFolder();
+	// 扫描模型文件夹（程序目录含逐级向上）里找到的 .gguf，返回可直接使用的相对路径，
+	// 例如 "./Modes/Hy-MT2-1.8B-Q4_K_M.gguf"；同一个文件名只保留离程序最近的那份
+	static std::vector<std::string> ListModelFiles();
 
 private:
 	std::string Generate(const std::string& prompt);			//跑一次完整的生成

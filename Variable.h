@@ -90,7 +90,7 @@ namespace Variable {
 	extern int To;//翻译成什么语言
 
 	//AI 模型翻译（llama.cpp 加载本地 GGUF 模型）
-	extern std::string AiModelPath;	//模型文件路径（空 = 用默认的 Environment/Hy-MT2-1.8B-Q4_K_M.gguf）
+	extern std::string AiModelPath;	//模型文件路径（空 = 用默认的 Modes/Hy-MT2-1.8B-Q4_K_M.gguf）
 	extern int AiThreads;			//推理线程数（0 = 让 llama.cpp 自己决定）
 	extern int AiNCtx;				//上下文长度
 	extern int AiMaxTokens;			//单次最多生成的 token 数
@@ -200,6 +200,9 @@ namespace Language {
 	extern std::string AIModel;				//AI模型（本地llama.cpp）
 	extern std::string AIModelPath;			//模型路径
 	extern std::string AIModelDefault;		//恢复默认路径
+	extern std::string AIModelSelect;		//选择模型（扫描 Modes 文件夹）
+	extern std::string AIModelRefresh;		//刷新模型列表
+	extern std::string NotAiModelText;		//没有找到模型（提示把 .gguf 放进 Modes 文件夹）
 	extern std::string AIThreads;			//推理线程数
 	extern std::string AINCtx;				//上下文长度
 	extern std::string AIMaxTokens;			//单次最多生成
