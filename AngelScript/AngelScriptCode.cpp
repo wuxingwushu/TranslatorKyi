@@ -57,7 +57,20 @@ void DeleteDLL() {
 
 namespace AngelScriptOpcode {
 
-    AngelScriptCode* AngelScriptCode::mAngelScriptCode = nullptr;
+    //单例的唯一持有者：函数内 static，进程退出时由运行时析构（不再像原来那样只 new 不 delete）
+    std::unique_ptr<AngelScriptCode>& AngelScriptCode::InstancePtr() {
+        static std::unique_ptr<AngelScriptCode> sInstance{ new AngelScriptCode() };
+        return sInstance;
+    }
+
+    AngelScriptCode* AngelScriptCode::GetAngelScriptCode() {
+        return InstancePtr().get();
+    }
+
+    void AngelScriptCode::ResetAngelScriptCode() {
+        //先析构旧的（会 join 后台脚本线程并 Release context/engine），再按新脚本文件重建
+        InstancePtr().reset(new AngelScriptCode());
+    }
 
     void AngelScriptMessage(asSMessageInfo* msg, void* param) {
         if (msg->type == asMSGTYPE_ERROR) {
@@ -183,7 +196,6 @@ namespace AngelScriptOpcode {
         // 释放资源
         if (context != nullptr) { context->Release(); }
         if (engine != nullptr) { engine->ShutDownAndRelease(); }
-        mAngelScriptCode = nullptr;
 	}
 
 

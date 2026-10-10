@@ -3,11 +3,6 @@
 #include "PileUp.h"
 #include "../AngelScript/FunctionalFunctions.h"
 
-template <typename T>
-T Converter(const std::string& s);
-
-bool BoolConverter(std::string s);
-
 enum Fenum {
     Bool,
     Char,

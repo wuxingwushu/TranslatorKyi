@@ -1,4 +1,6 @@
 #include "LlamaTranslate.h"
+#include "../Tool/Charset.h"//TOOL::OpenUtf8File
+#include "../Tool/FileUtil.h"//TOOL::BaseName / TOOL::EqualsNoCase
 
 #include <llama.h>
 
@@ -97,34 +99,9 @@ static std::string StripSpecialMarks(const std::string& text)
 	return out.substr(b, e - b + 1);
 }
 
-//以 UTF-8 路径打开文件：Windows 上非 ASCII 路径必须走宽字符 API，
-//而项目内部（以及 llama.cpp 自己的 ggml_fopen）都按 CP_UTF8 解释路径，
-//所以这里也用 CP_UTF8 → 宽字符 → _wfopen，中文名的模型才能被正确判定/加载
-static FILE* OpenUtf8File(const std::string& path, const wchar_t* mode)
-{
-#ifdef _WIN32
-	if (path.empty())
-	{
-		return nullptr;
-	}
-	const int WideLen = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), (int)path.size(), nullptr, 0);
-	if (WideLen <= 0)
-	{
-		return nullptr;
-	}
-	std::wstring Wide((size_t)WideLen, L'\0');
-	MultiByteToWideChar(CP_UTF8, 0, path.c_str(), (int)path.size(), &Wide[0], WideLen);
-	return _wfopen(Wide.c_str(), mode);
-#else
-	//非 Windows：路径本来就是窄字节，宽字符模式串转回窄字符即可
-	std::string NarrowMode;
-	for (const wchar_t* p = mode; p != nullptr && *p != L'\0'; ++p)
-	{
-		NarrowMode.push_back((char)*p);
-	}
-	return fopen(path.c_str(), NarrowMode.c_str());
-#endif
-}
+//以 UTF-8 路径打开文件：已收敛到 TOOL::OpenUtf8File（Tool/Charset.h）。
+//Windows 上非 ASCII 路径必须走宽字符 API，而项目内部（以及 llama.cpp 自己的 ggml_fopen）
+//都按 CP_UTF8 解释路径。
 
 static bool FileExists(const std::string& path)
 {
@@ -132,7 +109,7 @@ static bool FileExists(const std::string& path)
 	{
 		return false;
 	}
-	FILE* f = OpenUtf8File(path, L"rb");
+	FILE* f = TOOL::OpenUtf8File(path, L"rb");
 	if (!f)
 	{
 		return false;
@@ -141,46 +118,7 @@ static bool FileExists(const std::string& path)
 	return true;
 }
 
-static bool EqualsNoCase(const std::string& a, const char* b)
-{
-	const size_t n = strlen(b);
-	if (a.size() != n)
-	{
-		return false;
-	}
-	for (size_t i = 0; i < n; ++i)
-	{
-		if (std::tolower((unsigned char)a[i]) != std::tolower((unsigned char)b[i]))
-		{
-			return false;
-		}
-	}
-	return true;
-}
-
-// 路径里的文件名："./Modes/foo.gguf" → "foo.gguf"
-static std::string FileNameOf(const std::string& path)
-{
-	const size_t slash = path.find_last_of("/\\");
-	return (slash == std::string::npos) ? path : path.substr(slash + 1);
-}
-
-// 大小写无关的字符串相等（Windows 的文件名不区分大小写）
-static bool SameText(const std::string& a, const std::string& b)
-{
-	if (a.size() != b.size())
-	{
-		return false;
-	}
-	for (size_t i = 0; i < a.size(); ++i)
-	{
-		if (std::tolower((unsigned char)a[i]) != std::tolower((unsigned char)b[i]))
-		{
-			return false;
-		}
-	}
-	return true;
-}
+//取文件名(TOOL::BaseName)与大小写不敏感比较(TOOL::EqualsNoCase)已收敛到 Tool/FileUtil.h。
 
 // 语言代码/别名 → 英文语言名（模型按英文名理解目标语言）
 namespace
@@ -256,7 +194,7 @@ std::string LlamaTranslate::LanguageName(const std::string& lang)
 	}
 	for (const LangEntry& e : LANG_TABLE)
 	{
-		if (EqualsNoCase(lang, e.Code))
+		if (TOOL::EqualsNoCase(lang, e.Code))
 		{
 			return e.Name;
 		}
@@ -312,16 +250,16 @@ std::vector<std::string> LlamaTranslate::ListModelFiles()
 			{
 				continue;
 			}
-			Found.push_back(std::string(Dir) + FileNameOf(Entry.path().u8string()));
+			Found.push_back(std::string(Dir) + TOOL::BaseName(Entry.path().u8string()));
 		}
 		std::sort(Found.begin(), Found.end());
 		for (const std::string& Candidate : Found)
 		{
-			const std::string Name = FileNameOf(Candidate);
+			const std::string Name = TOOL::BaseName(Candidate);
 			bool Duplicate = false;
 			for (const std::string& Existing : Files)
 			{
-				if (SameText(FileNameOf(Existing), Name))
+				if (TOOL::EqualsNoCase(TOOL::BaseName(Existing), Name))
 				{
 					Duplicate = true;
 					break;
@@ -583,7 +521,7 @@ std::string LlamaTranslate::Translate(const std::string& text, const std::string
 	}
 	const std::string target = LanguageName(targetLang);
 	std::string instruction;
-	if (sourceLang.empty() || EqualsNoCase(sourceLang, "auto"))
+	if (sourceLang.empty() || TOOL::EqualsNoCase(sourceLang, "auto"))
 	{
 		instruction = "Translate the following segment into " + target + ", without additional explanation.\n\n";
 	}

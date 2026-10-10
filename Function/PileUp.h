@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <map>
+#include <iostream>//std::cout：下面 add()/pop() 的越界提示要用
 
 template <typename T>
 class PileUp
@@ -16,7 +17,7 @@ public:
     };
 
     ~PileUp() {
-        delete mPileUp;
+        delete[] mPileUp;   //new T[size] 必须配 delete[]，用 delete 属未定义行为
     };
 
     void add(T Parameter) {
@@ -33,7 +34,7 @@ public:
         if (Index == 0)
         {
             std::cout << "pop: Empty" << std::endl;
-            return 0;
+            return T{};   //原来写 return 0：T 为 std::string 时会构造空指针，属未定义行为
         }
         Index--;
         return mPileUp[Index];
@@ -70,7 +71,7 @@ public:
         mVariable.insert(std::make_pair(name, V));
     }
 
-    void* Set(std::string name, U V) {
+    void Set(std::string name, U V) {
         mVariable[name] = V;
     }
 

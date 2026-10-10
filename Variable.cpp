@@ -1,53 +1,85 @@
 #include "Variable.h"
+#include "Tool/Convert.h"//TOOL::BoolConverter：解析缺省值文本里的 bool
 #include <cstdio>//printf：写盘失败的兜底提示（DebugLog.h 是空实现，这里要一条一定能编译的输出）
+#include <cstdlib>//atoi/atof：解析缺省值文本
+#include <memory>//std::make_unique：SaveFile 里 RAII 持有 INIReader
+#include <type_traits>//if constexpr 里判断类型
+
+namespace {
+
+	//把配置表里的缺省值文本解析成具体类型。
+	//只有"原来就带缺省值"的项才会用到它（其余项 Default 为 nullptr，键缺失时照旧抛异常）。
+	template <typename T>
+	T ParseDefaultText(const char* Text)
+	{
+		if constexpr (std::is_same_v<T, std::string>) { return std::string(Text); }
+		else if constexpr (std::is_same_v<T, bool>) { return TOOL::BoolConverter(Text); }
+		else if constexpr (std::is_floating_point_v<T>) { return (T)std::atof(Text); }
+		else { return (T)std::atoi(Text); }
+	}
+
+	//按配置表的一项从 ini 读一个值：
+	//  Default == nullptr —— 原逻辑：键缺失/值非法就抛异常；
+	//  Default != nullptr —— 原逻辑：读不到就用缺省值（等价于 INIReader::Get 的三参数版本）。
+	template <typename T>
+	T ReadCfg(const inih::INIReader& Reader, const char* Section, const char* Key, const char* Default)
+	{
+		if constexpr (std::is_same_v<T, std::vector<std::string>>)
+		{
+			if (Default == nullptr) { return Reader.GetVector<std::string>(Section, Key); }
+			try { return Reader.GetVector<std::string>(Section, Key); }
+			catch (const std::runtime_error&) { return T{}; }
+		}
+		else
+		{
+			if (Default == nullptr) { return Reader.Get<T>(Section, Key); }
+			try { return Reader.Get<T>(Section, Key); }
+			catch (const std::runtime_error&) { return ParseDefaultText<T>(Default); }
+		}
+	}
+}
 
 namespace Variable {
 	unsigned int WrapSize = 12;
 
-	extern void ReadFile(char* FilePath) {
+	// ---------------------------------------------------------------------------
+	//  全局变量定义：全部由 Variable.h 里的两张表生成（不再手写定义墙）
+	// ---------------------------------------------------------------------------
+#define TK_CONFIG_DEF(Section, Key, Type, Name, Default) Type Name{};
+	TK_CONFIG_ITEMS(TK_CONFIG_DEF)
+	TK_CONFIG_READONLY_ITEMS(TK_CONFIG_DEF)
+#undef TK_CONFIG_DEF
+
+	char* IniPath;//储存文件路径
+
+	int windows_Width;//屏幕宽度
+	int windows_Heigth;//屏幕高度
+	int ScreenShot_Width;//上一次截图用到的宽度
+	int ScreenShot_Heigth;//上一次截图用到的高度
+
+	std::string eng = "";//原文
+	std::string zhong = "";//翻译
+
+	unsigned char ScreenshotColor[4];	//截图颜色
+
+	//渲染设备选择
+	VulkanDeviceModeEnum VulkanDeviceMode = VulkanDeviceModeEnum::AutoBest;//设备选择模式
+	std::vector<VulkanDeviceInfo> VulkanDetectedDevices;//这次识别到的设备列表
+	bool RunningOnSoftwareRenderer = false;		//这次是否跑在 CPU 软件渲染上
+	std::string RunningDeviceName = "";			//这次实际用的设备名
+	std::string CpuSoftwareRenderReason = "";	//自动降级到 CPU 的原因
+
+	void ReadFile(char* FilePath) {
 		IniPath = FilePath;
-		inih::INIReader* iniData = new inih::INIReader(IniPath);
+		//用栈对象持有：中途任何一项读取失败抛异常时，不会再漏掉 delete（旧写法是 new + delete）。
+		inih::INIReader iniData(IniPath);
 
-		PopUpNotificationBool = iniData->Get<bool>("Hitokoto", "PopUpNotificationBool");
-		HitokotoTimeInterval = iniData->Get<int>("Hitokoto", "HitokotoTimeInterval");
-		HitokotoDisplayDuration = iniData->Get<int>("Hitokoto", "HitokotoDisplayDuration");
-		HitokotoPosX = iniData->Get<float>("Hitokoto", "HitokotoPosX");
-		HitokotoPosY = iniData->Get<float>("Hitokoto", "HitokotoPosY");
-		HitokotoFontSize = iniData->Get<float>("Hitokoto", "HitokotoFontSize");
-		HitokotoTTFBool = iniData->Get<bool>("Hitokoto", "HitokotoTTFBool");
-		HitokotoFontBool = iniData->Get<bool>("Hitokoto", "HitokotoFontBool");
-		HitokotoFont = iniData->Get<std::string>("Hitokoto", "HitokotoFont");
+		//配置项：按表读取（键名/节名/类型/目标变量全在 Variable.h 的表里）
+#define TK_CONFIG_READ(Section, Key, Type, Name, Default) Name = ReadCfg<Type>(iniData, #Section, #Key, Default);
+		TK_CONFIG_ITEMS(TK_CONFIG_READ)
+		TK_CONFIG_READONLY_ITEMS(TK_CONFIG_READ)
+#undef TK_CONFIG_READ
 
-		WebDav_url = iniData->Get<std::string>("WebDav", "url");
-		WebDav_username = iniData->Get<std::string>("WebDav", "username");
-		WebDav_password = iniData->Get<std::string>("WebDav", "password");
-		WebDav_WebFile = iniData->Get<std::string>("WebDav", "WebFile");
-		OpcodeBool = iniData->Get<bool>("WebDav", "OpcodeBool");
-		LanguageBool = iniData->Get<bool>("WebDav", "LanguageBool");
-		TessDataBool = iniData->Get<bool>("WebDav", "TessDataBool");
-		TTFBool = iniData->Get<bool>("WebDav", "TTFBool");
-
-		BaiduAppid = iniData->Get<std::string>("BaiduAPI", "Baidu_ID");
-		BaiduSecret_key = iniData->Get<std::string>("BaiduAPI", "Baidu_Key");
-		Baiduitems = iniData->GetVector<std::string>("BaiduAPI", "Baidu_items");
-		BaiduitemsName = iniData->GetVector<std::string>("BaiduAPI", "Baidu_itemsName");
-
-		YoudaoAppid = iniData->Get<std::string>("YoudaoAPI", "Youdao_ID");
-		YoudaoSecret_key = iniData->Get<std::string>("YoudaoAPI", "Youdao_Key");
-		Youdaoitems = iniData->GetVector<std::string>("YoudaoAPI", "Youdao_items");
-		YoudaoitemsName = iniData->GetVector<std::string>("YoudaoAPI", "Youdao_itemsName");
-
-		Translate = iniData->Get<int>("FT", "Translate");
-		From = iniData->Get<int>("FT", "From");
-		To = iniData->Get<int>("FT", "To");
-
-		//AI 模型翻译。老配置文件里没有这几个键，Get 的三参数版本会返回默认值。
-		AiModelPath = iniData->Get<std::string>("FT", "AIModelPath", std::string(""));
-		AiThreads = iniData->Get<int>("FT", "AIThreads", 0);
-		AiNCtx = iniData->Get<int>("FT", "AINCtx", 4096);
-		AiMaxTokens = iniData->Get<int>("FT", "AIMaxTokens", 2048);
-		AiTemperature = iniData->Get<float>("FT", "AITemperature", 0.7f);
-		AiIdleUnload = iniData->Get<int>("FT", "AIIdleUnload", 0);
 		//配置被改坏时退回能用的值，免得 llama.cpp 直接报错
 		if (AiThreads < 0) { AiThreads = 0; }
 		if (AiNCtx < 256) { AiNCtx = 4096; }
@@ -56,119 +88,44 @@ namespace Variable {
 		if (AiIdleUnload < 0) { AiIdleUnload = 0; }			//0 = 不自动卸载
 		if (AiIdleUnload > 86400) { AiIdleUnload = 86400; }	//最多一天
 
-		MakeUp = iniData->Get<int>("Key", "MakeUp");
-		Screenshotkey = iniData->Get<std::string>("Key", "Screenshotkey");
-		Choicekey = iniData->Get<std::string>("Key", "Choicekey");
-		Replacekey = iniData->Get<std::string>("Key", "Replacekey");
-
-		Model = iniData->Get<std::string>("Set", "TesseractModel");
-
-		DisplayTime = iniData->Get<int>("Set", "DisplayTime");
-		FontSize = iniData->Get<float>("Set", "FontSize");
-		ReplaceLanguage = iniData->Get<int>("Set", "ReplaceLanguage");
-		FontBool = iniData->Get<bool>("Set", "FontBool");
-		FontFilePath = iniData->Get<std::string>("Set", "FontFilePath");
-		Startup = iniData->Get<bool>("Set", "Startup");
-		Language = iniData->Get<std::string>("Set", "Language");
-		std::vector<unsigned int> LScreenshotColor = iniData->GetVector<unsigned int>("Set", "ScreenshotColor");
-		for (size_t i = 0; i < LScreenshotColor.size(); i++)
+		//截图颜色：单独读写（4 个分量，不能直接进配置表）
+		std::vector<unsigned int> LScreenshotColor = iniData.GetVector<unsigned int>("Set", "ScreenshotColor");
+		for (size_t i = 0; i < LScreenshotColor.size() && i < 4; i++)
 		{
-			ScreenshotColor[i] = LScreenshotColor[i];
+			ScreenshotColor[i] = (unsigned char)LScreenshotColor[i];
 		}
-		Script = iniData->Get<std::string>("Set", "Script");
-		ScriptBool = iniData->Get<bool>("Set", "ScriptBool");
 
-		//渲染设备选择。老配置文件里没有这两个键，Get 的三参数版本会返回默认值而不是抛异常。
-		int LVulkanDeviceMode = iniData->Get<int>("Set", "VulkanDeviceMode", (int)VulkanDeviceModeEnum::AutoBest);
+		//渲染设备模式：int 读入 → 越界退回自动 → 转枚举（老配置文件里没有这个键，用缺省值）
+		int LVulkanDeviceMode = iniData.Get<int>("Set", "VulkanDeviceMode", (int)VulkanDeviceModeEnum::AutoBest);
 		if (LVulkanDeviceMode < (int)VulkanDeviceModeEnum::AutoBest || LVulkanDeviceMode > (int)VulkanDeviceModeEnum::Specific)
 		{
 			LVulkanDeviceMode = (int)VulkanDeviceModeEnum::AutoBest;//配置被人改坏时退回自动
 		}
 		VulkanDeviceMode = (VulkanDeviceModeEnum)LVulkanDeviceMode;
-		VulkanDeviceName = iniData->Get<std::string>("Set", "VulkanDeviceName", std::string(""));
-
-		delete iniData;
 	}
 
-	extern void SaveFile() {
+	void SaveFile() {
 		//读不出来（Data.ini 被删/被占用）时宁可这次什么都不做，也不能让异常把进程带走
-		inih::INIReader* iniData = nullptr;
+		std::unique_ptr<inih::INIReader> iniData;
 		try
 		{
-			iniData = new inih::INIReader(IniPath);
+			iniData = std::make_unique<inih::INIReader>(IniPath);
 		}
 		catch (const std::exception& e)
 		{
 			printf("读取 %s 失败，本次设置未保存：%s\n", IniPath, e.what());
 			return;
 		}
-		//保存 一言
-		iniData->UpdateEntry("Hitokoto", "PopUpNotificationBool", PopUpNotificationBool);
-		iniData->UpdateEntry("Hitokoto", "HitokotoTimeInterval", HitokotoTimeInterval);
-		iniData->UpdateEntry("Hitokoto", "HitokotoDisplayDuration", HitokotoDisplayDuration);
-		iniData->UpdateEntry("Hitokoto", "HitokotoPosX", HitokotoPosX);
-		iniData->UpdateEntry("Hitokoto", "HitokotoPosY", HitokotoPosY);
-		iniData->UpdateEntry("Hitokoto", "HitokotoFontSize", HitokotoFontSize);
-		iniData->UpdateEntry("Hitokoto", "HitokotoTTFBool", HitokotoTTFBool);
-		iniData->UpdateEntry("Hitokoto", "HitokotoFontBool", HitokotoFontBool);
-		iniData->UpdateEntry("Hitokoto", "HitokotoFont", HitokotoFont);
-		//保存 WebDav
-		iniData->UpdateEntry("WebDav", "url", WebDav_url);
-		iniData->UpdateEntry("WebDav", "username", WebDav_username);
-		iniData->UpdateEntry("WebDav", "password", WebDav_password);
-		iniData->UpdateEntry("WebDav", "WebFile", WebDav_WebFile);
-		iniData->UpdateEntry("WebDav", "OpcodeBool", OpcodeBool);
-		iniData->UpdateEntry("WebDav", "LanguageBool", LanguageBool);
-		iniData->UpdateEntry("WebDav", "TessDataBool", TessDataBool);
-		iniData->UpdateEntry("WebDav", "TTFBool", TTFBool);
-		//保存 百度ID Key
-		iniData->UpdateEntry("BaiduAPI", "Baidu_ID", BaiduAppid);
-		iniData->UpdateEntry("BaiduAPI", "Baidu_Key", BaiduSecret_key);
-		//保存 有道 ID Key
-		iniData->UpdateEntry("YoudaoAPI", "Youdao_ID", YoudaoAppid);
-		iniData->UpdateEntry("YoudaoAPI", "Youdao_Key", YoudaoSecret_key);
-		//保存 翻译配置
-		iniData->UpdateEntry("FT", "Translate", Translate);
-		iniData->UpdateEntry("FT", "From", From);
-		iniData->UpdateEntry("FT", "To", To);
-		//保存 AI 模型翻译配置
-		iniData->UpdateEntry("FT", "AIModelPath", AiModelPath);
-		iniData->UpdateEntry("FT", "AIThreads", AiThreads);
-		iniData->UpdateEntry("FT", "AINCtx", AiNCtx);
-		iniData->UpdateEntry("FT", "AIMaxTokens", AiMaxTokens);
-		iniData->UpdateEntry("FT", "AITemperature", AiTemperature);
-		iniData->UpdateEntry("FT", "AIIdleUnload", AiIdleUnload);
-		//保存 快捷键位
-		iniData->UpdateEntry("Key", "MakeUp", MakeUp);
-		iniData->UpdateEntry("Key", "Screenshotkey", Screenshotkey);
-		iniData->UpdateEntry("Key", "Choicekey", Choicekey);
-		iniData->UpdateEntry("Key", "Replacekey", Replacekey);
-		//保存 选择模型
-		iniData->UpdateEntry("Set", "TesseractModel", Model);
-		//保存 显示时间
-		iniData->UpdateEntry("Set", "DisplayTime", DisplayTime);
-		//保存 字体大小
-		iniData->UpdateEntry("Set", "FontSize", FontSize);
-		//保存 替换语言
-		iniData->UpdateEntry("Set", "ReplaceLanguage", ReplaceLanguage);
-		//保存 是否开启自定义字体
-		iniData->UpdateEntry("Set", "FontBool", FontBool);
-		//保存 字体文件路径
-		iniData->UpdateEntry("Set", "FontFilePath", FontFilePath);
-		//保存 开机启动
-		iniData->UpdateEntry("Set", "Startup", Startup);
-		//保存 语言
-		iniData->UpdateEntry("Set", "Language", Language);
-		//保存 截图颜色
+
+		//配置项：按同一张表回写（有则覆盖、无则新增）
+#define TK_CONFIG_WRITE(Section, Key, Type, Name, Default) iniData->UpdateEntry(#Section, #Key, Name);
+		TK_CONFIG_ITEMS(TK_CONFIG_WRITE)
+#undef TK_CONFIG_WRITE
+
+		//单独写的两项（与 ReadFile 对应）
 		iniData->UpdateEntry("Set", "ScreenshotColor", VectorToString<unsigned char>(ScreenshotColor, 4));
-		//保存 脚本设置
-		iniData->UpdateEntry("Set", "Script", Script);
-		iniData->UpdateEntry("Set", "ScriptBool", ScriptBool);
-		//保存 渲染设备选择
-		//UpdateEntry 现在是"有则覆盖、无则新增"，空值也不会抛异常，
-		//不再需要按当前值是否为空去挑 InsertEntry / UpdateEntry 了。
 		iniData->UpdateEntry("Set", "VulkanDeviceMode", toString((int)VulkanDeviceMode));
-		iniData->UpdateEntry("Set", "VulkanDeviceName", VulkanDeviceName);
+
 		//写盘失败（文件被占用/只读/路径不存在）不能让异常逃出去：
 		//这里是 ImGui 帧回调 → 主循环的调用链，中间没有任何 try/catch，
 		//异常会一路 std::terminate 掉整个进程，表现就是"点一下保存，程序直接没了"。
@@ -181,365 +138,30 @@ namespace Variable {
 		{
 			printf("保存 %s 失败：%s\n", IniPath, e.what());
 		}
-
-		delete iniData;
 	}
-
-	char* IniPath;//储存文件路径
-
-	int windows_Width;//屏幕宽度
-	int windows_Heigth;//屏幕高度
-	int ScreenShot_Width;//上一次截图用到的宽度
-	int ScreenShot_Heigth;//上一次截图用到的高度
-
-	std::string eng = "";//原文
-	std::string zhong = "";//翻译
-
-	std::string BaiduAppid;//ID
-	std::string BaiduSecret_key;//Key
-	std::vector<std::string> Baiduitems;
-	std::vector<std::string> BaiduitemsName;
-
-	std::string YoudaoAppid;//ID
-	std::string YoudaoSecret_key;//Key
-	std::vector<std::string> Youdaoitems;
-	std::vector<std::string> YoudaoitemsName;
-
-	int Translate;//翻译引擎
-	int From;//被翻译的语言
-	int To;//翻译成什么语言
-
-	//AI 模型翻译（llama.cpp）
-	std::string AiModelPath;
-	int AiThreads;
-	int AiNCtx;
-	int AiMaxTokens;
-	float AiTemperature;
-	int AiIdleUnload;
-
-	//一言
-	bool PopUpNotificationBool;
-	int HitokotoTimeInterval;
-	int HitokotoDisplayDuration;
-	float HitokotoPosX;
-	float HitokotoPosY;
-	float HitokotoFontSize;
-	bool HitokotoFontBool;
-	bool HitokotoTTFBool;
-	std::string HitokotoFont;
-
-	//WebDav
-	std::string WebDav_url;
-	std::string WebDav_username;
-	std::string WebDav_password;
-	std::string WebDav_WebFile;
-	bool OpcodeBool;
-	bool LanguageBool;
-	bool TessDataBool;
-	bool TTFBool;
-
-	//快捷键
-	int MakeUp;//组合
-	std::string Screenshotkey;		//截图
-	std::string Choicekey;			//选择
-	std::string Replacekey;			//替换
-	
-	std::string Model;					//模型
-	int DisplayTime;					//显示时间
-	float FontSize;						//字体大小
-	int ReplaceLanguage;				//替换为什么语言
-	bool FontBool;						//是否开启自定义字体
-	std::string FontFilePath;			//字体文件路径
-	bool Startup;						//开机启动
-	std::string Language;				//语言
-	unsigned char ScreenshotColor[4];	//截图颜色
-	std::string Script;					//脚本
-	bool ScriptBool;					//是否开启脚本
-
-	//渲染设备选择
-	VulkanDeviceModeEnum VulkanDeviceMode = VulkanDeviceModeEnum::AutoBest;//设备选择模式
-	std::string VulkanDeviceName = "";			//指定的设备名（Specific 模式用）
-	std::vector<VulkanDeviceInfo> VulkanDetectedDevices;//这次识别到的设备列表
-	bool RunningOnSoftwareRenderer = false;		//这次是否跑在 CPU 软件渲染上
-	std::string RunningDeviceName = "";			//这次实际用的设备名
-	std::string CpuSoftwareRenderReason = "";	//自动降级到 CPU 的原因
 }
 
 
 namespace Language {
 
+	//变量定义：由 Variable.h 里的语言表生成
+#define TK_LANG_DEF(Section, Name) std::string Name;
+	TK_LANGUAGE_STRINGS(TK_LANG_DEF)
+#undef TK_LANG_DEF
+#define TK_LANG_ALIAS_DEF(Section, Key, Name) std::string Name;
+	TK_LANGUAGE_STRINGS_ALIAS(TK_LANG_ALIAS_DEF)
+#undef TK_LANG_ALIAS_DEF
+
 	void ReadFile(std::string FilePath) {
-		inih::INIReader iniData = inih::INIReader("./Language/" + FilePath + ".ini");
+		inih::INIReader iniData("./Language/" + FilePath + ".ini");
 
-		TranslationKey = iniData.Get<std::string>("Translate","TranslationKey_");
-		From = iniData.Get<std::string>("Translate", "From_");
-		To = iniData.Get<std::string>("Translate", "To_");
-
-		PopUpNotification = iniData.Get<std::string>("Set", "HitokotoPopUpNotification_");
-		HitokotoTimeInterval = iniData.Get<std::string>("Set", "HitokotoTimeInterval_");
-		HitokotoDisplayDuration = iniData.Get<std::string>("Set", "HitokotoDisplayDuration_");
-		IndependentTypeface = iniData.Get<std::string>("Set", "IndependentTypeface_");
-		InternalFontPattern = iniData.Get<std::string>("Set", "InternalFontPattern_");
-		DefaultTypeface = iniData.Get<std::string>("Set", "DefaultTypeface_");
-		PositionX = iniData.Get<std::string>("Set", "PositionX_");
-		PositionY = iniData.Get<std::string>("Set", "PositionY_");
-		HitokotoFontSize = iniData.Get<std::string>("Set", "HitokotoFontSize_");
-		jianguoyunWebDav = iniData.Get<std::string>("Set", "jianguoyunWebDav_");
-		ServerAddress = iniData.Get<std::string>("Set", "ServerAddress_");
-		Account = iniData.Get<std::string>("Set", "Account_");
-		SecretKey = iniData.Get<std::string>("Set", "SecretKey_");
-		ApplyName = iniData.Get<std::string>("Set", "ApplyName_");
-		BackupsFolder = iniData.Get<std::string>("Set", "BackupsFolder_");
-		Backups = iniData.Get<std::string>("Set", "Backups_");
-		Recovery = iniData.Get<std::string>("Set", "Recovery_");
-		Return = iniData.Get<std::string>("Set", "Return_");
-		RecoveryList = iniData.Get<std::string>("Set", "RecoveryList_");
-		Restoration = iniData.Get<std::string>("Set", "Restoration_");
-		Delete = iniData.Get<std::string>("Set", "Delete_");
-		Cancel = iniData.Get<std::string>("Set", "Cancel_");
-		Confirm = iniData.Get<std::string>("Set", "Confirm_");
-		AccountKey = iniData.Get<std::string>("Set", "AccountKey_");
-		BaiduID = iniData.Get<std::string>("Set", "BaiduID_");
-		BaiduKey = iniData.Get<std::string>("Set", "BaiduKey_");
-		YoudaoID = iniData.Get<std::string>("Set", "YoudaoID_");
-		YoudaoKey = iniData.Get<std::string>("Set", "YoudaoKey_");
-
-		//界面重构新增：分类导航 / 翻译窗 / 关于页
-		NavTranslate = iniData.Get<std::string>("Set", "NavTranslate_");
-		NavAI = iniData.Get<std::string>("Set", "NavAI_");
-		NavHotkey = iniData.Get<std::string>("Set", "NavHotkey_");
-		NavGeneral = iniData.Get<std::string>("Set", "NavGeneral_");
-		NavInterface = iniData.Get<std::string>("Set", "NavInterface_");
-		NavHitokoto = iniData.Get<std::string>("Set", "NavHitokoto_");
-		NavBackup = iniData.Get<std::string>("Set", "NavBackup_");
-		NavAbout = iniData.Get<std::string>("Set", "NavAbout_");
-		Saved = iniData.Get<std::string>("Set", "Saved_");
-		Clear = iniData.Get<std::string>("Set", "Clear_");
-		CopyResult = iniData.Get<std::string>("Set", "CopyResult_");
-		SwapLanguage = iniData.Get<std::string>("Set", "SwapLanguage_");
-		Engine = iniData.Get<std::string>("Set", "Engine_");
-		EngineHint = iniData.Get<std::string>("Set", "EngineHint_");
-		SourceLanguage = iniData.Get<std::string>("Set", "SourceLanguage_");
-		TargetLanguage = iniData.Get<std::string>("Set", "TargetLanguage_");
-		AboutText = iniData.Get<std::string>("Set", "AboutText_");
-
-		//本地 AI 模型（设置界面）
-		AIModel = iniData.Get<std::string>("Set", "AIModel_");
-		AIModelPath = iniData.Get<std::string>("Set", "AIModelPath_");
-		AIModelDefault = iniData.Get<std::string>("Set", "AIModelDefault_");
-		AIModelSelect = iniData.Get<std::string>("Set", "AIModelSelect_");
-		AIModelRefresh = iniData.Get<std::string>("Set", "AIModelRefresh_");
-		NotAiModelText = iniData.Get<std::string>("Set", "NotAiModelText_");
-		AIThreads = iniData.Get<std::string>("Set", "AIThreads_");
-		AINCtx = iniData.Get<std::string>("Set", "AINCtx_");
-		AIMaxTokens = iniData.Get<std::string>("Set", "AIMaxTokens_");
-		AITemperature = iniData.Get<std::string>("Set", "AITemperature_");
-		AIHint = iniData.Get<std::string>("Set", "AIHint_");
-		AIStatusLoaded = iniData.Get<std::string>("Set", "AIStatusLoaded_");
-		AIStatusNotLoaded = iniData.Get<std::string>("Set", "AIStatusNotLoaded_");
-		AIStatusLoading = iniData.Get<std::string>("Set", "AIStatusLoading_");
-		AIStatusGenerating = iniData.Get<std::string>("Set", "AIStatusGenerating_");
-		AILoad = iniData.Get<std::string>("Set", "AILoad_");
-		AIUnload = iniData.Get<std::string>("Set", "AIUnload_");
-		AILoading = iniData.Get<std::string>("Set", "AILoading_");
-		AITranslating = iniData.Get<std::string>("Set", "AITranslating_");
-		Recognizing = iniData.Get<std::string>("Set", "Recognizing_");
-		Translating = iniData.Get<std::string>("Set", "Translating_");
-		AIFailed = iniData.Get<std::string>("Set", "AIFailed_");
-		AIFailedEmpty = iniData.Get<std::string>("Set", "AIFailedEmpty_");
-		AIIdleUnload = iniData.Get<std::string>("Set", "AIIdleUnload_");
-		AIIdleLeft = iniData.Get<std::string>("Set", "AIIdleLeft_");
-		ShortcutKeys = iniData.Get<std::string>("Set", "ShortcutKeys_");
-		KeyCombination = iniData.Get<std::string>("Set", "KeyCombination_");
-		ScreenshotTranslation = iniData.Get<std::string>("Set", "ScreenshotTranslation_");
-		SelectTranslation = iniData.Get<std::string>("Set", "SelectTranslation_");
-		ReplaceTranslation = iniData.Get<std::string>("Set", "ReplaceTranslation_");
-		Startup = iniData.Get<std::string>("Set", "Startup_");
-		ResidenceTime = iniData.Get<std::string>("Set", "ResidenceTime_");
-		FontSize = iniData.Get<std::string>("Set", "FontSize_");
-		TesseractModel = iniData.Get<std::string>("Set", "TesseractModel_");
-		NotTesseractModelText = iniData.Get<std::string>("Set", "NotTesseractModelText_");
-		UseTTF_Typeface = iniData.Get<std::string>("Set", "UseTTF_Typeface_");
-		TTF_Folder = iniData.Get<std::string>("Set", "TTF_Folder_");
-		TessDataFolder = iniData.Get<std::string>("Set", "TessDataFolder_");
-		TTF_Typeface = iniData.Get<std::string>("Set", "TTF_Typeface_");
-		NotTTF_TypefaceText = iniData.Get<std::string>("Set", "NotTTF_TypefaceText_");
-		ReplaceLanguage = iniData.Get<std::string>("Set", "ReplaceLanguage_");
-		Save = iniData.Get<std::string>("Set", "Save_");
-		Close = iniData.Get<std::string>("Set", "Close_");
-		Language = iniData.Get<std::string>("Set", "Language_");
-		ScreenshotColor = iniData.Get<std::string>("Set", "ScreenshotColor_");
-		Script = iniData.Get<std::string>("Set", "Script_");
-		NotScript = iniData.Get<std::string>("Set", "NotScript_");
-
-		//渲染设备选择（带 %s 的是模板，界面里会替换成设备名）
-		RenderDevice = iniData.Get<std::string>("Set", "RenderDevice_");
-		RenderDeviceAutoBest = iniData.Get<std::string>("Set", "RenderDeviceAutoBest_");
-		RenderDeviceAutoWorst = iniData.Get<std::string>("Set", "RenderDeviceAutoWorst_");
-		RenderDeviceCPU = iniData.Get<std::string>("Set", "RenderDeviceCPU_");
-		RenderDeviceUnusable = iniData.Get<std::string>("Set", "RenderDeviceUnusable_");
-		RenderDeviceTypeIGPU = iniData.Get<std::string>("Set", "RenderDeviceTypeIGPU_");
-		RenderDeviceTypeDGPU = iniData.Get<std::string>("Set", "RenderDeviceTypeDGPU_");
-		RenderDeviceTypeVirtual = iniData.Get<std::string>("Set", "RenderDeviceTypeVirtual_");
-		RenderDeviceTypeCPU = iniData.Get<std::string>("Set", "RenderDeviceTypeCPU_");
-		RenderDeviceTypeOther = iniData.Get<std::string>("Set", "RenderDeviceTypeOther_");
-		RenderDeviceItem = iniData.Get<std::string>("Set", "RenderDeviceItem_");
-		RenderDeviceItemBad = iniData.Get<std::string>("Set", "RenderDeviceItemBad_");
-		RenderDeviceRestart = iniData.Get<std::string>("Set", "RenderDeviceRestart_");
-		RenderDeviceMissing = iniData.Get<std::string>("Set", "RenderDeviceMissing_");
-		RenderDeviceCurrentCPU = iniData.Get<std::string>("Set", "RenderDeviceCurrentCPU_");
-		RenderDeviceCurrentSpecific = iniData.Get<std::string>("Set", "RenderDeviceCurrentSpecific_");
-		RenderDeviceCurrentGPU = iniData.Get<std::string>("Set", "RenderDeviceCurrentGPU_");
-		RenderDeviceDegrade = iniData.Get<std::string>("Set", "RenderDeviceDegrade_");
-		RenderDeviceHelp1 = iniData.Get<std::string>("Set", "RenderDeviceHelp1_");
-		RenderDeviceHelp2 = iniData.Get<std::string>("Set", "RenderDeviceHelp2_");
-		RenderDeviceHelp3 = iniData.Get<std::string>("Set", "RenderDeviceHelp3_");
-		RenderDeviceHelp4 = iniData.Get<std::string>("Set", "RenderDeviceHelp4_");
-		RenderDeviceHelp5 = iniData.Get<std::string>("Set", "RenderDeviceHelp5_");
-		RenderDeviceHelp6 = iniData.Get<std::string>("Set", "RenderDeviceHelp6_");
-		RenderDeviceHelp7 = iniData.Get<std::string>("Set", "RenderDeviceHelp7_");
-
-		Set = iniData.Get<std::string>("tray", "Set_");
-		ShutUp = iniData.Get<std::string>("tray", "ShutUp_");
-		Speak = iniData.Get<std::string>("tray", "Speak_");
-		Exit = iniData.Get<std::string>("tray", "Exit_");
-		OpenFolder = iniData.Get<std::string>("tray", "OpenFolder_");
-		strncpy = iniData.Get<std::string>("tray", "strncpy_");
+		//ini 里的键名一般是「变量名 + 下划线」，由表里的变量名拼出来
+#define TK_LANG_READ(Section, Name) Name = iniData.Get<std::string>(#Section, #Name "_");
+		TK_LANGUAGE_STRINGS(TK_LANG_READ)
+#undef TK_LANG_READ
+		//键名与变量名对不上的少数项走特例表（键名直接写出来）
+#define TK_LANG_ALIAS_READ(Section, Key, Name) Name = iniData.Get<std::string>(#Section, #Key "_");
+		TK_LANGUAGE_STRINGS_ALIAS(TK_LANG_ALIAS_READ)
+#undef TK_LANG_ALIAS_READ
 	}
-
-	//翻译界面
-	std::string TranslationKey;			//翻译键
-	std::string From;					//From
-	std::string To;						//To
-
-	//设置界面
-	std::string PopUpNotification;		//一言弹窗
-	std::string HitokotoTimeInterval;	//弹窗时间间隔
-	std::string HitokotoDisplayDuration;//弹窗显示时长
-	std::string IndependentTypeface;	//独立字模
-	std::string InternalFontPattern;	//默认字模
-	std::string PositionX;				//位置X
-	std::string PositionY;				//位置Y
-	std::string HitokotoFontSize;		//一言字体大小
-	std::string jianguoyunWebDav;		//坚果云WebDav
-	std::string ServerAddress;			//服务器地址
-	std::string Account;				//账户
-	std::string SecretKey;				//密钥
-	std::string ApplyName;				//应用名称
-	std::string BackupsFolder;			//选择需要备份的文件夹
-	std::string Backups;				//备份
-	std::string Recovery;				//恢复
-	std::string Return;					//返回
-	std::string RecoveryList;			//恢复列表
-	std::string Restoration;			//复原
-	std::string Delete;					//删除
-	std::string Cancel;					//取消
-	std::string Confirm;				//确定
-	std::string AccountKey;				//翻译密钥
-	std::string BaiduID;				//百度ID
-	std::string BaiduKey;				//百度Key
-	std::string YoudaoID;				//有道ID
-	std::string YoudaoKey;				//有道Key
-	//界面重构新增
-	std::string NavTranslate;			//导航-翻译服务
-	std::string NavAI;					//导航-AI模型
-	std::string NavHotkey;				//导航-快捷键
-	std::string NavGeneral;				//导航-常规
-	std::string NavInterface;			//导航-界面
-	std::string NavHitokoto;			//导航-一言
-	std::string NavBackup;				//导航-备份
-	std::string NavAbout;				//导航-关于
-	std::string Saved;					//已保存
-	std::string Clear;					//清空
-	std::string CopyResult;				//复制译文
-	std::string SwapLanguage;			//互换
-	std::string Engine;					//翻译源
-	std::string EngineHint;
-	std::string SourceLanguage;			//源语言
-	std::string TargetLanguage;			//目标语言
-	std::string AboutText;				//关于说明
-	//本地 AI 模型（设置界面）
-	std::string AIModel;				//AI模型（本地llama.cpp）
-	std::string AIModelPath;			//模型路径
-	std::string AIModelDefault;			//恢复默认路径
-	std::string AIModelSelect;			//选择模型（扫描 Modes 文件夹）
-	std::string AIModelRefresh;			//刷新模型列表
-	std::string NotAiModelText;			//没有找到模型
-	std::string AIThreads;				//推理线程数
-	std::string AINCtx;					//上下文长度
-	std::string AIMaxTokens;			//单次最多生成
-	std::string AITemperature;			//采样温度
-	std::string AIHint;					//使用提示
-	std::string AIStatusLoaded;			//状态：已加载（带 %s）
-	std::string AIStatusNotLoaded;		//状态：未加载
-	std::string AIStatusLoading;		//状态：正在加载模型
-	std::string AIStatusGenerating;		//状态：正在翻译
-	std::string AILoad;					//加载模型按钮
-	std::string AIUnload;				//卸载模型按钮
-	std::string AILoading;				//正在加载模型…（带 %d）
-	std::string AITranslating;			//AI 翻译中…（带 %d）
-	std::string Recognizing;			//截图识别中…（截图翻译先 OCR 再翻）
-	std::string Translating;			//翻译中…（普通翻译源）
-	std::string AIFailed;				//翻译失败（带 %s）
-	std::string AIFailedEmpty;			//翻译失败（没有错误信息）
-	std::string AIIdleUnload;			//闲置多久自动卸载模型（秒，0＝不卸载）
-	std::string AIIdleLeft;				//｜空闲 %d 秒后自动卸载
-	std::string ShortcutKeys;			//快捷键
-	std::string KeyCombination;			//组合键
-	std::string ScreenshotTranslation;	//截图翻译
-	std::string SelectTranslation;		//选择翻译
-	std::string ReplaceTranslation;		//替换翻译
-	std::string Startup;				//开机启动
-	std::string ResidenceTime;			//滞留时间（ms）
-	std::string FontSize;				//字体大小
-	std::string TesseractModel;			//Tesseract模型
-	std::string NotTesseractModelText;	//你没有Tesseract模型，模型放在当前程序位置的TessData
-	std::string UseTTF_Typeface;		//自定义TTF字体
-	std::string TTF_Folder;				//TTF文件夹
-	std::string TessDataFolder;			//TessData文件夹
-	std::string TTF_Typeface;			//TTF字体
-	std::string NotTTF_TypefaceText;	//你没有TTF字体，字体放在当前程序位置的TTF
-	std::string DefaultTypeface;		//默认字模（含 %s，界面里换成字体路径）
-	std::string ReplaceLanguage;		//替换语言
-	std::string Save;					//保存
-	std::string Close;					//关闭
-	std::string Language;				//语言
-	std::string ScreenshotColor;		//截图颜色
-	std::string Script;					//脚本
-	std::string NotScript;				//没有脚本
-
-	//渲染设备选择（设置界面）
-	std::string RenderDevice;				//渲染设备
-	std::string RenderDeviceAutoBest;		//自动选择最高性能
-	std::string RenderDeviceAutoWorst;		//自动选择最低性能
-	std::string RenderDeviceCPU;			//CPU 软件渲染
-	std::string RenderDeviceUnusable;		//不满足最低要求
-	std::string RenderDeviceTypeIGPU;		//集成显卡
-	std::string RenderDeviceTypeDGPU;		//独立显卡
-	std::string RenderDeviceTypeVirtual;	//虚拟显卡
-	std::string RenderDeviceTypeCPU;		//CPU 软件设备
-	std::string RenderDeviceTypeOther;		//其它
-	std::string RenderDeviceItem;			//设备标签
-	std::string RenderDeviceItemBad;		//设备标签-不满足要求
-	std::string RenderDeviceRestart;		//重启程序后生效
-	std::string RenderDeviceMissing;		//指定设备没识别到
-	std::string RenderDeviceCurrentCPU;		//当前：CPU 软件渲染
-	std::string RenderDeviceCurrentSpecific;//当前：指定设备
-	std::string RenderDeviceCurrentGPU;		//当前：显卡渲染
-	std::string RenderDeviceDegrade;		//降级提示前缀
-	std::string RenderDeviceHelp1;			//帮助第 1 行
-	std::string RenderDeviceHelp2;			//帮助第 2 行
-	std::string RenderDeviceHelp3;			//帮助第 3 行
-	std::string RenderDeviceHelp4;			//帮助第 4 行
-	std::string RenderDeviceHelp5;			//帮助第 5 行
-	std::string RenderDeviceHelp6;			//帮助第 6 行
-	std::string RenderDeviceHelp7;			//帮助第 7 行
-
-	//系统托盘
-	std::string Set;					//设置
-	std::string ShutUp;					//言闭
-	std::string Speak;					//言开
-	std::string Exit;					//退出
-	std::string OpenFolder;				//打开程序目录
-	std::string strncpy;				//人家叫翻译姬！
 }

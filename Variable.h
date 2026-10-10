@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <sstream>//toString / VectorToString 用
 #include <vector>//识别到的显卡列表 std::vector<VulkanDeviceInfo>
 #include "ini.h"//软件数据
 using namespace inih;//启用 ini 读取
@@ -44,73 +45,85 @@ namespace Variable {
 	extern std::string eng;//原文
 	extern std::string zhong;//翻译
 
-	//一言
-	extern bool PopUpNotificationBool;	//是否开启一言弹窗
-	extern int HitokotoTimeInterval;	//一言弹窗时间间隔
-	extern int HitokotoDisplayDuration;	//一言弹窗显示时长
-	extern float HitokotoPosX;			//一言弹窗位置X
-	extern float HitokotoPosY;			//一言弹窗位置Y
-	extern float HitokotoFontSize;		//一言字体大小
-	extern bool HitokotoFontBool;		//独立字模
-	extern bool HitokotoTTFBool;		//使用内部字模
-	extern std::string HitokotoFont;	//字模
+	// ============================================================================
+	//  配置项表（表驱动）
+	// ----------------------------------------------------------------------------
+	//  每行 = (ini 节名, ini 键名, 类型, 变量名, 缺省值文本)。
+	//  声明、定义、ReadFile、SaveFile 四处全部由这一张表生成 —— 原先这四处各手写一遍
+	//  （Variable.h 声明墙 + Variable.cpp 定义墙 + ReadFile 平铺 + SaveFile 平铺），
+	//  新增一个配置项要改四处，漏一处就是"存了不读/读了不存"。
+	//  缺省值写字符串文本；nullptr 表示"原逻辑没有缺省值"（键缺失或值非法时照样抛异常）。
+	//
+	//  ⚠ 这张表在 Variable.cpp 里被重复展开，不要给它 #undef。
+	// ============================================================================
+#define TK_CONFIG_ITEMS(X) \
+	/* 一言 */ \
+	X(Hitokoto, PopUpNotificationBool,    bool,        PopUpNotificationBool, nullptr) \
+	X(Hitokoto, HitokotoTimeInterval,     int,         HitokotoTimeInterval,  nullptr) \
+	X(Hitokoto, HitokotoDisplayDuration,  int,         HitokotoDisplayDuration, nullptr) \
+	X(Hitokoto, HitokotoPosX,             float,       HitokotoPosX,          nullptr) \
+	X(Hitokoto, HitokotoPosY,             float,       HitokotoPosY,          nullptr) \
+	X(Hitokoto, HitokotoFontSize,         float,       HitokotoFontSize,      nullptr) \
+	X(Hitokoto, HitokotoTTFBool,          bool,        HitokotoTTFBool,       nullptr) \
+	X(Hitokoto, HitokotoFontBool,         bool,        HitokotoFontBool,      nullptr) \
+	X(Hitokoto, HitokotoFont,             std::string, HitokotoFont,          nullptr) \
+	/* WebDav */ \
+	X(WebDav,   url,                      std::string, WebDav_url,             nullptr) \
+	X(WebDav,   username,                 std::string, WebDav_username,        nullptr) \
+	X(WebDav,   password,                 std::string, WebDav_password,        nullptr) \
+	X(WebDav,   WebFile,                  std::string, WebDav_WebFile,         nullptr) \
+	X(WebDav,   OpcodeBool,               bool,        OpcodeBool,            nullptr) \
+	X(WebDav,   LanguageBool,             bool,        LanguageBool,          nullptr) \
+	X(WebDav,   TessDataBool,             bool,        TessDataBool,          nullptr) \
+	X(WebDav,   TTFBool,                  bool,        TTFBool,               nullptr) \
+	/* 百度翻译 */ \
+	X(BaiduAPI, Baidu_ID,                 std::string, BaiduAppid,            nullptr) \
+	X(BaiduAPI, Baidu_Key,                std::string, BaiduSecret_key,       nullptr) \
+	/* 有道翻译 */ \
+	X(YoudaoAPI, Youdao_ID,               std::string, YoudaoAppid,           nullptr) \
+	X(YoudaoAPI, Youdao_Key,              std::string, YoudaoSecret_key,      nullptr) \
+	/* 翻译配置 */ \
+	X(FT,       Translate,                int,         Translate,             nullptr) \
+	X(FT,       From,                     int,         From,                  nullptr) \
+	X(FT,       To,                       int,         To,                    nullptr) \
+	/* AI 模型翻译（老配置文件没有这些键，用缺省值补齐） */ \
+	X(FT,       AIModelPath,              std::string, AiModelPath,           "") \
+	X(FT,       AIThreads,                int,         AiThreads,             "0") \
+	X(FT,       AINCtx,                   int,         AiNCtx,                "4096") \
+	X(FT,       AIMaxTokens,              int,         AiMaxTokens,           "2048") \
+	X(FT,       AITemperature,            float,       AiTemperature,         "0.7") \
+	X(FT,       AIIdleUnload,             int,         AiIdleUnload,          "0") \
+	/* 快捷键 */ \
+	X(Key,      MakeUp,                   int,         MakeUp,                nullptr) \
+	X(Key,      Screenshotkey,            std::string, Screenshotkey,         nullptr) \
+	X(Key,      Choicekey,                std::string, Choicekey,             nullptr) \
+	X(Key,      Replacekey,               std::string, Replacekey,            nullptr) \
+	/* 设置 */ \
+	X(Set,      TesseractModel,           std::string, Model,                 nullptr) \
+	X(Set,      DisplayTime,              int,         DisplayTime,           nullptr) \
+	X(Set,      FontSize,                 float,       FontSize,              nullptr) \
+	X(Set,      ReplaceLanguage,          int,         ReplaceLanguage,       nullptr) \
+	X(Set,      FontBool,                 bool,        FontBool,              nullptr) \
+	X(Set,      FontFilePath,             std::string, FontFilePath,          nullptr) \
+	X(Set,      Startup,                  bool,        Startup,               nullptr) \
+	X(Set,      Language,                 std::string, Language,              nullptr) \
+	X(Set,      Script,                   std::string, Script,                nullptr) \
+	X(Set,      ScriptBool,               bool,        ScriptBool,            nullptr) \
+	X(Set,      VulkanDeviceName,         std::string, VulkanDeviceName,      "")
 
-	//WebDav
-	extern std::string WebDav_url;		//WebDav 的服务器网址
-	extern std::string WebDav_username;	//WebDav 账号
-	extern std::string WebDav_password;	//WebDav 密钥
-	extern std::string WebDav_WebFile;	//WebDav 应用名称
-	//WebDav保存 那些文件夹
-	extern bool OpcodeBool;
-	extern bool LanguageBool;
-	extern bool TessDataBool;
-	extern bool TTFBool;
+	// 只读项（会被读进来，但 SaveFile 不回写 —— 保持原逻辑）。
+#define TK_CONFIG_READONLY_ITEMS(X) \
+	X(BaiduAPI,  Baidu_items,     std::vector<std::string>, Baiduitems,      nullptr) \
+	X(BaiduAPI,  Baidu_itemsName, std::vector<std::string>, BaiduitemsName,  nullptr) \
+	X(YoudaoAPI, Youdao_items,    std::vector<std::string>, Youdaoitems,     nullptr) \
+	X(YoudaoAPI, Youdao_itemsName, std::vector<std::string>, YoudaoitemsName, nullptr)
 
-	//快捷键
-	extern int MakeUp;//组合
-	extern std::string Screenshotkey;//截图
-	extern std::string Choicekey;//选择
-	extern std::string Replacekey;//替换
+#define TK_CONFIG_DECL(Section, Key, Type, Name, Default) extern Type Name;
+	TK_CONFIG_ITEMS(TK_CONFIG_DECL)
+	TK_CONFIG_READONLY_ITEMS(TK_CONFIG_DECL)
+#undef TK_CONFIG_DECL
 
-
-	//百度翻译
-	extern std::string BaiduAppid;//ID
-	extern std::string BaiduSecret_key;//Key
-	extern std::vector<std::string> Baiduitems;
-	extern std::vector<std::string> BaiduitemsName;
-
-	//有道翻译
-	extern std::string YoudaoAppid;//ID
-	extern std::string YoudaoSecret_key;//Key
-	extern std::vector<std::string> Youdaoitems;
-	extern std::vector<std::string> YoudaoitemsName;
-
-	extern int Translate;//翻译引擎
-	extern int From;//被翻译的语言
-	extern int To;//翻译成什么语言
-
-	//AI 模型翻译（llama.cpp 加载本地 GGUF 模型）
-	extern std::string AiModelPath;	//模型文件路径（空 = 用默认的 Modes/Hy-MT2-1.8B-Q4_K_M.gguf）
-	extern int AiThreads;			//推理线程数（0 = 让 llama.cpp 自己决定）
-	extern int AiNCtx;				//上下文长度
-	extern int AiMaxTokens;			//单次最多生成的 token 数
-	extern float AiTemperature;		//采样温度
-	extern int AiIdleUnload;		//模型闲置多少秒后自动卸载（0 = 一直留着）
-
-	//OCR识别模型
-	extern std::string Model;//模型
-
-	//设置
-	extern int DisplayTime;//显示时间
-	extern float FontSize;//字体大小
-	extern int ReplaceLanguage;//替换为什么语言
-	extern bool FontBool;//是否引用字体
-	extern std::string FontFilePath;//字体文件路径
-	extern bool Startup;//开机启动
-	extern std::string Language;//语言
-	extern unsigned char ScreenshotColor[4];//截图颜色
-	extern std::string Script;					//脚本
-	extern bool ScriptBool;//是否开启脚本
+	extern unsigned char ScreenshotColor[4];//截图颜色（4 个分量，特殊读写：见 Variable.cpp）
 
 	//渲染设备选择（Vulkan）
 	//AutoBest 自动选最高性能、AutoWorst 自动选最低性能、CPU 走 SwiftShader 软件渲染、
@@ -130,7 +143,6 @@ namespace Variable {
 	};
 
 	extern VulkanDeviceModeEnum VulkanDeviceMode;				//设备选择模式
-	extern std::string VulkanDeviceName;						//指定设备的名字（Specific 模式用）
 	extern std::vector<VulkanDeviceInfo> VulkanDetectedDevices;	//这次识别到的设备列表
 	extern bool RunningOnSoftwareRenderer;						//这次是否跑在 CPU 软件渲染上
 	extern std::string RunningDeviceName;						//这次实际用的设备名
@@ -143,142 +155,156 @@ namespace Variable {
 namespace Language {
 	extern void ReadFile(std::string FilePath);//读取
 
-	//翻译界面
-	extern std::string TranslationKey;			//翻译键
-	extern std::string From;					//From
-	extern std::string To;						//To
+	// ============================================================================
+	//  语言字符串表（表驱动）
+	// ----------------------------------------------------------------------------
+	//  每行 = (ini 节名, 变量名)。ini 里的键名恒为「变量名 + 下划线」，例如
+	//  TranslationKey -> TranslationKey_。声明、定义、ReadFile 三处都由这张表生成。
+	//  ⚠ 这张表在 Variable.cpp 里被重复展开，不要给它 #undef。
+	// ============================================================================
+#define TK_LANGUAGE_STRINGS(X) \
+	/* 翻译界面 */ \
+	X(Translate, TranslationKey)			/*翻译键*/ \
+	X(Translate, From)						/*From*/ \
+	X(Translate, To)						/*To*/ \
+	/* 设置界面 */ \
+	X(Set, HitokotoTimeInterval)			/*弹窗时间间隔*/ \
+	X(Set, HitokotoDisplayDuration)			/*弹窗显示时长*/ \
+	X(Set, IndependentTypeface)				/*独立字模*/ \
+	X(Set, InternalFontPattern)				/*默认字模（勾上时用程序目录 TTF 里的默认字体）*/ \
+	X(Set, DefaultTypeface)					/*默认字模（含 %s，界面里换成字体路径）*/ \
+	X(Set, PositionX)						/*位置X*/ \
+	X(Set, PositionY)						/*位置Y*/ \
+	X(Set, HitokotoFontSize)				/*一言字体大小*/ \
+	X(Set, jianguoyunWebDav)				/*坚果云WebDav*/ \
+	X(Set, ServerAddress)					/*服务器地址*/ \
+	X(Set, Account)							/*账户*/ \
+	X(Set, SecretKey)						/*密钥*/ \
+	X(Set, ApplyName)						/*应用名称*/ \
+	X(Set, BackupsFolder)					/*选择需要备份的文件夹*/ \
+	X(Set, Backups)							/*备份*/ \
+	X(Set, Recovery)						/*恢复*/ \
+	X(Set, Return)							/*返回*/ \
+	X(Set, RecoveryList)					/*恢复列表*/ \
+	X(Set, Restoration)						/*复原*/ \
+	X(Set, Delete)							/*删除*/ \
+	X(Set, Cancel)							/*取消*/ \
+	X(Set, Confirm)							/*确定*/ \
+	X(Set, AccountKey)						/*翻译密钥*/ \
+	X(Set, BaiduID)							/*百度ID*/ \
+	X(Set, BaiduKey)						/*百度Key*/ \
+	X(Set, YoudaoID)						/*有道ID*/ \
+	X(Set, YoudaoKey)						/*有道Key*/ \
+	/* 界面重构新增：设置界面左侧分类导航 / 翻译窗口 / 关于页 */ \
+	X(Set, NavTranslate)					/*导航-翻译服务*/ \
+	X(Set, NavAI)							/*导航-AI模型*/ \
+	X(Set, NavHotkey)						/*导航-快捷键*/ \
+	X(Set, NavGeneral)						/*导航-常规*/ \
+	X(Set, NavInterface)					/*导航-界面*/ \
+	X(Set, NavHitokoto)						/*导航-一言*/ \
+	X(Set, NavBackup)						/*导航-备份*/ \
+	X(Set, NavAbout)						/*导航-关于*/ \
+	X(Set, Saved)							/*提示-已保存*/ \
+	X(Set, Clear)							/*翻译窗-清空*/ \
+	X(Set, CopyResult)						/*翻译窗-复制译文*/ \
+	X(Set, SwapLanguage)					/*翻译窗-互换源/目标语言*/ \
+	X(Set, Engine)							/*翻译窗-翻译源*/ \
+	X(Set, EngineHint) \
+	X(Set, SourceLanguage)					/*翻译窗-源语言*/ \
+	X(Set, TargetLanguage)					/*翻译窗-目标语言*/ \
+	X(Set, AboutText)						/*关于页说明文字*/ \
+	/* 本地 AI 模型（设置界面） */ \
+	X(Set, AIModel)							/*AI模型（本地llama.cpp）*/ \
+	X(Set, AIModelPath)						/*模型路径*/ \
+	X(Set, AIModelDefault)					/*恢复默认路径*/ \
+	X(Set, AIModelSelect)					/*选择模型（扫描 Modes 文件夹）*/ \
+	X(Set, AIModelRefresh)					/*刷新模型列表*/ \
+	X(Set, NotAiModelText)					/*没有找到模型（提示把 .gguf 放进 Modes 文件夹）*/ \
+	X(Set, AIThreads)						/*推理线程数*/ \
+	X(Set, AINCtx)							/*上下文长度*/ \
+	X(Set, AIMaxTokens)						/*单次最多生成*/ \
+	X(Set, AITemperature)					/*采样温度*/ \
+	X(Set, AIIdleUnload)					/*空闲多少秒后自动卸载模型（0 = 不卸载）*/ \
+	X(Set, AIIdleLeft)						/*｜空闲 %d 秒后自动卸载（带 %d，秒数）*/ \
+	X(Set, AIHint)							/*使用提示*/ \
+	X(Set, AIStatusLoaded)					/*状态：已加载（带 %s，模型信息）*/ \
+	X(Set, AIStatusNotLoaded)				/*状态：未加载*/ \
+	X(Set, AIStatusLoading)					/*状态：正在加载模型*/ \
+	X(Set, AIStatusGenerating)				/*状态：正在翻译*/ \
+	X(Set, AILoad)							/*加载模型按钮*/ \
+	X(Set, AIUnload)						/*卸载模型按钮*/ \
+	X(Set, AILoading)						/*正在加载模型…（带 %d，已用秒数）*/ \
+	X(Set, AITranslating)					/*AI 翻译中…（带 %d，已用秒数）*/ \
+	X(Set, Recognizing)						/*截图识别中…（截图翻译先 OCR 再翻）*/ \
+	X(Set, Translating)						/*翻译中…（普通翻译源，如百度/有道）*/ \
+	X(Set, AIFailed)						/*翻译失败（带 %s，错误信息）*/ \
+	X(Set, AIFailedEmpty)					/*翻译失败（没有错误信息）*/ \
+	X(Set, ShortcutKeys)					/*快捷键*/ \
+	X(Set, KeyCombination)					/*组合键*/ \
+	X(Set, ScreenshotTranslation)			/*截图翻译*/ \
+	X(Set, SelectTranslation)				/*选择翻译*/ \
+	X(Set, ReplaceTranslation)				/*替换翻译*/ \
+	X(Set, Startup)							/*开机启动*/ \
+	X(Set, ResidenceTime)					/*滞留时间（ms）*/ \
+	X(Set, FontSize)						/*字体大小*/ \
+	X(Set, TesseractModel)					/*Tesseract模型*/ \
+	X(Set, NotTesseractModelText)			/*你没有Tesseract模型，模型放在当前程序位置的TessData*/ \
+	X(Set, UseTTF_Typeface)					/*使用TTF字体*/ \
+	X(Set, TTF_Folder)						/*TTF文件夹*/ \
+	X(Set, TessDataFolder)					/*TessData文件夹*/ \
+	X(Set, TTF_Typeface)					/*TTF字体*/ \
+	X(Set, NotTTF_TypefaceText)				/*你没有TTF字体，字体放在当前程序位置的TTF*/ \
+	X(Set, ReplaceLanguage)					/*替换语言*/ \
+	X(Set, Save)							/*保存*/ \
+	X(Set, Close)							/*关闭*/ \
+	X(Set, Language)						/*语言*/ \
+	X(Set, ScreenshotColor)					/*截图颜色*/ \
+	X(Set, Script)							/*脚本*/ \
+	X(Set, NotScript)						/*没有脚本*/ \
+	/* 渲染设备选择（带 %s 的是模板，界面里会替换成设备名） */ \
+	X(Set, RenderDevice)					/*渲染设备*/ \
+	X(Set, RenderDeviceAutoBest)			/*自动选择最高性能*/ \
+	X(Set, RenderDeviceAutoWorst)			/*自动选择最低性能*/ \
+	X(Set, RenderDeviceCPU)					/*CPU 软件渲染*/ \
+	X(Set, RenderDeviceUnusable)			/*不满足最低要求*/ \
+	X(Set, RenderDeviceTypeIGPU)			/*集成显卡*/ \
+	X(Set, RenderDeviceTypeDGPU)			/*独立显卡*/ \
+	X(Set, RenderDeviceTypeVirtual)			/*虚拟显卡*/ \
+	X(Set, RenderDeviceTypeCPU)				/*CPU 软件设备*/ \
+	X(Set, RenderDeviceTypeOther)			/*其它*/ \
+	X(Set, RenderDeviceItem)				/*设备标签（名字 + 类型，两个 %s）*/ \
+	X(Set, RenderDeviceItemBad)				/*设备标签-不满足要求（三个 %s）*/ \
+	X(Set, RenderDeviceRestart)				/*重启程序后生效*/ \
+	X(Set, RenderDeviceMissing)				/*指定设备没识别到（带 %s）*/ \
+	X(Set, RenderDeviceCurrentCPU)			/*当前：CPU 软件渲染（带 %s）*/ \
+	X(Set, RenderDeviceCurrentSpecific)		/*当前：指定设备（带 %s）*/ \
+	X(Set, RenderDeviceCurrentGPU)			/*当前：显卡渲染（带 %s）*/ \
+	X(Set, RenderDeviceDegrade)				/*降级提示前缀（带 %s）*/ \
+	X(Set, RenderDeviceHelp1)				/*帮助第 1 行*/ \
+	X(Set, RenderDeviceHelp2)				/*帮助第 2 行*/ \
+	X(Set, RenderDeviceHelp3)				/*帮助第 3 行*/ \
+	X(Set, RenderDeviceHelp4)				/*帮助第 4 行*/ \
+	X(Set, RenderDeviceHelp5)				/*帮助第 5 行*/ \
+	X(Set, RenderDeviceHelp6)				/*帮助第 6 行*/ \
+	X(Set, RenderDeviceHelp7)				/*帮助第 7 行*/ \
+	/* 系统托盘 */ \
+	X(tray, Set)							/*设置*/ \
+	X(tray, ShutUp)							/*言闭*/ \
+	X(tray, Speak)							/*言开*/ \
+	X(tray, Exit)							/*退出*/ \
+	X(tray, OpenFolder)						/*打开程序目录*/ \
+	X(tray, strncpy)						/*人家叫翻译姬！*/
 
-	//设置界面
-	extern std::string PopUpNotification;		//一言弹窗
-	extern std::string HitokotoTimeInterval;	//弹窗时间间隔
-	extern std::string HitokotoDisplayDuration;	//弹窗显示时长
-	extern std::string IndependentTypeface;		//独立字模
-	extern std::string InternalFontPattern;		//默认字模（勾上时用程序目录 TTF 里的默认字体）
-	extern std::string PositionX;				//位置X
-	extern std::string PositionY;				//位置Y
-	extern std::string HitokotoFontSize;		//一言字体大小
-	extern std::string jianguoyunWebDav;		//坚果云WebDav
-	extern std::string ServerAddress;			//服务器地址
-	extern std::string Account;					//账户
-	extern std::string SecretKey;				//密钥
-	extern std::string ApplyName;				//应用名称
-	extern std::string BackupsFolder;			//选择需要备份的文件夹
-	extern std::string Backups;					//备份
-	extern std::string Recovery;				//恢复
-	extern std::string Return;					//返回
-	extern std::string RecoveryList;			//恢复列表
-	extern std::string Restoration;				//复原
-	extern std::string Delete;					//删除
-	extern std::string Cancel;					//取消
-	extern std::string Confirm;					//确定
-	extern std::string AccountKey;				//翻译密钥
-	extern std::string BaiduID;					//百度ID
-	extern std::string BaiduKey;				//百度Key
-	extern std::string YoudaoID;				//有道ID
-	extern std::string YoudaoKey;				//有道Key
+	// 特例表：ini 键名与变量名不一致的语言项（键名 = Key + 下划线，变量名 = Name）。
+	// 绝大多数项的键名就是「变量名 + 下划线」，所以单独把少数对不上的列在这里，
+	// 免得为了一个特例让上面 126 行都多写一列。
+#define TK_LANGUAGE_STRINGS_ALIAS(X) \
+	X(Set, HitokotoPopUpNotification, PopUpNotification)	/*一言弹窗（键名不是 PopUpNotification_）*/
 
-	//界面重构新增：设置界面左侧分类导航 / 翻译窗口 / 关于页
-	extern std::string NavTranslate;			//导航-翻译服务
-	extern std::string NavAI;					//导航-AI模型
-	extern std::string NavHotkey;				//导航-快捷键
-	extern std::string NavGeneral;				//导航-常规
-	extern std::string NavInterface;			//导航-界面
-	extern std::string NavHitokoto;				//导航-一言
-	extern std::string NavBackup;				//导航-备份
-	extern std::string NavAbout;				//导航-关于
-	extern std::string Saved;					//提示-已保存
-	extern std::string Clear;					//翻译窗-清空
-	extern std::string CopyResult;				//翻译窗-复制译文
-	extern std::string SwapLanguage;			//翻译窗-互换源/目标语言
-	extern std::string Engine;					//翻译窗-翻译源
-	extern std::string EngineHint;
-	extern std::string SourceLanguage;			//翻译窗-源语言
-	extern std::string TargetLanguage;			//翻译窗-目标语言
-	extern std::string AboutText;				//关于页说明文字
-
-	//本地 AI 模型（设置界面）
-	extern std::string AIModel;				//AI模型（本地llama.cpp）
-	extern std::string AIModelPath;			//模型路径
-	extern std::string AIModelDefault;		//恢复默认路径
-	extern std::string AIModelSelect;		//选择模型（扫描 Modes 文件夹）
-	extern std::string AIModelRefresh;		//刷新模型列表
-	extern std::string NotAiModelText;		//没有找到模型（提示把 .gguf 放进 Modes 文件夹）
-	extern std::string AIThreads;			//推理线程数
-	extern std::string AINCtx;				//上下文长度
-	extern std::string AIMaxTokens;			//单次最多生成
-	extern std::string AITemperature;		//采样温度
-	extern std::string AIIdleUnload;		//空闲多少秒后自动卸载模型（0 = 不卸载）
-	extern std::string AIIdleLeft;			//｜空闲 %d 秒后自动卸载（带 %d，秒数）
-	extern std::string AIHint;				//使用提示
-	extern std::string AIStatusLoaded;		//状态：已加载（带 %s，模型信息）
-	extern std::string AIStatusNotLoaded;	//状态：未加载
-	extern std::string AIStatusLoading;		//状态：正在加载模型
-	extern std::string AIStatusGenerating;	//状态：正在翻译
-	extern std::string AILoad;				//加载模型按钮
-	extern std::string AIUnload;			//卸载模型按钮
-	extern std::string AILoading;			//正在加载模型…（带 %d，已用秒数）
-	extern std::string AITranslating;		//AI 翻译中…（带 %d，已用秒数）
-	extern std::string Recognizing;			//截图识别中…（截图翻译先 OCR 再翻）
-	extern std::string Translating;			//翻译中…（普通翻译源，如百度/有道）
-	extern std::string AIFailed;			//翻译失败（带 %s，错误信息）
-	extern std::string AIFailedEmpty;		//翻译失败（没有错误信息）
-	extern std::string ShortcutKeys;			//快捷键
-	extern std::string KeyCombination;			//组合键
-	extern std::string ScreenshotTranslation;	//截图翻译
-	extern std::string SelectTranslation;		//选择翻译
-	extern std::string ReplaceTranslation;		//替换翻译
-	extern std::string Startup;					//开机启动
-	extern std::string ResidenceTime;			//滞留时间（ms）
-	extern std::string FontSize;				//字体大小
-	extern std::string TesseractModel;			//Tesseract模型
-	extern std::string NotTesseractModelText;	//你没有Tesseract模型，模型放在当前程序位置的TessData
-	extern std::string UseTTF_Typeface;			//使用TTF字体
-	extern std::string TTF_Folder;				//TTF文件夹
-	extern std::string TessDataFolder;			//TessData文件夹
-	extern std::string TTF_Typeface;			//TTF字体
-	extern std::string NotTTF_TypefaceText;		//你没有TTF字体，字体放在当前程序位置的TTF
-	extern std::string DefaultTypeface;			//默认字模（含 %s，界面里换成字体路径）
-	extern std::string ReplaceLanguage;			//替换语言
-	extern std::string Save;					//保存
-	extern std::string Close;					//关闭
-	extern std::string Language;				//语言
-	extern std::string ScreenshotColor;			//截图颜色
-	extern std::string Script;					//脚本
-	extern std::string NotScript;				//没有脚本
-
-	//渲染设备选择（设置界面）
-	extern std::string RenderDevice;				//渲染设备
-	extern std::string RenderDeviceAutoBest;		//自动选择最高性能
-	extern std::string RenderDeviceAutoWorst;		//自动选择最低性能
-	extern std::string RenderDeviceCPU;				//CPU 软件渲染
-	extern std::string RenderDeviceUnusable;		//不满足最低要求
-	extern std::string RenderDeviceTypeIGPU;		//集成显卡
-	extern std::string RenderDeviceTypeDGPU;		//独立显卡
-	extern std::string RenderDeviceTypeVirtual;		//虚拟显卡
-	extern std::string RenderDeviceTypeCPU;			//CPU 软件设备
-	extern std::string RenderDeviceTypeOther;		//其它
-	extern std::string RenderDeviceItem;			//设备标签（名字 + 类型，两个 %s）
-	extern std::string RenderDeviceItemBad;			//设备标签-不满足要求（三个 %s）
-	extern std::string RenderDeviceRestart;			//重启程序后生效
-	extern std::string RenderDeviceMissing;			//指定设备没识别到（带 %s）
-	extern std::string RenderDeviceCurrentCPU;		//当前：CPU 软件渲染（带 %s）
-	extern std::string RenderDeviceCurrentSpecific;	//当前：指定设备（带 %s）
-	extern std::string RenderDeviceCurrentGPU;		//当前：显卡渲染（带 %s）
-	extern std::string RenderDeviceDegrade;			//降级提示前缀（带 %s）
-	extern std::string RenderDeviceHelp1;			//帮助第 1 行
-	extern std::string RenderDeviceHelp2;			//帮助第 2 行
-	extern std::string RenderDeviceHelp3;			//帮助第 3 行
-	extern std::string RenderDeviceHelp4;			//帮助第 4 行
-	extern std::string RenderDeviceHelp5;			//帮助第 5 行
-	extern std::string RenderDeviceHelp6;			//帮助第 6 行
-	extern std::string RenderDeviceHelp7;			//帮助第 7 行
-
-	//系统托盘
-	extern std::string Set;						//设置
-	extern std::string ShutUp;					//言闭
-	extern std::string Speak;					//言开
-	extern std::string Exit;					//退出
-	extern std::string OpenFolder;				//打开程序目录
-	extern std::string strncpy;					//人家叫翻译姬！
-
+#define TK_LANG_DECL(Section, Name) extern std::string Name;
+	TK_LANGUAGE_STRINGS(TK_LANG_DECL)
+#undef TK_LANG_DECL
+#define TK_LANG_ALIAS_DECL(Section, Key, Name) extern std::string Name;
+	TK_LANGUAGE_STRINGS_ALIAS(TK_LANG_ALIAS_DECL)
+#undef TK_LANG_ALIAS_DECL
 }

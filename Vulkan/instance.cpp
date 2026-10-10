@@ -82,10 +82,8 @@ namespace VulKan {
 
 		//同时保留控制台输出：日志文件是事后看的，控制台是当场看的
 #if defined(_WIN32)
-		int wideLen = ::MultiByteToWideChar(CP_UTF8, 0, utf8Text, -1, nullptr, 0);
-		if (wideLen > 1) {
-			std::wstring wide(static_cast<size_t>(wideLen - 1), L'\0');
-			::MultiByteToWideChar(CP_UTF8, 0, utf8Text, -1, wide.data(), wideLen);
+		const std::wstring wide = TOOL::Utf8ToWide(utf8Text);
+		if (!wide.empty()) {
 			// 控制台可能是 UTF-16 语义，用 WriteConsoleW 才不会出现乱码
 			if (::GetConsoleWindow() != nullptr) {
 				HANDLE h = ::GetStdHandle(STD_ERROR_HANDLE);

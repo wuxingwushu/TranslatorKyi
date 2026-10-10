@@ -149,14 +149,6 @@ private:
 
 
 
-	unsigned char ToHex(unsigned char x);
-
-	unsigned char FromHex(unsigned char x);
-
-	std::string UrlEncode(const std::string& str);
-
-	std::string UrlDecode(const std::string& str);
-
 	std::string Translate_Baidu(std::string English, int FromIndex, int ToIndex);
 
 	std::string Translate_Youdao(std::string English, int FromIndex, int ToIndex);

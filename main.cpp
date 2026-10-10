@@ -1,5 +1,6 @@
 #include "application.h"
 #include "Vulkan/instance.h"
+#include "Tool/Charset.h"//TOOL::Utf8ToWide：错误弹窗的 UTF-8 → 宽字符
 #include <windows.h>
 #include <string>
 /*
@@ -19,26 +20,8 @@
 //按 936 代码页去解释 UTF-8，弹出来的中文必然是乱码。所以统一转成宽字符再用 MessageBoxExW。
 static int ShowUtf8MessageBox(const char* Text, const char* Title)
 {
-	std::wstring WideText;
-	std::wstring WideTitle;
-	if (Text != nullptr)
-	{
-		const int TextLen = MultiByteToWideChar(CP_UTF8, 0, Text, -1, nullptr, 0);
-		if (TextLen > 0)
-		{
-			WideText.resize((size_t)TextLen);
-			MultiByteToWideChar(CP_UTF8, 0, Text, -1, &WideText[0], TextLen);
-		}
-	}
-	if (Title != nullptr)
-	{
-		const int TitleLen = MultiByteToWideChar(CP_UTF8, 0, Title, -1, nullptr, 0);
-		if (TitleLen > 0)
-		{
-			WideTitle.resize((size_t)TitleLen);
-			MultiByteToWideChar(CP_UTF8, 0, Title, -1, &WideTitle[0], TitleLen);
-		}
-	}
+	const std::wstring WideText = (Text != nullptr) ? TOOL::Utf8ToWide(Text) : std::wstring();
+	const std::wstring WideTitle = (Title != nullptr) ? TOOL::Utf8ToWide(Title) : std::wstring();
 	return (int)MessageBoxExW(NULL, WideText.c_str(), WideTitle.c_str(), MB_OK, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
 }
 

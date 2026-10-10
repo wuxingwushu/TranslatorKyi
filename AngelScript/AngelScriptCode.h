@@ -2,6 +2,7 @@
 #include <angelscript.h>
 #include <thread>
 #include <atomic>
+#include <memory>
 #include "scriptbuilder.h"      //拓展 #include
 #include "../Function/Translate.h"
 
@@ -12,12 +13,10 @@ namespace AngelScriptOpcode {
 	class AngelScriptCode
 	{
 	public:
-		static AngelScriptCode* GetAngelScriptCode() {
-			if (mAngelScriptCode == nullptr) {
-				mAngelScriptCode = new AngelScriptCode();
-			}
-			return mAngelScriptCode;
-		}
+		//单例：内部用「函数内 static 的 unique_ptr」持有，进程退出时自动析构（不再泄漏）。
+		//脚本文件切换需要重建时用 ResetAngelScriptCode()，等价于原来的 delete + 懒加载重建。
+		static AngelScriptCode* GetAngelScriptCode();
+		static void ResetAngelScriptCode();
 
 		~AngelScriptCode();
 
@@ -47,7 +46,9 @@ namespace AngelScriptOpcode {
 		//选择
 		asIScriptFunction* ChoiceFunction = nullptr;
 	private:
-		static AngelScriptCode* mAngelScriptCode;
+		//单例持有者；定义放在 .cpp 里（那里 AngelScriptCode 才是完整类型，unique_ptr 才能析构）
+		static std::unique_ptr<AngelScriptCode>& InstancePtr();
+
 		AngelScriptCode();
 
 		void Register();

@@ -7,62 +7,12 @@
 #include "../Variable.h"
 #include <filesystem>
 #include "../Tool/Tool.h"
+#include "../Tool/Http.h"    //TOOL::HttpStringSink / TOOL::HttpFileSink / TOOL::MakeCurl
+#include "../Tool/UrlCodec.h"//TOOL::UrlDecode
 
 
-// 回调函数，用于接收服务器响应数据
-size_t write_data(void* ptr, size_t size, size_t nmemb, FILE* stream) {
-    size_t written = fwrite(ptr, size, nmemb, stream);
-    return written;
-}
-
-// 回调函数用于处理下载的数据
-size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp) {
-    std::ofstream* file = static_cast<std::ofstream*>(userp);
-    file->write(static_cast<char*>(contents), size * nmemb);
-    return size * nmemb;
-}
-
-size_t WriteCallback2(void* contents, size_t size, size_t nmemb, std::string* response) {
-    size_t totalSize = size * nmemb;
-    response->append((char*)contents, totalSize);
-    return totalSize;
-}
-
-//获取文件名
-std::string GetStrName(std::string name, const char C) {
-    for (int i = name.size() - 1; i >= 0; i--)
-    {
-        if (name[i] == C) {
-            return name.substr(i + 1, name.size() - i - 1);
-        }
-    }
-    return name;
-}
-
-// 解码URL编码的字符串
-std::string urlDecode(const std::string& encodedStr) {
-    std::ostringstream decoded;
-    std::istringstream input(encodedStr);
-
-    char ch;
-    int hexChar;
-
-    while (input.get(ch)) {
-        if (ch == '%') {
-            if (input >> std::hex >> hexChar) {
-                decoded << static_cast<char>(hexChar);
-            }
-            else {
-                break;
-            }
-        }
-        else {
-            decoded << ch;
-        }
-    }
-
-    return decoded.str();
-}
+// 写回调已收敛到 TOOL::HttpStringSink(→std::string*) / TOOL::HttpFileSink(→FILE*)；
+// 获取文件名收敛到 TOOL::BaseName、URL 解码收敛到 TOOL::UrlDecode。
 
 //是否存在文件夹
 bool WebDav_Directory(std::string path, std::string directory) {
@@ -80,30 +30,29 @@ bool WebDav_Directory(std::string path, std::string directory) {
 
 //查看列表
 std::vector<std::string> WebDav_List(std::string path) {
-    CURL* curl;
     CURLcode res;
     std::vector<std::string> List;
 
     curl_global_init(CURL_GLOBAL_DEFAULT);
-    curl = curl_easy_init();
+    TOOL::CurlPtr curl = TOOL::MakeCurl();
     if (curl) {
         // 设置WebDAV地址
-        curl_easy_setopt(curl, CURLOPT_URL, (Variable::WebDav_url + path).c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_URL, (Variable::WebDav_url + path).c_str());
 
         // 设置用户名和密码
-        curl_easy_setopt(curl, CURLOPT_USERNAME, Variable::WebDav_username.c_str());
-        curl_easy_setopt(curl, CURLOPT_PASSWORD, Variable::WebDav_password.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_USERNAME, Variable::WebDav_username.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_PASSWORD, Variable::WebDav_password.c_str());
 
         // 设置 HTTP method 为 PROPFIND，用于列出文件和文件夹
-        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PROPFIND");
+        curl_easy_setopt(curl.get(), CURLOPT_CUSTOMREQUEST, "PROPFIND");
 
         // 设置响应数据的写入回调函数
         std::string response;
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback2);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+        curl_easy_setopt(curl.get(), CURLOPT_WRITEFUNCTION, TOOL::HttpStringSink);
+        curl_easy_setopt(curl.get(), CURLOPT_WRITEDATA, &response);
 
         // 发送HTTP请求并获取响应
-        res = curl_easy_perform(curl);
+        res = curl_easy_perform(curl.get());
 
         if (res == CURLE_OK) {
             // 解析XML文件
@@ -118,7 +67,7 @@ std::vector<std::string> WebDav_List(std::string path) {
                 bool Tbool = (T == "httpd/unix-directory");
 
                 if (hrefNode) {
-                    std::string kao = urlDecode(hrefNode->value());
+                    std::string kao = TOOL::UrlDecode(hrefNode->value());
                     if (List.size() == 0) {
                         List.push_back(kao + (kao[kao.size() - 1] == '/' ? "" : "/"));
                     }
@@ -133,8 +82,6 @@ std::vector<std::string> WebDav_List(std::string path) {
         else {
             std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
         }
-
-        curl_easy_cleanup(curl);
     }
     curl_global_cleanup();
 
@@ -147,7 +94,6 @@ std::vector<std::string> WebDav_List(std::string path) {
 
 //上传
 void WebDav_Upload(std::string File, std::string path) {
-    CURL* curl;
     FILE* file;
     CURLcode res;
 
@@ -155,17 +101,17 @@ void WebDav_Upload(std::string File, std::string path) {
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
     // 创建一个新的 libcurl 连接
-    curl = curl_easy_init();
+    TOOL::CurlPtr curl = TOOL::MakeCurl();
     if (curl) {
         // 设置 WebDAV URL
-        curl_easy_setopt(curl, CURLOPT_URL, Variable::WebDav_url.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_URL, Variable::WebDav_url.c_str());
 
         // 设置用户名和密码
-        curl_easy_setopt(curl, CURLOPT_USERNAME, Variable::WebDav_username.c_str());
-        curl_easy_setopt(curl, CURLOPT_PASSWORD, Variable::WebDav_password.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_USERNAME, Variable::WebDav_username.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_PASSWORD, Variable::WebDav_password.c_str());
 
         // 发送请求并获取根目录下的文件和文件夹列表
-        res = curl_easy_perform(curl);
+        res = curl_easy_perform(curl.get());
         if (res != CURLE_OK) {
             std::cerr << "Failed to list files: " << curl_easy_strerror(res) << std::endl;
         }
@@ -178,19 +124,19 @@ void WebDav_Upload(std::string File, std::string path) {
             }
         }
         file = fopen(File.c_str(), "rb");
-        File = GetStrName(File, '/');
+        File = TOOL::BaseName(File);
         
         if (file) {
             // 设置要上传的本地文件路径
-            curl_easy_setopt(curl, CURLOPT_UPLOAD, 1);
-            curl_easy_setopt(curl, CURLOPT_READDATA, file);
+            curl_easy_setopt(curl.get(), CURLOPT_UPLOAD, 1);
+            curl_easy_setopt(curl.get(), CURLOPT_READDATA, file);
 
             // 设置要上传到的远程文件的完整URI，包括沙盒标题
             std::string full_remote_url = Variable::WebDav_url + Variable::WebDav_WebFile + "/" + path + "/" + File;
-            curl_easy_setopt(curl, CURLOPT_URL, full_remote_url.c_str());
+            curl_easy_setopt(curl.get(), CURLOPT_URL, full_remote_url.c_str());
 
             // 执行上传操作
-            res = curl_easy_perform(curl);
+            res = curl_easy_perform(curl.get());
             if (res != CURLE_OK) {
                 std::cerr << "Failed to upload file: " << curl_easy_strerror(res) << std::endl;
             }
@@ -198,8 +144,6 @@ void WebDav_Upload(std::string File, std::string path) {
             // 关闭本地文件
             fclose(file);
         }
-        // 清理 libcurl 资源
-        curl_easy_cleanup(curl);
     }
 
     curl_global_cleanup();
@@ -243,36 +187,35 @@ void WebDav_Download(std::string File, std::string path) {
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
     // 创建CURL对象
-    CURL* curl = curl_easy_init();
+    TOOL::CurlPtr curl = TOOL::MakeCurl();
     if (curl) {
         // 下载文件
-        std::string local_file_path = path + GetStrName(File, '/');
+        std::string local_file_path = path + TOOL::BaseName(File);
         std::string full_remote_url = Variable::WebDav_url + Variable::WebDav_WebFile + "/" + File;
         // 设置WebDAV地址
-        curl_easy_setopt(curl, CURLOPT_URL, full_remote_url.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_URL, full_remote_url.c_str());
 
         // 设置用户名和密码
-        curl_easy_setopt(curl, CURLOPT_USERNAME, Variable::WebDav_username.c_str());
-        curl_easy_setopt(curl, CURLOPT_PASSWORD, Variable::WebDav_password.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_USERNAME, Variable::WebDav_username.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_PASSWORD, Variable::WebDav_password.c_str());
 
-        // 打开本地文件
-        std::ofstream file(local_file_path, std::ios::binary);
+        // 打开本地文件（非 ASCII 路径按 UTF-8 转宽字符再开）
+        FILE* file = TOOL::OpenUtf8File(local_file_path, L"wb");
 
         // 设置回调函数
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &file);
+        curl_easy_setopt(curl.get(), CURLOPT_WRITEFUNCTION, TOOL::HttpFileSink);
+        curl_easy_setopt(curl.get(), CURLOPT_WRITEDATA, file);
 
         // 执行请求
-        CURLcode res = curl_easy_perform(curl);
+        CURLcode res = curl_easy_perform(curl.get());
         if (res != CURLE_OK) {
             std::cerr << "Failed to download file: " << curl_easy_strerror(res) << std::endl;
         }
 
         // 关闭文件
-        file.close();
-
-        // 清理CURL对象
-        curl_easy_cleanup(curl);
+        if (file != nullptr) {
+            fclose(file);
+        }
     }
 
     // 清理libcurl
@@ -307,70 +250,63 @@ void WebDav_DownloadDirectory(std::string directory, std::string path) {
 
 //删除
 void WebDav_Delete(std::string File) {
-    CURL* curl;
     CURLcode res;
 
-    curl = curl_easy_init();
+    TOOL::CurlPtr curl = TOOL::MakeCurl();
     if (curl) {
         // 设置 WebDAV 地址
         std::string full_remote_url = Variable::WebDav_url + Variable::WebDav_WebFile + "/" + File;
-        curl_easy_setopt(curl, CURLOPT_URL, full_remote_url.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_URL, full_remote_url.c_str());
 
         // 设置用户名和密码
-        curl_easy_setopt(curl, CURLOPT_USERNAME, Variable::WebDav_username.c_str());
-        curl_easy_setopt(curl, CURLOPT_PASSWORD, Variable::WebDav_password.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_USERNAME, Variable::WebDav_username.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_PASSWORD, Variable::WebDav_password.c_str());
 
         // 使用 HTTP DELETE 方法删除文件
-        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+        curl_easy_setopt(curl.get(), CURLOPT_CUSTOMREQUEST, "DELETE");
 
         // 执行请求
-        res = curl_easy_perform(curl);
+        res = curl_easy_perform(curl.get());
 
         // 检查请求执行结果
         if (res != CURLE_OK)
             fprintf(stderr, "curl_easy_perform() failed: %s\n",
                 curl_easy_strerror(res));
-
-        // 清理资源
-        curl_easy_cleanup(curl);
     }
 }
 
 //创建文件夹
 void WebDav_CreateFolder    (std::string File) {
     // 初始化 curl
-    CURL* curl = curl_easy_init();
+    TOOL::CurlPtr curl = TOOL::MakeCurl();
 
     if (curl) {
         // 设置 WebDAV 地址
-        curl_easy_setopt(curl, CURLOPT_URL, Variable::WebDav_url.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_URL, Variable::WebDav_url.c_str());
 
         // 设置用户名和密码
-        curl_easy_setopt(curl, CURLOPT_USERNAME, Variable::WebDav_username.c_str());
-        curl_easy_setopt(curl, CURLOPT_PASSWORD, Variable::WebDav_password.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_USERNAME, Variable::WebDav_username.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_PASSWORD, Variable::WebDav_password.c_str());
 
         // 设置为 PUT 请求
-        curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+        curl_easy_setopt(curl.get(), CURLOPT_UPLOAD, 1L);
 
         // 设置要上传的内容为空，表示创建一个空文件夹
-        curl_easy_setopt(curl, CURLOPT_READDATA, NULL);
-        curl_easy_setopt(curl, CURLOPT_INFILESIZE, 0L);
+        curl_easy_setopt(curl.get(), CURLOPT_READDATA, NULL);
+        curl_easy_setopt(curl.get(), CURLOPT_INFILESIZE, 0L);
 
-        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "MKCOL");
+        curl_easy_setopt(curl.get(), CURLOPT_CUSTOMREQUEST, "MKCOL");
 
         // 设置要创建的文件夹名称
         std::string folder_url = Variable::WebDav_url + Variable::WebDav_WebFile + "/" + File;
-        curl_easy_setopt(curl, CURLOPT_URL, folder_url.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_URL, folder_url.c_str());
 
         // 执行请求
-        CURLcode res = curl_easy_perform(curl);
+        CURLcode res = curl_easy_perform(curl.get());
 
         // 检查是否成功
         if (res != CURLE_OK) {
             std::cerr << "Error: " << curl_easy_strerror(res) << std::endl;
         }
-
-        // 清理 curl
-        curl_easy_cleanup(curl);
     }
 }

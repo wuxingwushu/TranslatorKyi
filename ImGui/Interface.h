@@ -254,8 +254,24 @@ namespace GAME {
 		bool ScreenshotBool = true;//界面是否是刚显示
 		int x, y, w, h;//框的位置，大小
 
-		void SetUpInterface();//设置界面
+		void SetUpInterface();//设置界面（窗口骨架 + 按页分发；实现见 Interface/SettingsPanel.cpp）
 		bool SetBool = true;//界面是否是刚显示
+		//设置界面按左侧 8 个分类拆分绘制
+		void InitSettingsState();//打开设置界面时把当前配置读进「待编辑」状态
+		void DrawSettingsNav();//左侧分类导航
+		void DrawSettingsTranslate();//页0 翻译服务
+		void DrawSettingsAI();//页1 本地 AI 模型
+		void DrawSettingsHotkey();//页2 快捷键
+		void DrawSettingsGeneral();//页3 常规
+		void DrawSettingsInterface();//页4 界面
+		void DrawSettingsInterfaceFonts();//页4 子段：识别模型 / 字体 / 语言
+		void DrawSettingsRenderDevice();//页4 子段：渲染设备选择
+		void DrawSettingsInterfaceMisc();//页4 子段：截图颜色 / 截图脚本
+		void DrawSettingsHitokoto();//页5 一言
+		void DrawSettingsBackup();//页6 备份（坚果云 WebDav）
+		void DrawSettingsRecovery();//页6 子段：备份恢复
+		void DrawSettingsAbout();//页7 关于
+		void SaveSettings();//保存动作（底部按钮 / Ctrl+S 共用）
 
 		void MenuInterface();//菜单界面
 		bool MenuBool = true;//界面是否是刚显示

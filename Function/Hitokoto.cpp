@@ -1,34 +1,16 @@
 #include "Hitokoto.h"
-
-size_t write_data(char* ptr, size_t size, size_t nmemb, void* userdata)
-{
-    std::string* str = (std::string*)userdata;
-    str->append(ptr, size * nmemb);
-    return size * nmemb;
-}
+#include "../Tool/Http.h"//TOOL::HttpGet / 共享写回调
 
 std::string GetHitokoto()
 {
-    CURL* curl;
-    CURLcode res;
-    std::string readBuffer;
     std::string hitokoto;
 
-
-    curl = curl_easy_init();
-    if (curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, "https://v1.hitokoto.cn");
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
-        res = curl_easy_perform(curl);
-        curl_easy_cleanup(curl);
-
-        if ((res == CURLE_OK) && (readBuffer.size() > 0)) {
-            Json::Reader reader;
-            Json::Value value;
-            reader.parse(readBuffer, value);
-            hitokoto = value["hitokoto"].asString() + "  --  " + value["from"].asString();
-        }
+    const TOOL::HttpResult Http = TOOL::HttpGet("https://v1.hitokoto.cn");
+    if ((Http.Curl == CURLE_OK) && (Http.Body.size() > 0)) {
+        Json::Reader reader;
+        Json::Value value;
+        reader.parse(Http.Body, value);
+        hitokoto = value["hitokoto"].asString() + "  --  " + value["from"].asString();
     }
 
     return hitokoto;

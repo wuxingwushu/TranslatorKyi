@@ -5,7 +5,7 @@
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #endif
 #define VMA_IMPLEMENTATION
-#include "../vk_mem_alloc.h"
+#include <vma/vk_mem_alloc.h>
 #endif
 #include "../DebugLog.h"
 #include "../Variable.h"

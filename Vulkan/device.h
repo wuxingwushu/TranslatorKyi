@@ -4,7 +4,7 @@
 #if defined(__ANDROID__)
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #endif
-#include "../vk_mem_alloc.h"//仓库根目录的同一个头文件（VMA_IMPLEMENTATION 在 device.cpp 里展开）
+#include <vma/vk_mem_alloc.h>
 #endif
 #include "instance.h"
 #include "windowSurface.h"

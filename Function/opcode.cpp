@@ -1,34 +1,5 @@
 #include "opcode.h"
-
-template <typename T>
-T Converter(const std::string& s) {
-	try {
-		T v{};
-		std::istringstream _{ s };
-		_.exceptions(std::ios::failbit);
-		_ >> v;
-		return v;
-	}
-	catch (std::exception& e) {
-		throw std::runtime_error("cannot parse value '" + s + "' to type<T>.");
-	};
-}
-
-bool BoolConverter(std::string s) {
-	std::transform(s.begin(), s.end(), s.begin(), ::tolower);
-	static const std::unordered_map<std::string, bool> s2b{
-		{"1", true},  {"true", true},   {"yes", true}, {"on", true},
-		{"0", false}, {"false", false}, {"no", false}, {"off", false},
-	};
-	auto const value = s2b.find(s);
-	if (value == s2b.end()) {
-		throw std::runtime_error("'" + s + "' is not a valid boolean value.");
-	}
-	return value->second;
-}
-
-
-
+#include "../Tool/Convert.h"//类型转换工具（原在本文件内重复定义了一份）
 
 Stu* STu;
 HINSTANCE Dll;
@@ -104,28 +75,42 @@ std::string Opcode(std::string str, const char* CodeMod) {
 }
 
 std::string CodeExplain(std::string str, std::vector<std::string> Code) {
+	//边界检查：原来 Code[0]/Code[1] 直接索引，空行或残缺指令会越界崩溃。
+	//先按指令名查该指令所需的最小参数个数（含指令本身），不足就跳过这行。
+	if (Code.empty()) { return str; }
+	static const std::map<std::string, size_t> MinArgs = {
+		{ "Bool", 2 }, { "Char", 2 }, { "Int", 2 }, { "Float", 2 }, { "Double", 2 }, { "String", 2 },
+		{ "Replacement", 7 }, { "TextReplacement", 3 }, { "TextDeletion", 2 },
+		{ "LeaveOnlyLetters", 1 }, { "WordSeparation", 1 }, { "RemoveExcessiveSpaces", 1 },
+		{ "UppercaseStart", 1 }, { "DeletionSpaces", 1 },
+		{ "NewDLL", 2 }, { "DLL", 2 }, { "DeleteDLL", 1 },
+		{ "New", 3 }, { "Set", 3 }, { "Get", 3 }, { "Delete", 2 },
+	};
+	const auto Min = MinArgs.find(Code[0]);
+	if (Min == MinArgs.end() || Code.size() < Min->second) { return str; }
+
 	switch (Control_Param[Code[0]])
 	{
 		case Bool:
-			STu->boolS->add(BoolConverter(Code[1]));
+			STu->boolS->add(TOOL::BoolConverter(Code[1]));
 			break;
 		case Char:
-			STu->charS->add(Converter<char>(Code[1]));
+			STu->charS->add(TOOL::Converter<char>(Code[1]));
 			break;
 		case Int:
-			STu->intS->add(Converter<int>(Code[1]));
+			STu->intS->add(TOOL::Converter<int>(Code[1]));
 			break;
 		case Float:
-			STu->floatS->add(Converter<float>(Code[1]));
+			STu->floatS->add(TOOL::Converter<float>(Code[1]));
 			break;
 		case Double:
-			STu->doubleS->add(Converter<double>(Code[1]));
+			STu->doubleS->add(TOOL::Converter<double>(Code[1]));
 			break;
 		case String:
 			STu->stringS->add(Code[1]);
 			break;
 		case F_Replacement:
-			str = Replacement(str, Code[1], Code[2], Code[3], Code[4], BoolConverter(Code[5]), BoolConverter(Code[6]));
+			str = Replacement(str, Code[1], Code[2], Code[3], Code[4], TOOL::BoolConverter(Code[5]), TOOL::BoolConverter(Code[6]));
 			break;
 		case F_TextReplacement:
 			str = TextReplacement(str, Code[1], Code[2]);
