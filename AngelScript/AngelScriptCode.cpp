@@ -183,7 +183,19 @@ namespace AngelScriptOpcode {
 
         mScriptRunning = true;
         mScriptThread = std::thread([this, Function]() {
-            RunScriptFunction(Function);
+            //线程里逃出的异常会走 std::terminate → abort()，在 Windows 上就是
+            //「出错模块 ucrtbase.dll、异常代码 0xc0000409」这种静默崩溃。
+            //脚本里的 TranslateAPI 会调到翻译/网络/AI 那套代码，必须在这里兜住，
+            //否则一旦抛异常，日志里什么都看不到，界面还会一直以为脚本在跑。
+            try {
+                RunScriptFunction(Function);
+            }
+            catch (const std::exception& e) {
+                if (TOOL::logger) { TOOL::logger->error("脚本线程异常：{}", e.what()); }
+            }
+            catch (...) {
+                if (TOOL::logger) { TOOL::logger->error("脚本线程异常：不是 std::exception 类型的异常"); }
+            }
             mScriptRunning = false;
         });
         return true;

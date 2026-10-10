@@ -25,6 +25,12 @@ namespace VulKan {
 	//判断"机器上到底有没有一台能用的显卡"（有显卡但都不能用时自动降级到 CPU 软件渲染）。
 	bool physicalDeviceMeetsMinimumRequirements(VkPhysicalDevice device, std::string* reasonOut);
 
+	//渲染设备的类型优先级：独显 > 集成显卡 > 加速器 > 虚拟显卡 > CPU 软件设备；数值越小越强。
+	//VkPhysicalDeviceType 的取值顺序和强弱并不一致（OTHER=0, INTEGRATED_GPU=1, DISCRETE_GPU=2,
+	//VIRTUAL_GPU=3, CPU=4），所以必须显式映射。做成自由函数：Vulkan/instance.cpp 列"识别到的显卡"时
+	//也用它排序，界面下拉框的顺序与自动选择的判断口径保持一致。
+	int RenderDeviceTypeRank(VkPhysicalDeviceType type);
+
 	struct GPUComputeCapabilities {
 		uint32_t smCount;
 		uint32_t subgroupSize;

@@ -2,6 +2,7 @@
 #include "Interface/InterfaceInternal.h"//跨拆分文件共享的内部辅助（字体/模型列表/模板替换）
 #include "../AngelScript/AngelScriptCode.h"
 #include "../Function/WebDav.h"
+#include "../Tool/Log.h"//TOOL::LogStep：退出路径路标
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
@@ -217,14 +218,17 @@ namespace GAME {
 
 	ImGuiInterFace::~ImGuiInterFace()
 	{
+		TOOL::LogStep("~ImGuiInterFace: 开始");
 		//销毁ImGui
 		ImGui_ImplVulkan_Shutdown();
 		ImGui_ImplGlfw_Shutdown();
 		ImGui::DestroyContext();
+		TOOL::LogStep("~ImGuiInterFace: ImGui 已关闭");
 
 		if (g_DescriptorPool != VK_NULL_HANDLE) {
 			vkDestroyDescriptorPool(mDevice->getDevice(), g_DescriptorPool, nullptr);//销毁专门创建给ImGui用的DescriptorPool
 		}
+		TOOL::LogStep("~ImGuiInterFace: DescriptorPool 已销毁");
 
 		for (int i = 0; i < mFormatCount; i++)
 		{
@@ -233,9 +237,12 @@ namespace GAME {
 		}
 		delete ImGuiCommandBufferS;
 		delete ImGuiCommandPoolS;
+		TOOL::LogStep("~ImGuiInterFace: ImGui 指令池/缓存已删除");
 
 		delete mTesseract;
+		TOOL::LogStep("~ImGuiInterFace: Tesseract 已删除");
 		delete mTranslate;
+		TOOL::LogStep("~ImGuiInterFace: Translate 已删除");
 	}
 
 	bool ImGuiInterFace::InterFace()

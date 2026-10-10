@@ -93,6 +93,8 @@ namespace Variable {
 	X(FT,       AIMaxTokens,              int,         AiMaxTokens,           "2048") \
 	X(FT,       AITemperature,            float,       AiTemperature,         "0.7") \
 	X(FT,       AIIdleUnload,             int,         AiIdleUnload,          "0") \
+	X(FT,       AIDeviceMode,             int,         AiDeviceMode,          "0") \
+	X(FT,       AIDeviceName,             std::string, AiDeviceName,          "") \
 	/* 快捷键 */ \
 	X(Key,      MakeUp,                   int,         MakeUp,                nullptr) \
 	X(Key,      Screenshotkey,            std::string, Screenshotkey,         nullptr) \
@@ -220,6 +222,20 @@ namespace Language {
 	X(Set, AIModelSelect)					/*选择模型（扫描 Modes 文件夹）*/ \
 	X(Set, AIModelRefresh)					/*刷新模型列表*/ \
 	X(Set, NotAiModelText)					/*没有找到模型（提示把 .gguf 放进 Modes 文件夹）*/ \
+	X(Set, AIDevice)						/*运行设备（本地 AI 跑在 CPU 还是显卡上）*/ \
+	X(Set, AIDeviceAutoBest)				/*自动选择最高性能*/ \
+	X(Set, AIDeviceAutoWorst)				/*自动选择最低性能*/ \
+	X(Set, AIDeviceCPU)						/*CPU（不使用显卡）*/ \
+	X(Set, AIDeviceRefresh)					/*刷新设备列表*/ \
+	X(Set, AIDeviceItem)					/*设备标签（描述 + 类型/显存，两个 %s）*/ \
+	X(Set, AIDeviceTypeGPU)					/*显卡*/ \
+	X(Set, AIDeviceTypeIGPU)				/*集成显卡*/ \
+	X(Set, AIDeviceTypeACCEL)				/*加速器*/ \
+	X(Set, AIDeviceTypeOther)				/*其它设备*/ \
+	X(Set, AIDeviceMissing)					/*指定设备没识别到（带 %s）*/ \
+	X(Set, AIDeviceHint)					/*切换设备后要重新加载模型*/ \
+	X(Set, AIDeviceCurrent)					/*「当前使用设备」的标签（这行显示真正在跑的设备，可能和上面选的不同）*/ \
+	X(Set, AIDeviceCurrentNone)				/*还没加载模型，没有正在用的设备*/ \
 	X(Set, AIThreads)						/*推理线程数*/ \
 	X(Set, AINCtx)							/*上下文长度*/ \
 	X(Set, AIMaxTokens)						/*单次最多生成*/ \

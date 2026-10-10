@@ -69,12 +69,24 @@ int main() {
 	}
 	catch (const std::exception& e) {
 		ShowUtf8MessageBox(e.what(), "main");
-		TOOL::logger->error(e.what());
-		//std::cout << "main: " << e.what() << std::endl;
+		TOOL::logger->error("主循环异常退出：{}", e.what());
+	}
+	catch (...) {
+		//不是 std::exception 的异常（比如别的库里抛的字符串/整数）原来会一路穿到
+		//std::terminate → abort()，表现为 ucrtbase.dll 的 0xc0000409 静默崩溃。
+		ShowUtf8MessageBox("Unknown exception", "main");
+		TOOL::logger->error("主循环异常退出：不是 std::exception 类型的异常");
 	}
 
+	//日志立刻刷盘：spdlog 默认不自动 flush，不刷的话退出前的最后几行会随进程一起消失
+	TOOL::logger->flush();
+
+	//退出路标（直接写文件，见 Tool/Log.cpp）：崩溃时靠它定位崩在哪一步
+	TOOL::LogStep("main: 删除窗口");
 	delete mWin;
+	TOOL::LogStep("main: 删除 Application");
 	delete app;
+	TOOL::LogStep("main: 结束");
 
 	return 0;
 }

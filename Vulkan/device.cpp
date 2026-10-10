@@ -22,6 +22,19 @@ namespace VulKan {
 
 namespace VulKan {
 
+	//渲染设备的类型优先级：独显 > 集成显卡 > 加速器 > 虚拟显卡 > CPU 软件设备；数值越小越强。
+	//注意 VkPhysicalDeviceType 的枚举值顺序和"强弱"并不一致，必须显式映射。
+	int RenderDeviceTypeRank(VkPhysicalDeviceType type) {
+		switch (type) {
+		case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:   return 0;//独显
+		case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU: return 1;//集成显卡
+		case VK_PHYSICAL_DEVICE_TYPE_OTHER:          return 2;//加速器（NPU/专用加速 ICD 一般报 OTHER）
+		case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:    return 3;//虚拟显卡
+		case VK_PHYSICAL_DEVICE_TYPE_CPU:            return 4;//CPU 软件设备（SwiftShader 等）
+		default:                                     return 3;
+		}
+	}
+
 	Device::Device(Instance* instance, WindowSurface* surface) {
 		LOGD("Device::Device()");
 		mInstance = instance;
@@ -73,6 +86,7 @@ namespace VulKan {
 		//必须结合 isDeviceSuitable() 一起判断，所以这里把两件事分开做。
 		struct Candidate {
 			int score;
+			int typeRank;		//设备类型优先级（独显 0 > 集成显卡 1 > 加速器 2 > 虚拟显卡 3 > CPU 4），越小越强
 			VkPhysicalDevice device;
 			bool suitable;
 			bool isCpu;
@@ -91,6 +105,7 @@ namespace VulKan {
 			VkPhysicalDeviceProperties props;
 			vkGetPhysicalDeviceProperties(device, &props);
 			c.isCpu = (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU);
+			c.typeRank = RenderDeviceTypeRank(props.deviceType);
 			c.name = props.deviceName;
 			candidates.push_back(std::move(c));
 		}
@@ -113,10 +128,12 @@ namespace VulKan {
 					: (wantLowestScore ? "自动选择最低性能" : "自动选择最高性能")),
 			wantCpuDevice ? "只用 CPU 软件设备"
 				: (wantSpecificDevice ? "优先用设置里指定的那一台设备；没识别到就回退到最高性能"
-					: (wantLowestScore ? "硬件设备优先，其中评分最低的优先；没有硬件设备时才用 CPU 软件设备"
-						: "硬件设备优先，其中评分最高的优先；没有硬件设备时才用 CPU 软件设备")));
+					: (wantLowestScore ? "先按设备类型（独显 > 集成显卡 > 加速器 > 虚拟显卡），同类型里评分最低的优先；没有硬件设备时才用 CPU 软件设备"
+						: "先按设备类型（独显 > 集成显卡 > 加速器 > 虚拟显卡），同类型里评分最高的优先；没有硬件设备时才用 CPU 软件设备")));
 
-		//可用的设备排前面，再按设置挑"最高性能 / 最低性能 / 指定的那一台"
+		//可用的设备排前面，再按设置挑"最高性能 / 最低性能 / 指定的那一台"。
+		//除「CPU 软件渲染」模式外一律先按设备类型排（独显 > 集成显卡 > 加速器 > 虚拟显卡 > CPU 软件设备），
+		//同类型里再按评分。类型优先于评分：核显报再大的 maxImageDimension2D 也不会盖过独显。
 		std::stable_sort(candidates.begin(), candidates.end(),
 			[wantCpuDevice, wantSpecificDevice, wantLowestScore](const Candidate& a, const Candidate& b) {
 				if (a.suitable != b.suitable) return a.suitable;//可用的排前面
@@ -131,11 +148,14 @@ namespace VulKan {
 				if (a.isCpu != b.isCpu) return b.isCpu;
 
 				if (wantSpecificDevice) {
-					//设置里指定了设备名：匹配的排最前（名字对不上就退化成"最高性能"）
+					//设置里指定了设备名：匹配的排最前（用户点名的设备要赢过类型与评分；名字对不上才退化成"最高性能"）
 					const bool aWanted = (a.name == Variable::VulkanDeviceName);
 					const bool bWanted = (b.name == Variable::VulkanDeviceName);
 					if (aWanted != bWanted) return aWanted;
 				}
+
+				//先比设备类型，同类型再比评分
+				if (a.typeRank != b.typeRank) return a.typeRank < b.typeRank;
 
 				return wantLowestScore ? (a.score < b.score) : (a.score > b.score);
 			});
@@ -144,7 +164,7 @@ namespace VulKan {
 		for (size_t i = 0; i < candidates.size(); i++) {
 			VkPhysicalDeviceProperties props;
 			vkGetPhysicalDeviceProperties(candidates[i].device, &props);
-			VulkanDiag("[Vulkan]   [%zu] %s%s (score=%d, apiVersion=%u.%u.%u, type=%d) -> %s\n",
+			VulkanDiag("[Vulkan]   [%zu] %s%s (score=%d, apiVersion=%u.%u.%u, type=%d, 类型优先级=%d) -> %s\n",
 				i, props.deviceName,
 				(wantSpecificDevice && candidates[i].name == Variable::VulkanDeviceName) ? " [设置指定]" : "",
 				candidates[i].score,
@@ -152,6 +172,7 @@ namespace VulKan {
 				VK_VERSION_MINOR(props.apiVersion),
 				VK_VERSION_PATCH(props.apiVersion),
 				(int)props.deviceType,
+				candidates[i].typeRank,
 				candidates[i].suitable ? "可用" : candidates[i].rejectReason.c_str());
 		}
 

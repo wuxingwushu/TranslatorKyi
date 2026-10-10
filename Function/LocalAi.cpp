@@ -1,6 +1,7 @@
 #include "Translate.h"
 #include "LlamaTranslate.h"
 #include <chrono>
+#include <exception>//std::exception（线程里兜异常用）
 
 // =====================================================================================
 // 本地 AI 模型翻译（llama.cpp 加载 GGUF 模型）
@@ -24,6 +25,18 @@ namespace
 	{
 		return (long long)std::chrono::duration_cast<std::chrono::milliseconds>(
 			std::chrono::steady_clock::now().time_since_epoch()).count();
+	}
+
+	//「当前使用设备」这行字要显示在设置界面里，而界面每帧都会读它。
+	//不能直接去锁 gAiEngineMutex 读引擎：后台线程可能正抱着它加载模型（几秒），界面会被卡住。
+	//所以加载成功/卸载时把结果发布到这里，界面用 try_lock 读快照，抢不到锁就沿用上一次的文本。
+	std::mutex gActiveDeviceMutex;
+	std::string gActiveDeviceText;
+
+	void PublishActiveDevice(const std::string& Text)
+	{
+		std::lock_guard<std::mutex> Lock(gActiveDeviceMutex);
+		gActiveDeviceText = Text;
 	}
 
 	//Data.ini/语言下拉框里存的是 Baidu_items 那套代码（zh、cht、jp、kor…），
@@ -61,12 +74,17 @@ namespace
 		Params.NCtx = Variable::AiNCtx;
 		Params.MaxTokens = Variable::AiMaxTokens;
 		Params.Temperature = Variable::AiTemperature;
+		//运行设备：设置界面里选的（自动最高/自动最低/CPU/指定某一台），见 LlamaTranslate::DeviceMode
+		Params.Device = (LlamaTranslate::DeviceMode)Variable::AiDeviceMode;
+		Params.DeviceName = Variable::AiDeviceName;
 
 		if (!Engine.Load(Params))
 		{
 			Error = Engine.LastError();
+			PublishActiveDevice(std::string());	//加载失败，界面上不显示设备
 			return false;
 		}
+		PublishActiveDevice(Engine.ActiveDevice());
 		return true;
 	}
 }
@@ -132,23 +150,37 @@ bool Translate::AiBeginTranslation(const std::string& English, const std::string
 	mAiRunning = true;
 
 	mAiThread = std::thread([this, Text, Target, SourceCode]() {
+		//线程里逃出的异常会走 std::terminate → abort()，在 Windows 上就是
+		//「出错模块 ucrtbase.dll、异常代码 0xc0000409」这种静默崩溃（日志里什么都留不下）。
+		//llama.cpp 在模型加载/上下文创建失败时会 throw，所以这里必须兜住：
+		//出错只记日志、复位状态，绝不让异常穿过线程边界。
 		std::string Error;
 		bool Loaded = false;
-		{
-			std::lock_guard<std::mutex> Lock(gAiEngineMutex);
-			Loaded = AiLoadEngineLocked(Error);
-		}
+		try {
+			{
+				std::lock_guard<std::mutex> Lock(gAiEngineMutex);
+				Loaded = AiLoadEngineLocked(Error);
+			}
 
-		if (!Loaded)
-		{
-			mAiLastError = Error;
-			TOOL::logger->warn("AI model load failed (async): {}", Error);
+			if (!Loaded)
+			{
+				mAiLastError = Error;
+				TOOL::logger->warn("AI model load failed (async): {}", Error);
+			}
+			else if (!Text.empty())
+			{
+				mAiStage = AiStageGenerating;
+				mAiResult = Translate_LlamaByCode(Text, Target, SourceCode);
+				if (mAiResult.empty()) { TOOL::logger->warn("AI translate empty (async, err={})", mAiLastError); }
+			}
 		}
-		else if (!Text.empty())
-		{
-			mAiStage = AiStageGenerating;
-			mAiResult = Translate_LlamaByCode(Text, Target, SourceCode);
-			if (mAiResult.empty()) { TOOL::logger->warn("AI translate empty (async, err={})", mAiLastError); }
+		catch (const std::exception& e) {
+			mAiLastError = e.what();
+			if (TOOL::logger) { TOOL::logger->error("AI 线程异常：{}", e.what()); }
+		}
+		catch (...) {
+			mAiLastError = "AI 线程发生未知异常（不是 std::exception）";
+			if (TOOL::logger) { TOOL::logger->error("AI 线程异常：不是 std::exception 类型的异常"); }
 		}
 
 		mAiStage = AiStageIdle;
@@ -193,12 +225,14 @@ void Translate::AiUnloadModel()
 
 	std::lock_guard<std::mutex> Lock(gAiEngineMutex);
 	AiEngine().Unload();
+	PublishActiveDevice(std::string());	//卸载了，界面上「当前使用设备」回到未加载
 }
 
-void Translate::AiJoin()
+void Translate::AiJoin(bool Force)
 {
-	//只有线程已经跑完（mAiRunning 置回 false）才 join，否则会把界面卡住
-	if (mAiThread.joinable() && !mAiRunning.load())
+	//只有线程已经跑完（mAiRunning 置回 false）才 join，否则会把界面卡住；
+	//析构/退出时（Force=true）必须等它真的结束——不然 std::thread 析构时会 std::terminate。
+	if (mAiThread.joinable() && (Force || !mAiRunning.load()))
 	{
 		mAiThread.join();
 	}
@@ -250,4 +284,22 @@ const char* Translate::AiModelsFolder()
 std::vector<std::string> Translate::AiModelFiles()
 {
 	return LlamaTranslate::ListModelFiles();
+}
+
+std::vector<LlamaTranslate::DeviceInfo> Translate::AiDeviceList()
+{
+	return LlamaTranslate::ListDevices();
+}
+
+std::string Translate::AiActiveDevice()
+{
+	//只在主线程（设置界面）调用：try_lock 拿不到锁说明后台正在发布，沿用上一次读到的值即可，
+	//绝不能在这里等锁——等待就等于等模型加载完，界面会卡死
+	static std::string Cached;
+	std::unique_lock<std::mutex> Lock(gActiveDeviceMutex, std::try_to_lock);
+	if (Lock.owns_lock())
+	{
+		Cached = gActiveDeviceText;
+	}
+	return Cached;
 }

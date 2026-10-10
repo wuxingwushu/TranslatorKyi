@@ -173,12 +173,14 @@ namespace VulKan {
 
 	//销毁Window
 	Window::~Window() {
+		TOOL::LogStep("~Window: 开始");
 		//先摘掉托盘图标、再销毁那个隐藏的回调窗口。顺序不能反，也不能漏：
 		//不摘的话退出后通知区会留下「幽灵图标」，鼠标划过才消失。
-		//正常退出（main.cpp:55 delete mWin）走到这里；exit(0) 型的退出由 atexit 注册的同一个函数兜底。
+		//正常退出（main.cpp 结尾 delete mWin）走到这里；exit(0) 型的退出由 atexit 注册的同一个函数兜底。
 		RemoveTrayIcon();
 		glfwDestroyWindow(mWindow);//回收GLFW的API
 		glfwTerminate();
+		TOOL::LogStep("~Window: 结束");
 	}
 
 	//判断窗口是否被关闭

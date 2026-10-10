@@ -1,5 +1,6 @@
 #pragma once
 #include "../base.h"
+#include "LlamaTranslate.h"
 #include <json.h>
 #include <curl/curl.h>
 #include <assert.h>
@@ -74,8 +75,11 @@ public:
 	//取回后台结果：返回 true 表示任务已结束（Result 可能是空串，说明失败）
 	bool WebTakeResult(std::string& Result);
 	bool WebRunning() const { return mWebRunning.load(); }
-	//等后台线程结束（析构/退出时调用，避免线程还在用 this）
-	void WebJoin();
+	//等后台线程结束（析构/退出时调用，避免线程还在用 this）。
+	//Force=false：线程还在跑就先不等（否则会把主循环卡住），留给下一次 WebTakeResult()；
+	//Force=true：不管跑没跑完都等它结束——析构时必须用这个，否则 std::thread 析构时
+	//还会是 joinable，直接 std::terminate → abort()（表现为退出时 ucrtbase 的 0xc0000409）。
+	void WebJoin(bool Force = false);
 
 	// ================= 本地 AI 模型翻译（llama.cpp + GGUF 模型） =================
 	//模型不是翻译接口，一秒钟只能算十几个 token，所以有两套入口：
@@ -103,8 +107,10 @@ public:
 	void AiPollIdle();
 	//还有多少秒自动卸载模型：未加载 / 没开启 / 正在忙时返回 -1（设置界面用它显示倒计时）
 	int AiIdleRemaining() const;
-	//等后台线程结束（析构/退出时调用，避免线程还在用 this）
-	void AiJoin();
+	//等后台线程结束（析构/退出时调用，避免线程还在用 this）。
+	//Force=false：线程还在跑就先不等（否则界面会卡住）；Force=true：等到它真的结束——
+	//析构时必须用这个，理由同 WebJoin。
+	void AiJoin(bool Force = false);
 
 	// ================= 脚本里的 TranslateAPI() =================
 	//AngelScript 的 context->Suspend() 不会重新调用被挂起的系统函数：as_context.cpp 的
@@ -124,6 +130,12 @@ public:
 	//模型文件夹名（Modes）；扫描它列出手上有的模型给设置界面选
 	static const char* AiModelsFolder();
 	static std::vector<std::string> AiModelFiles();
+	//识别到的 AI 推理设备（llama.cpp / ggml 后端，含 CPU）；设置界面的「运行设备」下拉框用它
+	static std::vector<LlamaTranslate::DeviceInfo> AiDeviceList();
+	//当前实际在用的推理设备（显卡描述或 "CPU"；空字符串 = 还没加载模型）。
+	//读的是加载时发布的线程安全快照：界面每帧调用它都不会被后台的模型加载/翻译卡住。
+	//注意它可能和「运行设备」里选的模式不一样，例如指定了显卡但显存不够，这里会显示 CPU
+	static std::string AiActiveDevice();
 
 private:
 	const char* mBaiduAppid;

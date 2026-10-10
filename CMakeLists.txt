@@ -281,7 +281,7 @@ endif()
 #
 #  用 add_subdirectory 引入时 llama.cpp 自己会发现 CMAKE_SOURCE_DIR != 自己的目录，
 #  于是 LLAMA_STANDALONE=OFF：tools / examples / server / tests / common **默认全部关闭**，
-#  只编译 llama 本体 + ggml 的 CPU 后端，全程离线，不会下载任何东西
+#  只编译 llama 本体 + ggml 的 CPU / Vulkan 后端，全程离线，不会下载任何东西
 #  （ggml 唯一的联网分支是 GGML_OPENMP_FETCH，默认 OFF，这里再显式关一次）。
 #  注意：common 库才会拉 cpp-httplib（以及它背后的 OpenSSL），本项目不需要，保持 OFF。
 # ==============================================================================
@@ -297,9 +297,12 @@ set(LLAMA_CURL           OFF CACHE BOOL "" FORCE)
 set(LLAMA_ALL_WARNINGS   OFF CACHE BOOL "" FORCE)   # 不要 /W4 警告刷屏
 set(LLAMA_FATAL_WARNINGS OFF CACHE BOOL "" FORCE)
 
-# 只用 CPU 后端：显式关掉所有 GPU / 加速器后端，避免误用机器上已装的 Vulkan 之类工具链
+# 本地 AI 的后端：只开 Vulkan（设置界面「运行设备」可以把模型卸载到显卡上跑），
+# 其余 GPU / 加速器后端全部显式关掉，避免误用机器上没装的工具链（CUDA / HIP / SYCL …）。
+# 注意：开 Vulkan 需要装 Vulkan SDK（用它自带的 glslc 编译着色器），
+#       没有 SDK 时 ggml 的 find_package(Vulkan) 会直接报错，这时把它改回 OFF 即可。
 set(GGML_CUDA             OFF CACHE BOOL "" FORCE)
-set(GGML_VULKAN           OFF CACHE BOOL "" FORCE)
+set(GGML_VULKAN           ON  CACHE BOOL "" FORCE)
 set(GGML_SYCL             OFF CACHE BOOL "" FORCE)
 set(GGML_HIP              OFF CACHE BOOL "" FORCE)
 set(GGML_OPENCL           OFF CACHE BOOL "" FORCE)

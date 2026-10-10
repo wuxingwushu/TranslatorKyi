@@ -51,6 +51,10 @@ namespace GAME {
 			//扫描 Modes 文件夹得到的模型列表（下拉框用）和当前选中的下标（-1 = 列表里没有）
 			int SetAiModelIndex;
 			std::vector<std::string> SetAiModelList;
+			//AI 运行设备（llama.cpp）：模式 + 指定设备名 + 这次识别到的设备列表
+			int SetAiDeviceMode;
+			std::string SetAiDeviceName;
+			std::vector<LlamaTranslate::DeviceInfo> SetAiDeviceList;
 
 			int SetMakeUp;
 			char SetScreenshotkey[2];
@@ -232,6 +236,17 @@ namespace GAME {
 		S.SetAiModelList = Translate::AiModelFiles();
 		S.SetAiModelIndex = FindAiModelIndex(S.SetAiModelList, S.SetAiModelPath);
 
+		//AI 运行设备：三项固定（自动最高 / 自动最低 / CPU）+ 每台识别到的设备；
+		//配置被改坏（模式越界）时退回「自动最高性能」
+		S.SetAiDeviceList = Translate::AiDeviceList();
+		S.SetAiDeviceMode = Variable::AiDeviceMode;
+		if (S.SetAiDeviceMode < (int)LlamaTranslate::DeviceMode::AutoBest ||
+			S.SetAiDeviceMode > (int)LlamaTranslate::DeviceMode::Specific)
+		{
+			S.SetAiDeviceMode = (int)LlamaTranslate::DeviceMode::AutoBest;
+		}
+		S.SetAiDeviceName = Variable::AiDeviceName;
+
 		if (Variable::MakeUp == 17) { S.SetMakeUp = 1; }
 		TOOL::CopyToBuffer(S.SetScreenshotkey, sizeof(S.SetScreenshotkey), Variable::Screenshotkey);
 		TOOL::CopyToBuffer(S.SetChoicekey, sizeof(S.SetChoicekey), Variable::Choicekey);
@@ -375,15 +390,18 @@ namespace GAME {
 		Variable::Translate = S.SetTranslateSource;
 		mTranslate->SetTranslate(S.SetTranslateSource);
 
-		//AI 模型：路径或推理参数改了就把已加载的模型卸掉，下次翻译按新设置重新加载
+		//AI 模型：路径、推理参数或运行设备改了就把已加载的模型卸掉，下次翻译按新设置重新加载
 		const bool AiSettingChanged = (Variable::AiModelPath != S.SetAiModelPath) || (Variable::AiThreads != S.SetAiThreads) ||
 			(Variable::AiNCtx != S.SetAiNCtx) || (Variable::AiMaxTokens != S.SetAiMaxTokens) ||
-			(Variable::AiTemperature != S.SetAiTemperature);
+			(Variable::AiTemperature != S.SetAiTemperature) ||
+			(Variable::AiDeviceMode != S.SetAiDeviceMode) || (Variable::AiDeviceName != S.SetAiDeviceName);
 		Variable::AiModelPath = S.SetAiModelPath;
 		Variable::AiThreads = S.SetAiThreads;
 		Variable::AiNCtx = S.SetAiNCtx;
 		Variable::AiMaxTokens = S.SetAiMaxTokens;
 		Variable::AiTemperature = S.SetAiTemperature;
+		Variable::AiDeviceMode = S.SetAiDeviceMode;
+		Variable::AiDeviceName = S.SetAiDeviceName;
 		//闲置卸载时间只是给主循环判断用的，不算「推理参数变了」，不必重载模型
 		Variable::AiIdleUnload = S.SetAiIdleUnload;
 		if (AiSettingChanged) { mTranslate->AiUnloadModel(); }
@@ -446,7 +464,9 @@ namespace GAME {
 			updata = true;
 		}
 
-		if (TOOL::SetModifyRegedit("TranslatorKyi", Variable::Startup)) {
+		//SetModifyRegedit 返回 true 表示写入/删除成功。原来这里少了「!」，
+		//于是每次保存设置（成功时）都会打出一条假的 "SetModifyRegedit(): Error"。
+		if (!TOOL::SetModifyRegedit("TranslatorKyi", Variable::Startup)) {
 			TOOL::logger->error("SetModifyRegedit(): Error");
 		}
 
@@ -595,6 +615,113 @@ namespace GAME {
 				S.SetAiModelList = Translate::AiModelFiles();
 				S.SetAiModelIndex = FindAiModelIndex(S.SetAiModelList, S.SetAiModelPath);
 			}
+			//运行设备：本地 AI 用哪块设备推理（和第 4 页的渲染设备一个套路）。
+			//前三项固定（自动最高 / 自动最低 / CPU），第 3 项往后是这次识别到的设备。
+			{
+				static std::vector<std::string> AiDeviceLabels;
+				static std::vector<const char*> AiDeviceItems;
+				AiDeviceLabels.clear();
+				AiDeviceItems.clear();
+				AiDeviceLabels.push_back(Language::AIDeviceAutoBest);
+				AiDeviceLabels.push_back(Language::AIDeviceAutoWorst);
+				AiDeviceLabels.push_back(Language::AIDeviceCPU);
+				for (size_t i = 0; i < S.SetAiDeviceList.size(); i++)
+				{
+					const LlamaTranslate::DeviceInfo& Device = S.SetAiDeviceList[i];
+					std::string TypeText;
+					switch (Device.type)
+					{
+					case 1: TypeText = Language::AIDeviceTypeGPU; break;	//GGML_BACKEND_DEVICE_TYPE_GPU
+					case 2: TypeText = Language::AIDeviceTypeIGPU; break;	//GGML_BACKEND_DEVICE_TYPE_IGPU
+					case 3: TypeText = Language::AIDeviceTypeACCEL; break;	//GGML_BACKEND_DEVICE_TYPE_ACCEL
+					default: TypeText = Language::AIDeviceTypeOther; break;	//CPU / META / 其它
+					}
+					//显存大小只有拿得到时才显示（CPU 设备是 0）
+					if (Device.memTotal > 0)
+					{
+						TypeText += " " + std::to_string((unsigned long long)(Device.memTotal / (1024ull * 1024ull))) + " MB";
+					}
+					AiDeviceLabels.push_back(FillDeviceText(Language::AIDeviceItem,
+						{ Device.desc.empty() ? Device.name : Device.desc, TypeText }));
+				}
+				for (size_t i = 0; i < AiDeviceLabels.size(); i++)
+				{
+					AiDeviceItems.push_back(AiDeviceLabels[i].c_str());
+				}
+				//当前设置换算成下拉框下标；指定的设备这次没识别到就先显示第一项
+				int AiDeviceIndex = S.SetAiDeviceMode;
+				if (S.SetAiDeviceMode == (int)LlamaTranslate::DeviceMode::Specific)
+				{
+					AiDeviceIndex = 0;
+					for (size_t i = 0; i < S.SetAiDeviceList.size(); i++)
+					{
+						if (S.SetAiDeviceList[i].name == S.SetAiDeviceName)
+						{
+							AiDeviceIndex = (int)i + 3;
+							break;
+						}
+					}
+				}
+				if (AiDeviceIndex < 0 || AiDeviceIndex >= (int)AiDeviceItems.size()) { AiDeviceIndex = 0; }
+
+				RowLabel(Language::AIDevice.c_str());
+				ImGui::SetNextItemWidth(-96.0f);
+				if (ImGui::BeginCombo("##ai_device", AiDeviceItems[AiDeviceIndex], flags))
+				{
+					for (int n = 0; n < (int)AiDeviceItems.size(); n++)
+					{
+						const bool is_selected = (AiDeviceIndex == n);
+						if (ImGui::Selectable(AiDeviceItems[n], is_selected))
+						{
+							if (n >= 3 && (size_t)(n - 3) < S.SetAiDeviceList.size())
+							{
+								//第 3 项往后都是具体设备：记下设备标识，加载时按它找设备
+								S.SetAiDeviceMode = (int)LlamaTranslate::DeviceMode::Specific;
+								S.SetAiDeviceName = S.SetAiDeviceList[n - 3].name;
+							}
+							else
+							{
+								S.SetAiDeviceMode = (n < 0) ? 0 : ((n > 2) ? 2 : n);
+								S.SetAiDeviceName.clear();
+							}
+						}
+						if (is_selected) { ImGui::SetItemDefaultFocus(); }
+					}
+					ImGui::EndCombo();
+				}
+				ImGui::SameLine();
+				if (ImGui::Button(Language::AIDeviceRefresh.c_str(), ImVec2(88.0f, 0.0f)))
+				{
+					//设备是 llama 后端注册的；这里重扫一遍（换了显卡/插了外接显卡后不用重开程序）
+					S.SetAiDeviceList = Translate::AiDeviceList();
+				}
+			}
+			//指定的设备这次没识别到：加载时会自动退回 CPU（见 LlamaTranslate::Load）
+			if (S.SetAiDeviceMode == (int)LlamaTranslate::DeviceMode::Specific)
+			{
+				bool AiDeviceFound = false;
+				for (size_t i = 0; i < S.SetAiDeviceList.size(); i++)
+				{
+					if (S.SetAiDeviceList[i].name == S.SetAiDeviceName) { AiDeviceFound = true; break; }
+				}
+				if (!AiDeviceFound)
+				{
+					ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "%s",
+						FillDeviceText(Language::AIDeviceMissing, { S.SetAiDeviceName }).c_str());
+				}
+			}
+			//当前使用设备：显示这次加载真正跑在什么设备上——它可能和上面选的模式不一样
+			//（例如指定了显卡但显存不够，加载时会自动退回 CPU）；没加载模型时给一句提示
+			RowLabel(Language::AIDeviceCurrent.c_str());
+			{
+				const std::string ActiveDevice = (mTranslate != nullptr) ? mTranslate->AiActiveDevice() : std::string();
+				if (ActiveDevice.empty()) {
+					ImGui::Text("%s", Language::AIDeviceCurrentNone.c_str());
+				}
+				else {
+					ImGui::Text("%s", ActiveDevice.c_str());
+				}
+			}
 			RowLabel(Language::AIModelPath.c_str());
 			ImGui::SetNextItemWidth(-96.0f);
 			InputInfo.LText = S.SetAiModelPath;
@@ -628,6 +755,7 @@ namespace GAME {
 			ImGui::EndTable();
 		}
 		ImGui::Text(Language::AIHint.c_str());
+		ImGui::Text(Language::AIDeviceHint.c_str());
 		if (mTranslate != nullptr) {
 			//状态行：没加载 / 正在加载 / 正在翻译 / 已加载（模型常驻内存，只有退出或换参数才卸载）
 			if (mTranslate->AiStage() == Translate::AiStageLoading) {

@@ -3,6 +3,7 @@
 #include "../Tool/FileUtil.h"//TOOL::BaseName / TOOL::EqualsNoCase
 
 #include <llama.h>
+#include <ggml-backend.h>	//枚举推理设备（ggml_backend_dev_*）：设置界面的「运行设备」用它
 
 #include <algorithm>
 #include <cctype>
@@ -317,6 +318,124 @@ LlamaTranslate::~LlamaTranslate()
 	Unload();
 }
 
+//设备显示名：优先用描述（一般是显卡型号），没有描述就退回设备标识
+static std::string DeviceDisplayName(ggml_backend_dev_t Dev)
+{
+	const char* Desc = ggml_backend_dev_description(Dev);
+	const char* Name = ggml_backend_dev_name(Dev);
+	if (Desc != nullptr && Desc[0] != '\0') { return Desc; }
+	return (Name != nullptr) ? Name : "";
+}
+
+//按设备标识（如 "Vulkan0"）找一台设备：设置里指定了 Specific 就用它；找不到返回 nullptr
+static ggml_backend_dev_t FindDeviceByName(const std::string& Name)
+{
+	const size_t Count = ggml_backend_dev_count();
+	for (size_t i = 0; i < Count; i++)
+	{
+		ggml_backend_dev_t Dev = ggml_backend_dev_get(i);
+		if (Dev == nullptr) { continue; }
+		const char* DevName = ggml_backend_dev_name(Dev);
+		if (DevName != nullptr && Name == DevName) { return Dev; }
+	}
+	return nullptr;
+}
+
+//设备类型优先级：独显 > 集成显卡 > 加速器 > 其它；数值越小越强
+static int DeviceTypeRank(int Type)
+{
+	switch (Type)
+	{
+	case GGML_BACKEND_DEVICE_TYPE_GPU:   return 0;
+	case GGML_BACKEND_DEVICE_TYPE_IGPU:  return 1;
+	case GGML_BACKEND_DEVICE_TYPE_ACCEL: return 2;
+	default:                             return 3;
+	}
+}
+
+//在加速设备（非 CPU）里挑一台：先比设备类型（独显 > 集成显卡 > 加速器 > 其它），同类型再比显存大小。
+//WantMaxMem = true（自动最高性能）挑最强的类型 + 显存最大的；false（自动最低性能）反过来挑最弱的类型 + 显存最小的。
+//拿不到显存大小（都是 0）时同类型里按识别顺序取第一台；一台加速设备都没有则返回 nullptr（调用方退回 CPU）。
+static ggml_backend_dev_t PickAccelerator(bool WantMaxMem)
+{
+	ggml_backend_dev_t Picked = nullptr;
+	int PickedRank = 0;
+	unsigned long long PickedMem = 0;
+	const size_t Count = ggml_backend_dev_count();
+	for (size_t i = 0; i < Count; i++)
+	{
+		ggml_backend_dev_t Dev = ggml_backend_dev_get(i);
+		if (Dev == nullptr) { continue; }
+		const int Type = (int)ggml_backend_dev_type(Dev);
+		if (Type == GGML_BACKEND_DEVICE_TYPE_CPU) { continue; }//CPU 是兜底，不参与评选
+
+		ggml_backend_dev_props Props{};
+		ggml_backend_dev_get_props(Dev, &Props);
+		const int Rank = DeviceTypeRank(Type);
+		const unsigned long long Mem = (unsigned long long)Props.memory_total;
+
+		bool Better = false;
+		if (Picked == nullptr) { Better = true; }
+		else if (Rank != PickedRank) { Better = WantMaxMem ? (Rank < PickedRank) : (Rank > PickedRank); }
+		else { Better = WantMaxMem ? (Mem > PickedMem) : (Mem < PickedMem); }
+
+		if (Better)
+		{
+			Picked = Dev;
+			PickedRank = Rank;
+			PickedMem = Mem;
+		}
+	}
+	return Picked;
+}
+
+//llama 后端与日志只需要初始化一次；枚举设备、加载模型之前都必须先跑
+void LlamaTranslate::EnsureBackendInit()
+{
+	static std::once_flag sOnce;
+	std::call_once(sOnce, []()
+	{
+		llama_log_set(TkLlamaLog, nullptr);
+		llama_backend_init();
+	});
+}
+
+std::vector<LlamaTranslate::DeviceInfo> LlamaTranslate::ListDevices()
+{
+	EnsureBackendInit();
+
+	std::vector<DeviceInfo> Result;
+	const size_t Count = ggml_backend_dev_count();
+	for (size_t i = 0; i < Count; i++)
+	{
+		ggml_backend_dev_t Dev = ggml_backend_dev_get(i);
+		if (Dev == nullptr) { continue; }
+		if (ggml_backend_dev_type(Dev) == GGML_BACKEND_DEVICE_TYPE_CPU) { continue; }//CPU 在设置里是单独一项（「CPU（不使用显卡）」），这里不再重复列
+
+		DeviceInfo Info;
+		const char* Name = ggml_backend_dev_name(Dev);
+		const char* Desc = ggml_backend_dev_description(Dev);
+		Info.name = (Name != nullptr) ? Name : "";
+		Info.desc = (Desc != nullptr) ? Desc : "";
+		Info.type = (int)ggml_backend_dev_type(Dev);
+
+		ggml_backend_dev_props Props{};
+		ggml_backend_dev_get_props(Dev, &Props);
+		Info.memTotal = (unsigned long long)Props.memory_total;
+		Info.memFree = (unsigned long long)Props.memory_free;
+		Result.push_back(Info);
+	}
+	//下拉框里也按同样的优先级排（独显 > 集成显卡 > 加速器 > 其它），同类型里显存大的在前
+	std::sort(Result.begin(), Result.end(), [](const DeviceInfo& A, const DeviceInfo& B)
+	{
+		const int RankA = DeviceTypeRank(A.type);
+		const int RankB = DeviceTypeRank(B.type);
+		if (RankA != RankB) { return RankA < RankB; }
+		return A.memTotal > B.memTotal;
+	});
+	return Result;
+}
+
 bool LlamaTranslate::Load(const std::string& modelPath)
 {
 	Params params;
@@ -338,6 +457,7 @@ bool LlamaTranslate::Load(const Params& params)
 	}
 	mModelDesc.clear();
 	mLastError.clear();
+	mActiveDevice.clear();
 
 	mParams = params;
 	if (mParams.ModelPath.empty())
@@ -353,19 +473,86 @@ bool LlamaTranslate::Load(const Params& params)
 	}
 	mParams.ModelPath = path;
 
-	//llama 后端与日志只需要初始化一次
-	static std::once_flag sOnce;
-	std::call_once(sOnce, []()
-	{
-		llama_log_set(TkLlamaLog, nullptr);
-		llama_backend_init();
-	});
+	//llama 后端与日志只需要初始化一次（枚举设备之前也必须先跑）
+	EnsureBackendInit();
 
-	//1) 加载模型
+	//1) 按设置决定这次用哪些设备、卸载多少层。
+	//   devices 必须以 nullptr 结尾；留空表示交给 llama.cpp 自己挑（它会跳过 CPU/加速器，用所有 GPU）
+	std::vector<ggml_backend_dev_t> Devices;
+	int32_t NGpuLayers = mParams.NGpuLayers;
+	std::string DeviceLog;
+	switch (mParams.Device)
+	{
+	case DeviceMode::CPU:
+		NGpuLayers = 0;
+		DeviceLog = "CPU（不使用加速设备）";
+		break;
+	case DeviceMode::Specific:
+	{
+		ggml_backend_dev_t Picked = FindDeviceByName(mParams.DeviceName);
+		if (Picked != nullptr)
+		{
+			Devices.push_back(Picked);
+			if (NGpuLayers == 0) { NGpuLayers = -1; }	//-1 = 层全卸载过去
+			DeviceLog = DeviceDisplayName(Picked) + "（设置指定）";
+		}
+		else
+		{
+			NGpuLayers = 0;
+			DeviceLog = "设置指定的设备 \"" + mParams.DeviceName + "\" 这次没识别到，改用 CPU";
+		}
+		break;
+	}
+	case DeviceMode::AutoWorst:
+	{
+		ggml_backend_dev_t Picked = PickAccelerator(false);
+		if (Picked != nullptr)
+		{
+			Devices.push_back(Picked);
+			if (NGpuLayers == 0) { NGpuLayers = -1; }
+			DeviceLog = DeviceDisplayName(Picked) + "（自动·最低性能）";
+		}
+		else
+		{
+			NGpuLayers = 0;
+			DeviceLog = "没有识别到加速设备，改用 CPU";
+		}
+		break;
+	}
+	case DeviceMode::AutoBest:
+	default:
+	{
+		ggml_backend_dev_t Picked = PickAccelerator(true);
+		if (Picked != nullptr)
+		{
+			Devices.push_back(Picked);
+			if (NGpuLayers == 0) { NGpuLayers = -1; }
+			DeviceLog = DeviceDisplayName(Picked) + "（自动·最高性能）";
+		}
+		else
+		{
+			NGpuLayers = -1;	//没有加速设备：丢给 llama.cpp，它会直接在 CPU 上跑
+			DeviceLog = "没有识别到加速设备，用 CPU";
+		}
+		break;
+	}
+	}
+	if (!Devices.empty()) { Devices.push_back(nullptr); }
+
+	//2) 加载模型
 	llama_model_params modelParams = llama_model_default_params();
-	modelParams.n_gpu_layers = mParams.NGpuLayers;
+	modelParams.devices = Devices.empty() ? nullptr : Devices.data();
+	modelParams.n_gpu_layers = NGpuLayers;
 	modelParams.load_mode = LLAMA_LOAD_MODE_MMAP;	//该版本没有 use_mmap 字段了
 	mModel = llama_model_load_from_file(path.c_str(), modelParams);
+	if (!mModel && modelParams.devices != nullptr)
+	{
+		//走显卡这条路失败（显存不够 / 驱动有问题）时退回纯 CPU：慢一点，但至少能用
+		fprintf(stderr, "[LlamaTranslate] 用「%s」加载失败，退回 CPU 重试\n", DeviceLog.c_str());
+		modelParams.devices = nullptr;
+		modelParams.n_gpu_layers = 0;
+		mModel = llama_model_load_from_file(path.c_str(), modelParams);
+	}
 	if (!mModel)
 	{
 		mLastError = "加载模型失败：" + path;
@@ -373,6 +560,17 @@ bool LlamaTranslate::Load(const Params& params)
 		return false;
 	}
 	mVocab = llama_model_get_vocab(mModel);
+
+	//这次真正跑在哪：devices 非空且卸载了层才是显卡，否则（含退回来的那次）就是 CPU。
+	//设置界面的「当前使用设备」显示的就是它，所以必须按加载结果如实记，不能照抄上面的设置。
+	if (modelParams.devices != nullptr && modelParams.n_gpu_layers != 0)
+	{
+		mActiveDevice = DeviceDisplayName(modelParams.devices[0]);
+	}
+	else
+	{
+		mActiveDevice = "CPU";
+	}
 
 	char desc[256] = { 0 };
 	if (llama_model_desc(mModel, desc, sizeof(desc)) > 0)
@@ -440,8 +638,8 @@ bool LlamaTranslate::Load(const Params& params)
 		}
 	}
 
-	fprintf(stderr, "[LlamaTranslate] 模型已加载：%s（ctx=%d, threads=%d）\n",
-	        mModelDesc.c_str(), nCtx, nThreads);
+	fprintf(stderr, "[LlamaTranslate] 模型已加载：%s（ctx=%d, threads=%d，运行设备：%s）\n",
+	        mModelDesc.c_str(), nCtx, nThreads, DeviceLog.c_str());
 	return true;
 }
 
@@ -456,6 +654,7 @@ void LlamaTranslate::Unload()
 		mVocab = nullptr;
 	}
 	mModelDesc.clear();
+	mActiveDevice.clear();
 }
 
 void LlamaTranslate::ReleaseContext()

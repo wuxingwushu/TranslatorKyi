@@ -217,6 +217,9 @@ namespace VulKan {
 	//device.cpp 里的实现：某台物理设备是否满足本程序的最低要求（探测阶段与真正选设备时共用同一套判据）
 	bool physicalDeviceMeetsMinimumRequirements(VkPhysicalDevice device, std::string* reasonOut);
 
+	//device.cpp 里的实现：设备类型优先级（独显 0 > 集成显卡 1 > 加速器 2 > 虚拟显卡 3 > CPU 4）
+	int RenderDeviceTypeRank(VkPhysicalDeviceType type);
+
 	//探测结果：机器上有没有显卡、其中有没有"能用"的显卡。
 	//"能用"的判据见 device.cpp 的 physicalDeviceMeetsMinimumRequirements()——探测阶段和真正选设备时
 	//共用同一套，避免出现"探测说能用、真选设备时又说不能用"。
@@ -304,6 +307,14 @@ namespace VulKan {
 			VulkanDiag("[Vulkan] 探测: vkEnumeratePhysicalDevices 返回 %d (%s), deviceCount=%u\n",
 				(int)result, vkResultName(result), deviceCount);
 		}
+
+		//下拉框里也按设备类型优先级排（独显 > 集成显卡 > 加速器 > 虚拟显卡），
+		//界面顺序与 Vulkan/device.cpp 里"自动选择"的判断口径一致
+		std::stable_sort(Variable::VulkanDetectedDevices.begin(), Variable::VulkanDetectedDevices.end(),
+			[](const Variable::VulkanDeviceInfo& a, const Variable::VulkanDeviceInfo& b) {
+				return RenderDeviceTypeRank((VkPhysicalDeviceType)a.deviceType)
+					< RenderDeviceTypeRank((VkPhysicalDeviceType)b.deviceType);
+			});
 
 		//探路用的实例马上销毁，真正的 VkInstance 由 Application 创建
 		vkDestroyInstance(probeInstance, nullptr);

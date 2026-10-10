@@ -87,6 +87,8 @@ namespace Variable {
 		if (AiTemperature <= 0.0f || AiTemperature > 2.0f) { AiTemperature = 0.7f; }
 		if (AiIdleUnload < 0) { AiIdleUnload = 0; }			//0 = 不自动卸载
 		if (AiIdleUnload > 86400) { AiIdleUnload = 86400; }	//最多一天
+		//运行设备模式：0 自动最高 1 自动最低 2 CPU 3 指定（见 LlamaTranslate::DeviceMode）
+		if (AiDeviceMode < 0 || AiDeviceMode > 3) { AiDeviceMode = 0; }
 
 		//截图颜色：单独读写（4 个分量，不能直接进配置表）
 		std::vector<unsigned int> LScreenshotColor = iniData.GetVector<unsigned int>("Set", "ScreenshotColor");

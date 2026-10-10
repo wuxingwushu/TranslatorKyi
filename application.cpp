@@ -1,5 +1,7 @@
 #include "application.h"
 #include "AngelScript/AngelScriptCode.h"
+#include <stdexcept>//std::runtime_error：Vulkan 出错时改成抛异常，而不是 abort
+#include <string>
 
 
 
@@ -13,8 +15,12 @@ namespace GAME {
 		if (err == 0)
 			return;
 		fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
-		if (err < 0)
-			abort();
+		if (err < 0) {
+			//原来这里是 abort()：表现出来就是「出错模块 ucrtbase.dll、异常代码 0xc0000409」，
+			//而且 Release 版是 GUI 子系统、fprintf 的 stderr 没人看得到 —— 等于静默崩溃。
+			//改成抛异常，交给 main.cpp 的 catch：写进日志、弹窗提示，然后正常退出。
+			throw std::runtime_error("Vulkan 调用失败，VkResult = " + std::to_string((int)err));
+		}
 	}
 
 	//总初始化
@@ -30,7 +36,9 @@ namespace GAME {
 		initVulkan();//初始化Vulkan
 		initImGui();//初始化ImGui
 		mainLoop();//开启主循环main
+		TOOL::LogStep("Application::run: mainLoop 返回，开始清理");
 		cleanUp();//回收资源
+		TOOL::LogStep("Application::run: 清理完成");
 	}
 
 
@@ -414,7 +422,9 @@ namespace GAME {
 	//回收资源
 	void Application::cleanUp() {
 
+		TOOL::LogStep("cleanUp: 开始");
 		delete InterFace;
+		TOOL::LogStep("cleanUp: InterFace 已删除");
 		
 		for (int i = 0; i < mSwapChain->getImageCount(); ++i) {
 			delete mCommandBuffers[i];//必须先销毁 CommandBuffer ，才可以销毁绑定的 CommandPool。
@@ -422,12 +432,18 @@ namespace GAME {
 			delete mRenderFinishedSemaphores[i];
 			delete mFences[i];
 		}
+		TOOL::LogStep("cleanUp: 帧同步对象已删除");
 		delete mRenderPass;
 		delete mSwapChain;
 		delete mCommandPool;
 		delete mDevice;
 		delete mWindowSurface;
 		delete mInstance;
-		delete mWindow;
+		TOOL::LogStep("cleanUp: Vulkan 对象已删除");
+		//注意：这里原来还有一句 delete mWindow —— 而 mWindow 就是 main.cpp 里 new 出来的
+		//mWin（Application::run 开头 mWindow = w），main.cpp 结尾还会 delete 一次。
+		//同一块内存删两次就是「双重释放」，退出时会以 ntdll.dll 的 0xc0000374（堆损坏）崩溃。
+		//所以窗口对象统一留给 main.cpp 释放，这里不再删。
+		TOOL::LogStep("cleanUp: 结束");
 	}
 }

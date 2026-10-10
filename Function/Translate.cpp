@@ -1,4 +1,5 @@
 #include "Translate.h"
+#include "../Tool/Log.h"//TOOL::LogStep：退出路径路标
 
 // =====================================================================================
 // Translate 类骨架 + 后台线程编排
@@ -33,8 +34,13 @@ Translate::~Translate()
 {
 	//后台翻译线程可能还在用 this（它每次进入 Generate 都会读成员），
 	//所以析构必须等它结束，不能直接 detach。
-	AiJoin();
-	WebJoin();
+	//这里传 true（强制等待）而不是原来的默认参数：线程还在跑时跳过 join 的话，
+	//等成员 mAiThread/mWebThread 析构时它还是 joinable，std::thread 的析构函数会
+	//直接 std::terminate() → abort()——这就是「退出时 ucrtbase.dll / 0xc0000409」的来源。
+	TOOL::LogStep("~Translate: 开始");
+	AiJoin(true);
+	WebJoin(true);
+	TOOL::LogStep("~Translate: 线程已等待结束");
 }
 
 // =====================================================================================
@@ -79,10 +85,11 @@ bool Translate::WebTakeResult(std::string& Result)
 	return true;
 }
 
-void Translate::WebJoin()
+void Translate::WebJoin(bool Force)
 {
-	//还在跑的时候不能 join（会把主循环卡住），留给下一次 WebTakeResult()
-	if (mWebThread.joinable() && !mWebRunning.load()) { mWebThread.join(); }
+	//还在跑的时候不能 join（会把主循环卡住），留给下一次 WebTakeResult()；
+	//析构/退出时（Force=true）必须等到线程真的结束。
+	if (mWebThread.joinable() && (Force || !mWebRunning.load())) { mWebThread.join(); }
 }
 
 // =====================================================================================
