@@ -148,6 +148,8 @@ bool Translate::AiBeginTranslation(const std::string& English, const std::string
 	mAiStage = AiStageLoading;
 	mAiDone = false;
 	mAiRunning = true;
+	//上一次「退出/重启」请求留下的停止标志要清掉，否则新任务一上来就被 Generate 里的检查停掉
+	LlamaTranslate::ClearStop();
 
 	mAiThread = std::thread([this, Text, Target, SourceCode]() {
 		//线程里逃出的异常会走 std::terminate → abort()，在 Windows 上就是

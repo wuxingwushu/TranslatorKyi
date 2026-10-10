@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <mutex>
+#include <atomic>
 
 // ============================================================================
 //  LlamaTranslate —— 用 llama.cpp 加载本地 GGUF 大模型做翻译
@@ -84,6 +85,14 @@ public:
 	// 卸载模型、释放上下文与采样链
 	void Unload();
 
+	// 请求「正在跑的那一次生成」尽快收尾（退出/重启前用）：生成循环每算完一个 token 检查一次。
+	// 不是立刻停（手上这个 token 得算完），但比等它把 MaxTokens 全算完快得多。
+	// 做成静态的：置标志时翻译线程可能正卡在模型加载里（那期间不生成 token），
+	// 静态标志不用去抢那把锁，调用方（界面线程）不会被拖住。
+	static void RequestStop();
+	// 开始一次新任务前清掉停止标志（否则上一次退出请求会让新任务一上来就停）
+	static void ClearStop();
+
 	bool IsLoaded() const { return mModel != nullptr; }
 	const std::string& ModelDesc() const { return mModelDesc; }	//模型描述（名字/参数量/量化方式）
 	const std::string& LastError() const { return mLastError; }	//最近一次失败原因
@@ -136,6 +145,7 @@ private:
 	std::string			mActiveDevice;	//当前实际在用的设备（显卡描述或 "CPU"），见 ActiveDevice()
 	std::string			mLastError;
 	std::mutex			mMutex;		//翻译期间独占
+	static std::atomic<bool> sStopRequested;	//见 RequestStop()（静态：不抢 mMutex 也能置上）
 };
 
 // 便捷全局函数：内部单例 + 默认模型路径，第一次调用时自动加载模型

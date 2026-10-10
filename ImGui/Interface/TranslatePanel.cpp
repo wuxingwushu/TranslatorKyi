@@ -526,10 +526,11 @@ namespace GAME {
 		ImGui::SetWindowSize(ImVec2(TranslateWinWidth, TranslateWinHeight));
 		BeginWindowPosX = (int)ImGui::GetWindowPos().x;
 		BeginWindowPosY = (int)ImGui::GetWindowPos().y;
+		//置顶用的窗口句柄必须在 End() 之前取（以前是 End() 之后 FindWindow(NULL, "TranslateUI")：
+		//多视口下这个系统窗口是 ImGui 自己建的，按标题找可能找错实例，找不到时也就不置顶了）
+		HWND hwnd = WindowTopMostHandle();
 		ImGui::End();
 
-		// 获取窗口句柄
-		HWND hwnd = FindWindow(NULL, "TranslateUI");
 		if (hwnd) {
 			SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 		}

@@ -34,6 +34,19 @@ static const char* HY_EOS		= "<｜hy_place▁holder▁no▁2｜>";		//token 1200
 //老版本放在 Environment/ 下，ResolveModelPath() 两边都会找，不会影响老配置
 static std::string gDefaultModelPath = "Modes/Hy-MT2-1.8B-Q4_K_M.gguf";
 
+//退出/重启前的「尽快收尾」请求，见 LlamaTranslate.h 的 RequestStop()/ClearStop()
+std::atomic<bool> LlamaTranslate::sStopRequested{ false };
+
+void LlamaTranslate::RequestStop()
+{
+	sStopRequested = true;
+}
+
+void LlamaTranslate::ClearStop()
+{
+	sStopRequested = false;
+}
+
 //模型文件夹的查找阶梯：程序一般跑在 build/<preset>/<配置> 里（那里也有一份 CMake 拷过去的 Modes），
 //而模型可能只放在仓库根的 Modes/，所以从当前目录开始逐级向上找
 static const char* const MODEL_DIR_LADDER[] = { "./Modes/", "../Modes/", "../../Modes/",
@@ -837,6 +850,14 @@ std::string LlamaTranslate::Generate(const std::string& prompt)
 
 	while (generated < mParams.MaxTokens)
 	{
+		//退出/重启请求了停止就别再往下算：手上这个 token 已经生成完了，
+		//剩下的 MaxTokens 不再一个个算（长文本一次生成可能几十秒，退出不能等它）
+		if (sStopRequested.load())
+		{
+			mLastError = "已请求停止生成";
+			break;
+		}
+
 		const llama_token id = llama_sampler_sample(mSampler, mCtx, -1);
 		llama_sampler_accept(mSampler, id);
 		if (llama_vocab_is_eog(mVocab, id))

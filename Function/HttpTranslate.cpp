@@ -60,7 +60,9 @@ std::string Translate::Translate_Baidu(std::string English, int FromIndex, int T
         strcat(myurl, "&sign=");
         strcat(myurl, buf.c_str());
 
-        const TOOL::HttpResult Http = TOOL::HttpGet(std::string(myurl));
+        //超时（连接 5 秒 / 总共 30 秒）：这几个请求跑在后台线程里，界面不会被卡住，
+        //但网络不通时不能让界面一直显示「翻译中…」，退出时也不能让 join 无限等下去。
+        const TOOL::HttpResult Http = TOOL::HttpGet(std::string(myurl), {}, 5, 30);
         if (Http.Curl != CURLE_OK) {
             fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(Http.Curl));
             return "错误";
@@ -125,7 +127,8 @@ std::string Translate::Translate_Youdao(std::string English, int FromIndex, int 
         strcat(myurl, "&salt=");
         strcat(myurl, salt);
 
-        const TOOL::HttpResult Http = TOOL::HttpGet(std::string(myurl));
+        //超时同百度那条：连接 5 秒 / 总共 30 秒
+        const TOOL::HttpResult Http = TOOL::HttpGet(std::string(myurl), {}, 5, 30);
         if (Http.Curl != CURLE_OK) {
             fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(Http.Curl));
             return "错误";
@@ -151,7 +154,8 @@ std::string Translate::Translate_ReptilesYoudao(std::string English) {
 
     // 设置User-Agent头字段
     const std::string userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.203";
-    const TOOL::HttpResult Http = TOOL::HttpGet(url, { "User-Agent: " + userAgent });
+    //超时同上面两条：连接 5 秒 / 总共 30 秒
+    const TOOL::HttpResult Http = TOOL::HttpGet(url, { "User-Agent: " + userAgent }, 5, 30);
     if (Http.Curl != CURLE_OK) {
         std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(Http.Curl) << std::endl;
     }

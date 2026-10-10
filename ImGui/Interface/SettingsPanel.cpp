@@ -28,7 +28,6 @@ namespace GAME {
 
 		// ---- 待编辑状态（原 SetUpInterface 里的 static 局部量）----
 		struct SettingsState {
-			std::string Hitokoto;
 
 			char SetWebDav_url[128];
 			char SetWebDav_username[128];
@@ -209,7 +208,7 @@ namespace GAME {
 	//打开设置界面时，把当前配置读进「待编辑」状态（原来的 if (SetBool) 初始化块）
 	void ImGuiInterFace::InitSettingsState()
 	{
-		S.Hitokoto = GetHitokoto();
+		RequestHitokoto();//后台线程取，别在这里同步等网络：否则每点一次「设置」都要先卡 0.5 秒
 
 		//这些目标全是 128 字节的定长数组。旧写法直接 memcpy(..., str.size())：
 		//配置里存了长文本就会写爆数组，而且刚好写满 128 字节时连终止符都没有，
@@ -474,6 +473,12 @@ namespace GAME {
 		Variable::SaveFile();
 
 		if (updata) {
+			//重启走的是 exit(0)：堆上的对象不会被析构，后台线程（AI 生成 / HTTP 翻译 / OCR / 脚本）
+			//必须先停干净再退出，否则新进程起来后旧线程还在读写这些成员。
+			if (mTranslate != nullptr) { mTranslate->StopBackgroundWork(); }
+			if (mTesseract != nullptr) { mTesseract->OcrWait(); }
+			AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->WaitRunning();
+			TOOL::LogStep("SaveSettings: 后台线程已停止，准备重启自己");
 			delete mWindown;
 			RestartSelfApplication();//自己重启自己
 		}
@@ -1419,7 +1424,7 @@ namespace GAME {
 			SetBool = true;
 		}
 		ImGui::SameLine();
-		ImGui::Text(S.Hitokoto.c_str());
+		ImGui::Text("%s", HitokotoText().c_str());//取到之后自动显示（后台线程取的，不阻塞界面）
 		if ((S.SavedTime != 0) && ((clock() - S.SavedTime) < (2 * CLOCKS_PER_SEC))) {
 			//右对齐显示「已保存」
 			const float SavedWidth = ImGui::CalcTextSize(Language::Saved.c_str()).x;

@@ -112,6 +112,10 @@ public:
 	//析构时必须用这个，理由同 WebJoin。
 	void AiJoin(bool Force = false);
 
+	//退出/重启前的收尾：先请求后台任务尽快停，再等它们真的退出（析构函数里调用）。
+	//AI 那条路是「请求停止 + 强制 join」：生成长文本可能几十秒，不请求停止的话退出要等它算完。
+	void StopBackgroundWork();
+
 	// ================= 脚本里的 TranslateAPI() =================
 	//AngelScript 的 context->Suspend() 不会重新调用被挂起的系统函数：as_context.cpp 的
 	//asBC_CALLSYS 分支是在系统函数返回之后才检查挂起标志、那时程序指针已经越过这条指令，

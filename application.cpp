@@ -35,6 +35,11 @@ namespace GAME {
 		//initWindow();//初始化窗口
 		initVulkan();//初始化Vulkan
 		initImGui();//初始化ImGui
+		//弹窗通知开着的话，启动时就在后台把第一句一言取回来（RequestHitokoto() 立刻返回，
+		//不用界面等网络）：这样第一次到点弹出来就有句子，不用现等一次网络。
+		if (Variable::PopUpNotificationBool) {
+			RequestHitokoto();
+		}
 		mainLoop();//开启主循环main
 		TOOL::LogStep("Application::run: mainLoop 返回，开始清理");
 		cleanUp();//回收资源
@@ -218,6 +223,13 @@ namespace GAME {
 			KeyBoardEvents();//监听键盘
 			InterFace->UpdateTranslateTask();//后台任务每帧取一次结果（截图 OCR / 普通源 HTTP / AI 模型）
 
+			//菜单里点了「退出」：不再直接 exit(0)，而是像点了窗口右上角的关闭按钮一样跳出主循环，
+			//交给 cleanUp() 按部就班地收尾（exit(0) 不会析构堆上的 Application/InterFace/Translate，
+			//后台线程可能还在用已经半销毁的成员）。ESC 那条路同理，见 Vulkan\Window.cpp 的 processEvent()。
+			if (InterFace->ExitRequestBool) {
+				break;
+			}
+
 			
 			if (InterFace->GetInterFaceBool()) {
 				ImGuiIO& io = ImGui::GetIO();
@@ -232,7 +244,10 @@ namespace GAME {
 				}
 			}
 			else {
-				if (Variable::PopUpNotificationBool && (InterFace->GetInterFaceEnum() == No_Enum) && (clock() - HitokotoTime > 20000)) {
+				//间隔读设置里的值（Data.ini 的 HitokotoTimeInterval，单位毫秒）。以前这里写死 20000，
+				//于是设置界面里填的间隔根本没生效；下限 1000 是防止填 0/负数时每帧都弹。
+				const clock_t HitokotoInterval = (Variable::HitokotoTimeInterval > 1000) ? (clock_t)Variable::HitokotoTimeInterval : (clock_t)1000;
+				if (Variable::PopUpNotificationBool && (InterFace->GetInterFaceEnum() == No_Enum) && (clock() - HitokotoTime > HitokotoInterval)) {
 					InterFace->SetInterFace(HitokotoEnum);
 					HitokotoTime = clock();
 				}

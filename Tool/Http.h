@@ -29,7 +29,9 @@ namespace TOOL {
 		std::string Body;        //响应体
 	};
 
-	//GET 一个 URL，Headers 形如 {"User-Agent: ..."}；响应体写进返回值
-	HttpResult HttpGet(const std::string& url, const std::vector<std::string>& Headers = {});
+	//GET 一个 URL，Headers 形如 {"User-Agent: ..."}；响应体写进返回值。
+	//ConnectTimeoutSeconds / TimeoutSeconds 传 0 表示不设置（libcurl 默认：连接超时 300 秒、总时长不限），
+	//非 0 表示秒数。会被界面线程调用的请求一定要给超时，否则网络不通时会把整个界面卡住。
+	HttpResult HttpGet(const std::string& url, const std::vector<std::string>& Headers = {}, long ConnectTimeoutSeconds = 0, long TimeoutSeconds = 0);
 
 }

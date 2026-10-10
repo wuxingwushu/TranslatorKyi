@@ -38,9 +38,18 @@ Translate::~Translate()
 	//等成员 mAiThread/mWebThread 析构时它还是 joinable，std::thread 的析构函数会
 	//直接 std::terminate() → abort()——这就是「退出时 ucrtbase.dll / 0xc0000409」的来源。
 	TOOL::LogStep("~Translate: 开始");
+	StopBackgroundWork();
+	TOOL::LogStep("~Translate: 线程已等待结束");
+}
+
+//退出/重启前的收尾：先请求后台任务尽快停，再等它们真的退出。
+//AI 生成是最长的一段（长文本一次可能几十秒），所以先置停止标志——LlamaTranslate 的生成循环
+//每算完一个 token 检查一次；HTTP 那条路没法中途打断，只能等它自己超时（请求都带超时）。
+void Translate::StopBackgroundWork()
+{
+	LlamaTranslate::RequestStop();
 	AiJoin(true);
 	WebJoin(true);
-	TOOL::LogStep("~Translate: 线程已等待结束");
 }
 
 // =====================================================================================

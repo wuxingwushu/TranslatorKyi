@@ -71,7 +71,10 @@ namespace GAME {
 			case GAME::MenuEnum:
 				return 5000;
 			case GAME::HitokotoEnum:
-				return 10000;
+				//一言的显示时长也读设置（Data.ini 的 HitokotoDisplayDuration，单位毫秒），以前写死 10000。
+				//下限 1000：DoYouWantToUpdateTheScreen() 见到 time == 0 就当成「不自动关闭」，
+				//填 0 会让弹窗一直挂在屏幕上。
+				return (Variable::HitokotoDisplayDuration > 1000) ? Variable::HitokotoDisplayDuration : 1000;
 			default:
 				return 0;
 			}
@@ -110,6 +113,19 @@ namespace GAME {
 		}
 
 		bool EndDisplayBool = false;//结束显示开关（给外界一个信号，结束显示）
+
+		//菜单里点了「退出」：置位后主循环（application.cpp 的 mainLoop）会像窗口被关闭一样跳出循环，
+		//走 cleanUp() → main.cpp 删除窗口/Application 这条正常收尾通道。
+		//以前这里直接 exit(0)：堆上的 Application/InterFace/Translate 不会被析构，后台线程
+		//（AI 生成 / HTTP / OCR / 脚本）会在进程退出过程中继续跑，可能用到已经半销毁的成员。
+		bool ExitRequestBool = false;
+
+		//取出当前这个 ImGui 窗口对应的系统窗口句柄（必须在 ImGui::Begin/End 之间调用）。
+		//以前各面板是在 ImGui::End() 之后用 FindWindow(NULL, "xxxUI") 按标题找窗口再置顶：
+		//多视口模式下这些系统窗口是 ImGui 自己建的（标题也是 ImGui 设的、还可能被加上序号），
+		//FindWindow 会找到别的进程/别的实例的同名窗口，找不到时就更不会置顶了。
+		//ImGuiViewport::PlatformHandleRaw 在 GLFW 后端里就是 HWND。
+		HWND WindowTopMostHandle();
 
 		//统一的翻译入口。显示模式下所有翻译源都是异步的：窗口立刻出来显示「翻译中…」，
 		//请求交给后台线程（百度/爬虫/有道走 HTTP 线程，本地 AI 走模型线程），结果由 UpdateTranslateTask() 每帧落实。

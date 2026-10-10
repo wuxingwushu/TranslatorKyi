@@ -78,17 +78,20 @@ namespace GAME {
 		}
 		//退出
 		if (MenuRow(Language::Exit.c_str(), "", false)) {
-			exit(0);
+			//不再 exit(0)：置位后由主循环跳出循环、走 cleanUp() 的正常收尾通道（会等后台线程结束）。
+			//exit(0) 不会析构堆上的对象，后台线程可能在进程退出过程中用到半销毁的成员。
+			ExitRequestBool = true;
 		}
 
 		BeginWindowPosX = (int)ImGui::GetWindowPos().x;
 		BeginWindowPosY = (int)ImGui::GetWindowPos().y;
 		BeginWindowSizeX = (int)ImGui::GetWindowWidth();
 		BeginWindowSizeY = (int)ImGui::GetWindowHeight();
+		//置顶用的窗口句柄必须在 End() 之前取（以前是 End() 之后 FindWindow(NULL, "MenuUI")：
+		//多视口下这个系统窗口是 ImGui 自己建的，按标题找可能找错实例，找不到时也就不置顶了）
+		HWND hwnd = WindowTopMostHandle();
 		ImGui::End();
 
-		// 获取窗口句柄
-		HWND hwnd = FindWindow(NULL, "MenuUI");
 		if (hwnd) {
 			SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 		}

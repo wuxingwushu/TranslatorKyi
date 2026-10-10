@@ -245,6 +245,20 @@ namespace GAME {
 		TOOL::LogStep("~ImGuiInterFace: Translate 已删除");
 	}
 
+	//取出当前 ImGui 窗口对应的系统窗口句柄（必须在 ImGui::Begin/End 之间调用，理由见 Interface.h）
+	HWND ImGuiInterFace::WindowTopMostHandle()
+	{
+		ImGuiViewport* Viewport = ImGui::GetWindowViewport();
+		if (Viewport == nullptr) {
+			return nullptr;
+		}
+		HWND hwnd = (HWND)Viewport->PlatformHandleRaw;//GLFW 后端里 PlatformHandleRaw 就是 HWND
+		if (hwnd == nullptr) {
+			hwnd = (HWND)Viewport->PlatformHandle;//兜底：有的后端只填了 PlatformHandle
+		}
+		return hwnd;
+	}
+
 	bool ImGuiInterFace::InterFace()
 	{
 		bool kai = DoYouWantToUpdateTheScreen(GetInterFaceEnumTime());//下一帧是否要更新

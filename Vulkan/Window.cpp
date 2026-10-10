@@ -6,10 +6,12 @@
 GAME::Application* mAppcpp;
 
 namespace {
-	//托盘图标的状态放在文件作用域，而不是 Window 成员：程序里所有退出路径都是 exit(0)
-	//（ImGui/Interface.cpp:2296 的菜单「退出」、Interface.cpp:1441 的自更新重启、Window.cpp:185 的 ESC），
+	//托盘图标的状态放在文件作用域，而不是 Window 成员：程序里现在只剩一条退出路径是 exit(0)
+	//（ImGui/Interface/SettingsPanel.cpp 的 SaveSettings()「改字体→重启自己」走的 RestartSelfApplication()），
 	//exit(0) 不会执行 ~Window()，只有 atexit 注册的函数一定会被调用，
 	//所以清理函数必须能从文件作用域拿到 hWnd/uID。
+	//（菜单里的「退出」现在只置 InterFace->ExitRequestBool、ESC 置 glfwSetWindowShouldClose，
+	//  这两条都会跳出主循环、正常析构到 ~Window()。）
 	HWND gTrayHwnd = NULL;
 	NOTIFYICONDATA gTrayNid{};
 
@@ -202,7 +204,9 @@ namespace VulKan {
 	void Window::processEvent() {
 
 		if (glfwGetKey(mWindow, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-			exit(0);
+			//不再 exit(0)：和点窗口右上角关闭按钮一样置上关闭标志，主循环跳出后走 cleanUp()，
+			//由析构函数等后台线程收尾（exit(0) 不会析构堆上的 Application/InterFace/Translate）。
+			glfwSetWindowShouldClose(mWindow, GLFW_TRUE);
 		}
 
 		//控制鼠标显示和禁用

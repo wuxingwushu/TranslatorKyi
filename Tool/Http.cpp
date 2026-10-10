@@ -44,7 +44,7 @@ namespace TOOL {
 
 	}
 
-	HttpResult HttpGet(const std::string& url, const std::vector<std::string>& Headers) {
+	HttpResult HttpGet(const std::string& url, const std::vector<std::string>& Headers, long ConnectTimeoutSeconds, long TimeoutSeconds) {
 		HttpResult result;
 		CurlPtr curl = MakeCurl();
 		if (!curl) {
@@ -58,6 +58,12 @@ namespace TOOL {
 		}
 		curl_easy_setopt(curl.get(), CURLOPT_WRITEFUNCTION, HttpStringSink);
 		curl_easy_setopt(curl.get(), CURLOPT_WRITEDATA, &result.Body);
+		if (ConnectTimeoutSeconds > 0) {
+			curl_easy_setopt(curl.get(), CURLOPT_CONNECTTIMEOUT, ConnectTimeoutSeconds);
+		}
+		if (TimeoutSeconds > 0) {
+			curl_easy_setopt(curl.get(), CURLOPT_TIMEOUT, TimeoutSeconds);
+		}
 
 		result.Curl = curl_easy_perform(curl.get());
 		curl_easy_getinfo(curl.get(), CURLINFO_RESPONSE_CODE, &result.Code);
