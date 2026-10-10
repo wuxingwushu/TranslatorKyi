@@ -138,96 +138,42 @@ bool TextExists(std::string str, std::string text) {
 	}
 }
 
-bool TextExistsConditionFrontT(std::string str, std::string text, std::string Ftext) {
-	int pos = str.find(text);
-	if (pos == std::string::npos) {
-		return false;
+//下面四个导出函数原先各写了一份同构实现（find → 边界检查 → substr 比较），
+//这里收敛成一个核心：Edge 在 text 的前面(Front=true)或后面，Equal 决定「等于」还是「不等于」。
+//边界判断与原实现逐字对应（前面要求起始下标不小于 Edge 长度，后面要求结束下标不超过 str 长度）。
+static bool TextExistsConditionCore(const std::string& str, const std::string& text, const std::string& Edge, bool Front, bool Equal) {
+	const size_t Found = str.find(text);
+	if (Found == std::string::npos) { return false; }
+
+	const size_t Size = Edge.size();
+	size_t EdgePos = 0;
+	if (Front) {
+		if (Size > Found) { return false; }
+		EdgePos = Found - Size;
 	}
 	else {
-		int size = Ftext.size();
-		pos -= size;
-		if (pos >= 0) {
-			if (str.substr(pos, size) == Ftext) {
-				return true;
-			}
-			else {
-				return false;
-			}
-		}
-		else
-		{
-			return false;
-		}
+		EdgePos = Found + text.size();
+		if ((EdgePos > str.size()) || (Size > (str.size() - EdgePos))) { return false; }
 	}
+
+	const bool Match = (str.compare(EdgePos, Size, Edge) == 0);
+	return Equal ? Match : !Match;
+}
+
+bool TextExistsConditionFrontT(std::string str, std::string text, std::string Ftext) {
+	return TextExistsConditionCore(str, text, Ftext, true, true);
 }
 
 bool TextExistsConditionFrontF(std::string str, std::string text, std::string Ftext) {
-	int pos = str.find(text);
-	if (pos == std::string::npos) {
-		return false;
-	}
-	else {
-		int size = Ftext.size();
-		pos -= size;
-		if (pos >= 0) {
-			if (str.substr(pos, size) != Ftext) {
-				return true;
-			}
-			else {
-				return false;
-			}
-		}
-		else
-		{
-			return false;
-		}
-	}
+	return TextExistsConditionCore(str, text, Ftext, true, false);
 }
 
 bool TextExistsConditionRearT(std::string str, std::string text, std::string Rtext) {
-	int pos = str.find(text);
-	if (pos == std::string::npos) {
-		return false;
-	}
-	else {
-		int size = Rtext.size();
-		pos += text.size();
-		if ((pos + size) <= str.size()) {
-			if (str.substr(pos, size) == Rtext) {
-				return true;
-			}
-			else {
-				return false;
-			}
-		}
-		else
-		{
-			return false;
-		}
-	}
+	return TextExistsConditionCore(str, text, Rtext, false, true);
 }
 
 bool TextExistsConditionRearF(std::string str, std::string text, std::string Rtext) {
-	int pos = str.find(text);
-	if (pos == std::string::npos) {
-		return false;
-	}
-	else {
-		int size = Rtext.size();
-		pos += text.size();
-		if ((pos + size) <= str.size()) {
-			if (str.substr(pos, size) != Rtext) {
-				return true;
-			}
-			else {
-				return false;
-			}
-		}
-		else
-		{
-			return false;
-		}
-	}
+	return TextExistsConditionCore(str, text, Rtext, false, false);
 }
 
 

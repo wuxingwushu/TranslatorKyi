@@ -30,8 +30,8 @@ namespace GAME {
 			}
 			if (data->HasSelection() && ((GetKeyState(VK_CONTROL) < 0) && (GetKeyState('C') < 0)))//判断是否有选中的文本
 			{
-				//选中的文本可能非常长（eng/zhong 是 1MB 的缓冲区），必须按目标栈数组的长度截断。
-				//旧代码把终止符写在 [长度+1]（越界一字节），而长度本身没有任何上限。
+				//选中的文本可能非常长，必须按目标栈数组的长度截断（旧代码把终止符写在
+				//[长度+1] 越界一字节，长度本身也没有上限）。
 				char selected_text[10000];
 				const int SelectionBegin = (data->SelectionEnd > data->SelectionStart) ? data->SelectionStart : data->SelectionEnd;
 				const int SelectionEndPos = (data->SelectionEnd > data->SelectionStart) ? data->SelectionEnd : data->SelectionStart;
@@ -52,6 +52,37 @@ namespace GAME {
 			}
 			return 0;
 		}
+
+		//ImGui 的输入框只认 char* 缓冲：用「自动扩容」回调把内容直接写进 std::string
+		//（与官方 imgui_stdlib.h 同一套路），这样不用再维护 1MB 的定长数组。
+		//MyText（光标 / 剪贴板处理）通过 user_data 链在后面继续调用。
+		struct StringInputUserData {
+			std::string* Str;
+			ImGuiInputTextCallback Chain;
+			void* ChainUserData;
+		};
+
+		int StringInputCallback(ImGuiInputTextCallbackData* data) {
+			StringInputUserData* UserData = (StringInputUserData*)data->UserData;
+			if (data->EventFlag == ImGuiInputTextFlags_CallbackResize) {
+				std::string* Str = UserData->Str;
+				IM_ASSERT(data->Buf == Str->data());
+				Str->resize((size_t)data->BufTextLen);
+				data->Buf = Str->data();
+			}
+			else if (UserData->Chain != nullptr) {
+				data->UserData = UserData->ChainUserData;
+				return UserData->Chain(data);
+			}
+			return 0;
+		}
+
+		bool InputTextMultilineString(const char* Label, std::string& Str, const ImVec2& Size,
+			ImGuiInputTextFlags Flags, ImGuiInputTextCallback Chain = nullptr, void* ChainUserData = nullptr) {
+			StringInputUserData UserData{ &Str, Chain, ChainUserData };
+			Flags |= ImGuiInputTextFlags_CallbackResize;
+			return ImGui::InputTextMultiline(Label, Str.data(), Str.capacity() + 1, Size, Flags, StringInputCallback, &UserData);
+		}
 	}
 
 	void ImGuiInterFace::InputTextMultilineText() {
@@ -60,64 +91,14 @@ namespace GAME {
 			{
 				mWindown->pollEvents();
 			}
-			std::string ClipboardText = TOOL::UnicodeToUtf8(TOOL::ClipboardTochar());
-			//旧写法是在栈上的定长数组里手工拼三段：选中尾部（Len）和剪贴板内容都没有长度上限，
-			//既能写爆 selected_text[10000]，也能写爆 eng 这块 1MB 的堆缓冲区。
-			//改成先在 std::string 上拼接，再按容量截断拷回去。
-			const std::string TextCopy(eng, strnlen(eng, sizeof(eng)));//eng 是定长缓冲区，按实际长度取
-			const int TextLen = (int)TextCopy.size();
-			int PastePos = (mCursorPos < TextLen) ? mCursorPos : TextLen;
+			const std::string ClipboardText = TOOL::UnicodeToUtf8(TOOL::ClipboardTochar());
+			//旧写法是在栈上的定长数组里手工拼三段再按容量截断拷回去；现在直接在 std::string 上插入。
+			int PastePos = (mCursorPos < (int)eng.size()) ? mCursorPos : (int)eng.size();
 			if (PastePos < 0) { PastePos = 0; }
-			const std::string ResultText = TextCopy.substr(0, PastePos) + ClipboardText + TextCopy.substr(PastePos);
 			ImGui::ClearActiveID();//失去焦点，粘贴的内容才会被保存
-			TOOL::CopyToBuffer(eng, sizeof(eng), ResultText);
+			eng.insert((size_t)PastePos, ClipboardText);
 			mCursorPos = PastePos + (int)ClipboardText.size();
-			if (mCursorPos > (int)sizeof(eng) - 1) { mCursorPos = (int)sizeof(eng) - 1; }
-			//Variable::eng = eng;
-			
-			//memcpy(eng, Variable::eng.c_str(), Variable::eng.size());
 		}
-	}
-
-	//语言文件里存的是带占位符的模板（%d 显示秒数、%s 显示文本），这里做替换，
-	//这样代码里不用出现非 ASCII 字面量。
-	std::string AiTextWithNumber(const std::string& Tpl, int Value)
-	{
-		const std::string Num = std::to_string(Value);
-		std::string Result;
-		Result.reserve(Tpl.size() + Num.size());
-		for (size_t i = 0; i < Tpl.size(); i++)
-		{
-			if (Tpl[i] == '%' && (i + 1) < Tpl.size() && Tpl[i + 1] == 'd')
-			{
-				Result += Num;
-				i++;
-			}
-			else
-			{
-				Result += Tpl[i];
-			}
-		}
-		return Result;
-	}
-
-	std::string AiTextWithString(const std::string& Tpl, const std::string& Value)
-	{
-		std::string Result;
-		Result.reserve(Tpl.size() + Value.size());
-		for (size_t i = 0; i < Tpl.size(); i++)
-		{
-			if (Tpl[i] == '%' && (i + 1) < Tpl.size() && Tpl[i + 1] == 's')
-			{
-				Result += Value;
-				i++;
-			}
-			else
-			{
-				Result += Tpl[i];
-			}
-		}
-		return Result;
 	}
 
 	//当前要翻译成哪种语言（Data.ini 里 Baidu_items 那套代码：zh、cht、jp…）
@@ -148,10 +129,8 @@ namespace GAME {
 			//请求直接交给后台线程（WebBeginTranslation），结果由 UpdateTranslateTask() 每帧取。
 			Variable::eng = English;
 			Variable::zhong = Language::Translating;
-			memset(eng, 0, sizeof(eng));
-			memset(zhong, 0, sizeof(zhong));
-			TOOL::CopyToBuffer(eng, sizeof(eng), Variable::eng);
-			TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
+			eng = Variable::eng;
+			zhong = Variable::zhong;
 			if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum))
 			{
 				TranslateTime = clock();
@@ -187,11 +166,9 @@ namespace GAME {
 		}
 
 		//显示模式：先把「正在加载/翻译中」写进去，窗口立刻显示进度，主循环里每帧刷新
-		Variable::zhong = AiTextWithNumber(Language::AILoading, 0);
-		memset(eng, 0, sizeof(eng));
-		memset(zhong, 0, sizeof(zhong));
-		TOOL::CopyToBuffer(eng, sizeof(eng), Variable::eng);
-		TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
+		Variable::zhong = TOOL::ReplaceToken(Language::AILoading, std::to_string(0));
+		eng = Variable::eng;
+		zhong = Variable::zhong;
 		//窗口已经开着就只把滞留计时续上；再调 SetInterFace() 会把窗口重新挪到鼠标位置（只有 AI 源走这条异步路径，所以只有它会跳）
 		if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum))
 		{
@@ -222,10 +199,8 @@ namespace GAME {
 
 			//跑完了：脚本里的 SetInput()/SetOutput() 已经把原文/译文写好，同步到界面并开始计时
 			ScriptRunning = false;
-			memset(eng, 0, sizeof(eng));
-			memset(zhong, 0, sizeof(zhong));
-			TOOL::CopyToBuffer(eng, sizeof(eng), Variable::eng);
-			TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
+			eng = Variable::eng;
+			zhong = Variable::zhong;
 			if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum)) { TranslateTime = clock(); }
 			return;
 		}
@@ -258,8 +233,7 @@ namespace GAME {
 			//识别出来的原文先填进原文框（脚本模式要用它）：界面此时已经显示着「识别中…」，
 			//所以下面无论跑脚本还是起翻译线程，都不会再挡住窗口出现
 			Variable::eng = Text;
-			memset(eng, 0, sizeof(eng));
-			TOOL::CopyToBuffer(eng, sizeof(eng), Variable::eng);
+			eng = Variable::eng;
 
 			if (ScriptAfterOcr)
 			{
@@ -268,8 +242,7 @@ namespace GAME {
 				ScriptAfterOcr = false;
 				ScriptPending = true;
 				Variable::zhong = Language::Translating;
-				memset(zhong, 0, sizeof(zhong));
-				TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
+				zhong = Variable::zhong;
 				if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum)) { TranslateTime = clock(); }
 				return;
 			}
@@ -297,10 +270,8 @@ namespace GAME {
 
 			Variable::eng = Source;
 			Variable::zhong = Result;
-			memset(eng, 0, sizeof(eng));
-			memset(zhong, 0, sizeof(zhong));
-			TOOL::CopyToBuffer(eng, sizeof(eng), Variable::eng);
-			TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
+			eng = Variable::eng;
+			zhong = Variable::zhong;
 			//译文已经写进界面了：显示时长（Variable::DisplayTime）从这一刻才开始算。
 			if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum))
 			{
@@ -321,14 +292,13 @@ namespace GAME {
 		{
 			if (mTranslate->AiStage() == Translate::AiStageLoading)
 			{
-				Variable::zhong = AiTextWithNumber(Language::AILoading, ElapsedSeconds);
+				Variable::zhong = TOOL::ReplaceToken(Language::AILoading, std::to_string(ElapsedSeconds));
 			}
 			else
 			{
-				Variable::zhong = AiTextWithNumber(Language::AITranslating, ElapsedSeconds);
+				Variable::zhong = TOOL::ReplaceToken(Language::AITranslating, std::to_string(ElapsedSeconds));
 			}
-			memset(zhong, 0, sizeof(zhong));
-			TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
+			zhong = Variable::zhong;
 
 			//本地模型要算好几秒，而窗口滞留时间默认只有 5 秒（Variable::DisplayTime），
 			//不把计时器续上的话，结果还没出来窗口就被 DoYouWantToUpdateTheScreen() 关掉了。
@@ -350,7 +320,7 @@ namespace GAME {
 				//替换模式失败时不要把错误说明贴进用户的文档里
 				return;
 			}
-			Variable::zhong = Error.empty() ? Language::AIFailedEmpty : AiTextWithString(Language::AIFailed, Error);
+			Variable::zhong = Error.empty() ? Language::AIFailedEmpty : TOOL::ReplaceToken(Language::AIFailed, Error);
 		}
 		else
 		{
@@ -367,10 +337,8 @@ namespace GAME {
 		}
 
 		Variable::eng = AiTaskSourceText;
-		memset(eng, 0, sizeof(eng));
-		memset(zhong, 0, sizeof(zhong));
-		TOOL::CopyToBuffer(eng, sizeof(eng), Variable::eng);
-		TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
+		eng = Variable::eng;
+		zhong = Variable::zhong;
 
 		if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum))
 		{
@@ -477,15 +445,15 @@ namespace GAME {
 			}
 			return std::min(std::max(Height, MinBoxHeight), MaxBoxHeight);
 		};
-		const float EngBoxHeight = AdaptiveBoxHeight(eng);
-		const float ZhongBoxHeight = AdaptiveBoxHeight(zhong);
+		const float EngBoxHeight = AdaptiveBoxHeight(eng.c_str());
+		const float ZhongBoxHeight = AdaptiveBoxHeight(zhong.c_str());
 
 		//原文
 		if (InputCursorBool) {
 			ImGui::SetKeyboardFocusHere();//窗口打开时把焦点放到原文框上
 		}
 		TranslateInputBool = true;
-		ImGui::InputTextMultiline("##eng", eng, IM_ARRAYSIZE(eng), ImVec2(-FLT_MIN, EngBoxHeight), flags, MyText);
+		InputTextMultilineString("##eng", eng, ImVec2(-FLT_MIN, EngBoxHeight), flags, MyText);
 		if (InputCursorBool) {
 			InputTextMultilineText();//将剪贴板内容粘贴到输入光标位置
 		}
@@ -496,24 +464,22 @@ namespace GAME {
 			//普通翻译源（百度/爬虫/有道）在这里同步出结果；
 			//本地 AI 模型是后台算的，结果由 UpdateTranslateTask() 填进来
 			RequestTranslate(eng);
-			//zhong 是 1MB 的定长缓冲区，长文翻译结果直接 memcpy 会写爆且结尾没有 '\0'
-			memset(zhong, 0, sizeof(zhong));
-			TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
+			zhong = Variable::zhong;
 		}
 		ImGui::SameLine();
 		if (ImGui::Button(Language::Clear.c_str(), ImVec2(80.0f, 0.0f))) {
-			memset(eng, 0, sizeof(eng));
-			memset(zhong, 0, sizeof(zhong));
+			eng.clear();
+			zhong.clear();
 		}
 		ImGui::SameLine();
-		ImGui::BeginDisabled(zhong[0] == '\0');
+		ImGui::BeginDisabled(zhong.empty());
 		if (ImGui::Button(Language::CopyResult.c_str(), ImVec2(110.0f, 0.0f))) {
-			TOOL::CopyToClipboard(TOOL::Utf8ToUnicode(zhong));
+			TOOL::CopyToClipboard(TOOL::Utf8ToUnicode(zhong.c_str()));
 		}
 		ImGui::EndDisabled();
 
 		//译文
-		ImGui::InputTextMultiline("##zhong", zhong, IM_ARRAYSIZE(zhong), ImVec2(-FLT_MIN, ZhongBoxHeight), flags, MyText);
+		InputTextMultilineString("##zhong", zhong, ImVec2(-FLT_MIN, ZhongBoxHeight), flags, MyText);
 
 		//自适应尺寸：宽度只在拖动时记（默认 380，最小 300），高度永远等于内容实际需要的高度
 		if (GetKeyState(VK_LBUTTON) < 0) {

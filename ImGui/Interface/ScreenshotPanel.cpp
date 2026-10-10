@@ -65,11 +65,8 @@ namespace GAME {
 				}
 				OcrTaskPending = mTesseract->OcrRunning();
 
-				//eng/zhong 各 1MB，长文识别+翻译结果直接 memcpy 会写爆数组，且结尾没有 '\0'
-				memset(eng, 0, sizeof(eng));
-				memset(zhong, 0, sizeof(zhong));
-				TOOL::CopyToBuffer(eng, sizeof(eng), Variable::eng);
-				TOOL::CopyToBuffer(zhong, sizeof(zhong), Variable::zhong);
+				eng = Variable::eng;
+				zhong = Variable::zhong;
 
 				x = 0;
 				w = 0;

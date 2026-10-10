@@ -293,12 +293,8 @@ namespace GAME {
 					InterFace->RequestTranslate(Variable::eng);
 				}
 				
-				//按目标缓冲区的容量截断并且保证结尾有 '\0'：这两个数组各 1MB，
-				//长文本直接 memcpy 会写爆 ImGuiInterFace，而且旧写法结尾不带终止符。
-				memset(InterFace->eng, 0, sizeof(InterFace->eng));
-				memset(InterFace->zhong, 0, sizeof(InterFace->zhong));
-				TOOL::CopyToBuffer(InterFace->eng, sizeof(InterFace->eng), Variable::eng);
-				TOOL::CopyToBuffer(InterFace->zhong, sizeof(InterFace->zhong), Variable::zhong);
+				InterFace->eng = Variable::eng;
+				InterFace->zhong = Variable::zhong;
 				InterFace->SetInterFace(TranslateEnum);//设置显示类
 
 				TOOL::CopyToClipboard(strS);//还原原来剪切板的内容

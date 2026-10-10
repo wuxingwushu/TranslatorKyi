@@ -9,7 +9,6 @@
 #include "../Function/Translate.h"
 #include <filesystem>
 #include "../Function/Hitokoto.h"
-//#include "../Function/opcode.h"
 
 namespace GAME {
 	enum InterFaceEnum
@@ -260,8 +259,10 @@ namespace GAME {
 		ImGuiInputTextFlags flags = ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_CallbackAlways;
 	public:
 		clock_t TranslateTime;//显示时间
-		char eng[1024 * 1024];
-		char zhong[1024 * 1024];
+		//原文 / 译文：以前是两块各 1MB 的定长 char 缓冲区（到处 memset + 截断拷贝），
+		//现在就是普通字符串，赋值即同步。
+		std::string eng;
+		std::string zhong;
 
 	private:
 		void ScreenshotInterface();//截图操作界面

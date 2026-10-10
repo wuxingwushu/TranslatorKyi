@@ -111,28 +111,6 @@ namespace GAME {
 		};
 		SettingsState S;
 
-		//语言文件里本来就是 UTF-8 中文，标点也一起放进语言文件当模板，
-		//这样代码里不用出现非 ASCII 字面量。这里把模板里前 N 个 %s 依次换成给定文本。
-		std::string FillDeviceText(const std::string& Tpl, const std::vector<std::string>& Values) {
-			std::string Result;
-			Result.reserve(Tpl.size() + 32);
-			size_t ValueIndex = 0;
-			for (size_t i = 0; i < Tpl.size(); i++)
-			{
-				if (Tpl[i] == '%' && i + 1 < Tpl.size() && Tpl[i + 1] == 's' && ValueIndex < Values.size())
-				{
-					Result += Values[ValueIndex];
-					ValueIndex++;
-					i++;//跳过 s
-				}
-				else
-				{
-					Result += Tpl[i];
-				}
-			}
-			return Result;
-		}
-
 		//两列表格：左列固定宽度的标签，右列控件
 		bool BeginSettingsTable(const char* Id)
 		{
@@ -646,7 +624,7 @@ namespace GAME {
 					{
 						TypeText += " " + std::to_string((unsigned long long)(Device.memTotal / (1024ull * 1024ull))) + " MB";
 					}
-					AiDeviceLabels.push_back(FillDeviceText(Language::AIDeviceItem,
+					AiDeviceLabels.push_back(TOOL::ReplaceTokens(Language::AIDeviceItem,
 						{ Device.desc.empty() ? Device.name : Device.desc, TypeText }));
 				}
 				for (size_t i = 0; i < AiDeviceLabels.size(); i++)
@@ -712,7 +690,7 @@ namespace GAME {
 				if (!AiDeviceFound)
 				{
 					ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "%s",
-						FillDeviceText(Language::AIDeviceMissing, { S.SetAiDeviceName }).c_str());
+						TOOL::ReplaceTokens(Language::AIDeviceMissing, { S.SetAiDeviceName }).c_str());
 				}
 			}
 			//当前使用设备：显示这次加载真正跑在什么设备上——它可能和上面选的模式不一样
@@ -770,10 +748,10 @@ namespace GAME {
 				ImGui::Text(Language::AIStatusGenerating.c_str());
 			}
 			else if (mTranslate->AiModelLoaded()) {
-				std::string Status = AiTextWithString(Language::AIStatusLoaded, mTranslate->AiModelDesc());
+				std::string Status = TOOL::ReplaceToken(Language::AIStatusLoaded, mTranslate->AiModelDesc());
 				//开了「闲置卸载」就把倒计时一起显示，方便确认它真的会到点卸载
 				const int IdleLeft = mTranslate->AiIdleRemaining();
-				if (IdleLeft >= 0) { Status += AiTextWithNumber(Language::AIIdleLeft, IdleLeft); }
+				if (IdleLeft >= 0) { Status += TOOL::ReplaceToken(Language::AIIdleLeft, std::to_string(IdleLeft)); }
 				ImGui::Text("%s", Status.c_str());
 			}
 			else {
@@ -971,11 +949,11 @@ namespace GAME {
 					}
 					if (Device.usable)
 					{
-						RenderDeviceLabels.push_back(FillDeviceText(Language::RenderDeviceItem, { Device.name, TypeText }));
+						RenderDeviceLabels.push_back(TOOL::ReplaceTokens(Language::RenderDeviceItem, { Device.name, TypeText }));
 					}
 					else
 					{
-						RenderDeviceLabels.push_back(FillDeviceText(Language::RenderDeviceItemBad, { Device.name, TypeText, Language::RenderDeviceUnusable }));
+						RenderDeviceLabels.push_back(TOOL::ReplaceTokens(Language::RenderDeviceItemBad, { Device.name, TypeText, Language::RenderDeviceUnusable }));
 					}
 				}
 				for (size_t i = 0; i < RenderDeviceLabels.size(); i++)
@@ -1034,25 +1012,25 @@ namespace GAME {
 			}
 			if (!DeviceFound)
 			{
-				ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "%s", FillDeviceText(Language::RenderDeviceMissing, { Variable::VulkanDeviceName }).c_str());
+				ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "%s", TOOL::ReplaceTokens(Language::RenderDeviceMissing, { Variable::VulkanDeviceName }).c_str());
 			}
 		}
 		//这次实际跑在哪台设备上
 		if (Variable::RunningOnSoftwareRenderer)
 		{
-			ImGui::Text("%s", FillDeviceText(Language::RenderDeviceCurrentCPU, { Variable::RunningDeviceName }).c_str());
+			ImGui::Text("%s", TOOL::ReplaceTokens(Language::RenderDeviceCurrentCPU, { Variable::RunningDeviceName }).c_str());
 		}
 		else if (Variable::IsSpecificDeviceMode())
 		{
-			ImGui::Text("%s", FillDeviceText(Language::RenderDeviceCurrentSpecific, { Variable::RunningDeviceName }).c_str());
+			ImGui::Text("%s", TOOL::ReplaceTokens(Language::RenderDeviceCurrentSpecific, { Variable::RunningDeviceName }).c_str());
 		}
 		else
 		{
-			ImGui::Text("%s", FillDeviceText(Language::RenderDeviceCurrentGPU, { Variable::RunningDeviceName }).c_str());
+			ImGui::Text("%s", TOOL::ReplaceTokens(Language::RenderDeviceCurrentGPU, { Variable::RunningDeviceName }).c_str());
 		}
 		if (Variable::RunningOnSoftwareRenderer && !Variable::CpuSoftwareRenderReason.empty())
 		{
-			ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "%s", FillDeviceText(Language::RenderDeviceDegrade, { Variable::CpuSoftwareRenderReason }).c_str());
+			ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "%s", TOOL::ReplaceTokens(Language::RenderDeviceDegrade, { Variable::CpuSoftwareRenderReason }).c_str());
 		}
 		ImGui::SameLine();
 		{

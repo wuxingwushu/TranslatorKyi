@@ -35,25 +35,6 @@ std::string TranslateAPI(std::string str) {
     return AngelScriptTranslate->TranslateAPI(str);
 }
 
-HINSTANCE DLL;
-void LoadingDLL(std::string str) {
-    DLL = LoadLibrary(str.c_str());
-    if (!DLL) {
-        std::cout << "Open" << str << "Fail!" << std::endl;
-    }
-}
-
-FARPROC GetDLLFunction(std::string str) {
-    return GetProcAddress(DLL, str.c_str());
-}
-
-void DeleteDLL() {
-    if (DLL) {
-        FreeLibrary(DLL);
-        DLL = NULL;
-    }
-}
-
 
 namespace AngelScriptOpcode {
 
@@ -222,23 +203,6 @@ namespace AngelScriptOpcode {
             engine->ShutDownAndRelease();
             return;
         }
-
-        /*LoadingDLL("./Opcode/D.dll");
-
-        r = engine->RegisterGlobalFunction("void ErrorLog()", asFUNCTION(GetDLLFunction("ErrorLog")), asCALL_CDECL);
-        if (r < 0) {
-            std::cout << "Failed to register global function: ErrorLog" << std::endl;
-            engine->ShutDownAndRelease();
-            return;
-        }
-
-        r = engine->RegisterGlobalFunction("void print(int64)", asFUNCTION(GetDLLFunction("print")), asCALL_CDECL);
-        if (r < 0) {
-            std::cout << "Failed to register global function: DLLprint" << std::endl;
-            engine->ShutDownAndRelease();
-            return;
-        }*/
-
 
         r = engine->RegisterGlobalFunction("void SetOutput(string)", asFUNCTION(SetOutput), asCALL_CDECL);
         if (r < 0) {

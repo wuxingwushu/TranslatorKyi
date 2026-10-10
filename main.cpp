@@ -26,9 +26,6 @@ static int ShowUtf8MessageBox(const char* Text, const char* Title)
 }
 
 int main() {
-	/*std::cout << "结果：" << translate("Variable", "auto", "ja");
-	return 0;*/
-
 	//控制台的中文显示：程序内部（含 spdlog 的控制台 sink 和日志文件）统一用的是 UTF-8，
 	//而中文系统新建的控制台默认代码页是 936 —— 不改这里，屏幕上看到的日志就是
 	//“鎺㈡祴”这种乱码（文件里的字节其实是对的，只有屏幕显示错）。

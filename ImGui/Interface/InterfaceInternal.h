@@ -7,14 +7,10 @@
 // ImGuiInterFace 各拆分文件之间共享的内部辅助（不对外暴露）
 // -------------------------------------------------------------------------------------
 // 这些函数原本是 Interface.cpp 里的文件内 static；拆成多个 .cpp 后需要跨 TU 共享，
-// 因此集中声明在这里，定义分别放在 Font.cpp / ModelList.cpp / TranslatePanel.cpp。
+// 因此集中声明在这里，定义分别放在 Font.cpp / ModelList.cpp。
 // 它们依赖的是 ImGuiInterFace 之外的自由函数，不涉及类私有成员。
 // =====================================================================================
 namespace GAME {
-
-	// 语言模板替换（%d / %s）：TranslatePanel 与 SettingsPanel 都用
-	std::string AiTextWithNumber(const std::string& Tpl, int Value);
-	std::string AiTextWithString(const std::string& Tpl, const std::string& Value);
 
 	// 字体：文件可读性、./TTF 默认字体、加载（加载失败自动回退）
 	bool FontFileReadable(const std::string& FilePath);

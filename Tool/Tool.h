@@ -10,6 +10,7 @@
 #include "Convert.h"//Converter<T>/BoolConverter/toString<T>
 #include "Charset.h"//ws2s/s2ws/UnicodeToUtf8/Utf8ToUnicode 等
 #include "FileUtil.h"//BaseName/FileStem/EqualsNoCase/FilePath
+#include "Text.h"//ReplaceTokens（语言文件模板的 %s/%d 替换）
 #include "Log.h"//TOOL::logger / SpdLogInit
 #include "Clipboard.h"//剪贴板 / CtrlAndC/CtrlAndV
 #include "Screen.h"//全屏截图

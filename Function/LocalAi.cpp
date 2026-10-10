@@ -1,5 +1,6 @@
 #include "Translate.h"
 #include "LlamaTranslate.h"
+#include "../Tool/FileUtil.h"//TOOL::EqualsNoCase（语言代码大小写不敏感比较）
 #include <chrono>
 #include <exception>//std::exception（线程里兜异常用）
 
@@ -40,25 +41,11 @@ namespace
 	}
 
 	//Data.ini/语言下拉框里存的是 Baidu_items 那套代码（zh、cht、jp、kor…），
-	//模型只认识语言名，而且 LlamaTranslate::LanguageName() 里没有 cht/kor/yue 这几个。
+	//语言名映射统一在 LlamaTranslate::LanguageName() 的表里（cht/kor/yue 等别名也在表内）；
+	//这里只额外处理「自动」——表里没有 auto，返回空串表示不指定语言。
 	std::string AiLanguageName(const std::string& Code)
 	{
-		if (Code.empty() || Code == "auto") { return std::string(); }
-
-		std::string Lower;
-		Lower.reserve(Code.size());
-		for (size_t i = 0; i < Code.size(); i++)
-		{
-			Lower += (char)tolower((unsigned char)Code[i]);
-		}
-
-		if (Lower == "cht" || Lower == "zh-cht" || Lower == "zh_cht" || Lower == "zh-tw" || Lower == "zh_tw") { return "Traditional Chinese"; }
-		if (Lower == "zh-chs" || Lower == "zh_chs") { return "Chinese"; }
-		if (Lower == "kor") { return "Korean"; }
-		if (Lower == "yue") { return "Cantonese"; }
-		if (Lower == "vie") { return "Vietnamese"; }
-		if (Lower == "fra") { return "French"; }
-
+		if (Code.empty() || TOOL::EqualsNoCase(Code, "auto")) { return std::string(); }
 		return LlamaTranslate::LanguageName(Code);
 	}
 
