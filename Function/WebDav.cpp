@@ -224,11 +224,15 @@ void WebDav_Download(std::string File, std::string path) {
 
 //下载文件夹
 void WebDav_DownloadDirectory(std::string directory, std::string path) {
-    if (std::filesystem::exists(path)) {//判断是否存在文件夹
+    //path 是从 WebDAV 服务器列表拼出来的 UTF-8 路径，必须用 u8path() 交给 filesystem：
+    //窄字符构造函数按系统 ANSI 代码页解释，非 ASCII 名字（中文文件夹）会抛
+    //"No mapping for the Unicode character exists in the target multi-byte code page."
+    const std::filesystem::path LocalPath = std::filesystem::u8path(path);
+    if (std::filesystem::exists(LocalPath)) {//判断是否存在文件夹
         std::cout << "Folder already exists." << std::endl;
     }
     else {
-        if (std::filesystem::create_directory(path)) {//创建文件夹
+        if (std::filesystem::create_directory(LocalPath)) {//创建文件夹
             std::cout << "Folder created successfully." << std::endl;
         }
         else {

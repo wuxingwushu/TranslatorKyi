@@ -100,6 +100,9 @@ namespace Variable {
 	X(Key,      Screenshotkey,            std::string, Screenshotkey,         nullptr) \
 	X(Key,      Choicekey,                std::string, Choicekey,             nullptr) \
 	X(Key,      Replacekey,               std::string, Replacekey,            nullptr) \
+	/* 唤出空白翻译窗口。这一项是后加的，老 Data.ini 里没有这个键，所以必须给缺省值： \
+	   上面三项都是 nullptr（缺键即抛异常），照抄的话老配置一启动就炸。 */ \
+	X(Key,      Translatekey,             std::string, Translatekey,          "T") \
 	/* 设置 */ \
 	X(Set,      TesseractModel,           std::string, Model,                 nullptr) \
 	X(Set,      DisplayTime,              int,         DisplayTime,           nullptr) \
@@ -260,6 +263,7 @@ namespace Language {
 	X(Set, ScreenshotTranslation)			/*截图翻译*/ \
 	X(Set, SelectTranslation)				/*选择翻译*/ \
 	X(Set, ReplaceTranslation)				/*替换翻译*/ \
+	X(Set, ShowTranslationWindow)			/*唤出翻译窗口（快捷键，弹出空白的翻译内容界面）*/ \
 	X(Set, Startup)							/*开机启动*/ \
 	X(Set, ResidenceTime)					/*滞留时间（ms）*/ \
 	X(Set, FontSize)						/*字体大小*/ \

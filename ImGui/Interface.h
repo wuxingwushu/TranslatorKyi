@@ -90,6 +90,7 @@ namespace GAME {
 				break;
 			case TranslateEnum:
 				TranslateBool = true;
+				TranslateWindowClosed = false;//新一轮翻译：用户之前用「X」关掉的窗口可以再弹出来
 				TranslateTime = clock();//获取显示时间戳
 				break;
 			case ScreenshotEnum:
@@ -136,6 +137,21 @@ namespace GAME {
 		//是否正在等一次「替换」的 AI 翻译（这次粘贴由 UpdateTranslateTask() 做，调用方不要再贴一遍）
 		bool AiReplaceTaskRunning() const { return AiTaskRunning && AiTaskReplace; }
 
+		//快捷键「唤出翻译窗口」（Data.ini 的 Key/Translatekey，默认 Alt+T）：
+		//把上一次的原文/译文清掉，显示一个**空白**的翻译内容界面，方便直接打字或粘贴。
+		//public：由主循环的 KeyBoardEvents() 调用。
+		void ShowBlankTranslateWindow() {
+			//界面画的是这两个成员，全局的那两份也一起清：不然点「翻译」时又会把上次的原文翻一遍
+			eng.clear();
+			zhong.clear();
+			Variable::eng.clear();
+			Variable::zhong.clear();
+			TranslateFocusInput = true;//唤出来就把光标放进原文框，可以直接打字
+			//走 SetInterFace()：它会顺带把 TranslateWindowClosed 清掉，
+			//所以刚用「X」关掉过窗口也能再唤出来（这正是快捷键的用途）。
+			SetInterFace(TranslateEnum);
+		}
+
 		const VkCommandBuffer GetCommandBuffer(int i, VkCommandBufferInheritanceInfo info);
 
 		ImGuiIO* m_io;
@@ -167,7 +183,11 @@ namespace GAME {
 			if (GetKeyState(VK_LBUTTON) >= 0) {
 				DragWindowSizeBool = false;
 			}
-			if (KeepAliveBool) {
+			//KeepAliveBool 只在 TranslateInterface() 里被赋值，别的面板不会去清它。
+			//点「X」关窗口时鼠标必然停在窗口上，那一帧它被置成 true 就再也没人清，
+			//于是接着弹出的一言等会自动关闭的窗口会被这里一直续时、永远不关。
+			//所以只认翻译窗口这一种情况，其余面板一律忽略。
+			if (KeepAliveBool && (InterfaceIndexes == TranslateEnum)) {
 				TranslateTime = clock();
 				return true;
 			}
@@ -235,6 +255,18 @@ namespace GAME {
 
 		void TranslateInterface();//翻译内容显示界面
 		bool TranslateBool;//翻译界面是否是刚显示
+		//用户点过翻译窗口里的「X」之后置位：后台翻译/识别的结果回来时不要再把窗口弹出来（否则等于关不掉）。
+		//SetInterFace(TranslateEnum)（= 新一轮翻译）会把它清掉，所以下次翻译照样能弹窗。
+		bool TranslateWindowClosed = false;
+		//后台任务出结果时用它把窗口显示出来：用户刚点过「X」就不弹（见 TranslateWindowClosed）。
+		//注意它只在「任务结果回来」这条路上用；用户自己发起的新翻译仍然直接 SetInterFace(TranslateEnum)。
+		void ShowTranslateWindow() {
+			if (TranslateWindowClosed) { return; }
+			SetInterFace(TranslateEnum);
+		}
+
+		//快捷键唤出空白窗口时，下一帧把键盘焦点放进原文框（见 TranslateInterface）。
+		bool TranslateFocusInput = false;
 
 		//本地 AI 模型翻译的后台任务状态（见 RequestTranslate/UpdateTranslateTask）
 		bool AiTaskRunning = false;			//有后台 AI 翻译在跑

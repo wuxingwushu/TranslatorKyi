@@ -59,6 +59,7 @@ namespace GAME {
 			char SetScreenshotkey[2];
 			char SetChoicekey[2];
 			char SetReplacekey[2];
+			char SetTranslatekey[2];
 
 			int ModelIndex;
 			std::vector<std::string> ModelS;
@@ -228,6 +229,7 @@ namespace GAME {
 		TOOL::CopyToBuffer(S.SetScreenshotkey, sizeof(S.SetScreenshotkey), Variable::Screenshotkey);
 		TOOL::CopyToBuffer(S.SetChoicekey, sizeof(S.SetChoicekey), Variable::Choicekey);
 		TOOL::CopyToBuffer(S.SetReplacekey, sizeof(S.SetReplacekey), Variable::Replacekey);
+		TOOL::CopyToBuffer(S.SetTranslatekey, sizeof(S.SetTranslatekey), Variable::Translatekey);
 
 		S.LFontSize = Variable::FontSize;
 		S.LFontBool = Variable::FontBool;
@@ -389,6 +391,7 @@ namespace GAME {
 		Variable::Screenshotkey = toupper(S.SetScreenshotkey[0]);
 		Variable::Choicekey = toupper(S.SetChoicekey[0]);
 		Variable::Replacekey = toupper(S.SetReplacekey[0]);
+		Variable::Translatekey = toupper(S.SetTranslatekey[0]);
 
 		for (size_t i = 0; i < 4; i++)
 		{
@@ -796,6 +799,9 @@ namespace GAME {
 			RowLabel(Language::ReplaceTranslation.c_str());
 			ImGui::SetNextItemWidth(-FLT_MIN);
 			ImGui::InputText("##replace_key", S.SetReplacekey, IM_ARRAYSIZE(S.SetReplacekey));
+			RowLabel(Language::ShowTranslationWindow.c_str());
+			ImGui::SetNextItemWidth(-FLT_MIN);
+			ImGui::InputText("##translate_key", S.SetTranslatekey, IM_ARRAYSIZE(S.SetTranslatekey));
 			ImGui::EndTable();
 		}
 	}

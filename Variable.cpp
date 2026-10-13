@@ -157,12 +157,16 @@ namespace Language {
 	void ReadFile(std::string FilePath) {
 		inih::INIReader iniData("./Language/" + FilePath + ".ini");
 
-		//ini 里的键名一般是「变量名 + 下划线」，由表里的变量名拼出来
-#define TK_LANG_READ(Section, Name) Name = iniData.Get<std::string>(#Section, #Name "_");
+		//ini 里的键名一般是「变量名 + 下划线」，由表里的变量名拼出来。
+		//⚠ 这里必须用三参版本（缺项退回变量名），不能用两参版本：
+		//Language::ReadFile 在 main.cpp 里没有 try/catch，缺任何一个键都会抛 runtime_error
+		//→ std::terminate。而语言文件是随程序一起发布在 Language/ 下的，用户升级时手上那份
+		//还是旧版本、必然缺新加的字符串——用两参版本就等于「加一条语言项，老用户启动即崩」。
+#define TK_LANG_READ(Section, Name) Name = iniData.Get<std::string>(#Section, #Name "_", std::string(#Name));
 		TK_LANGUAGE_STRINGS(TK_LANG_READ)
 #undef TK_LANG_READ
 		//键名与变量名对不上的少数项走特例表（键名直接写出来）
-#define TK_LANG_ALIAS_READ(Section, Key, Name) Name = iniData.Get<std::string>(#Section, #Key "_");
+#define TK_LANG_ALIAS_READ(Section, Key, Name) Name = iniData.Get<std::string>(#Section, #Key "_", std::string(#Name));
 		TK_LANGUAGE_STRINGS_ALIAS(TK_LANG_ALIAS_READ)
 #undef TK_LANG_ALIAS_READ
 	}

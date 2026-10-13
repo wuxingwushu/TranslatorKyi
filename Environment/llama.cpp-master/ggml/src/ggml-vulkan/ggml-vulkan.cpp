@@ -584,6 +584,12 @@ static void ggml_vk_create_pipeline_func(vk_device& device, vk_pipeline& pipelin
     GGML_ASSERT(parameter_count <= MAX_PARAMETER_COUNT);
     GGML_ASSERT(wg_denoms[0] > 0 && wg_denoms[1] > 0 && wg_denoms[2] > 0); // NOLINT
 
+    // The shader bytecode is stored compressed and decompressed into a shared arena on first use.
+    // Function-local static initialization is thread safe, and doing it here covers every path
+    // that can reach a shader module, not just device creation.
+    static const bool shaders_loaded = []() { ggml_vk_shaders_load(); return true; }();
+    GGML_UNUSED(shaders_loaded);
+
     vk::ShaderModuleCreateInfo shader_module_create_info({}, spv_size, reinterpret_cast<const uint32_t *>(spv_data));
 
     // Patch SPIR-V to enable supported FP16 float controls, avoiding the need

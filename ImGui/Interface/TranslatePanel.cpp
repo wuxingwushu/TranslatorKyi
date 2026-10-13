@@ -83,6 +83,22 @@ namespace GAME {
 			Flags |= ImGuiInputTextFlags_CallbackResize;
 			return ImGui::InputTextMultiline(Label, Str.data(), Str.capacity() + 1, Size, Flags, StringInputCallback, &UserData);
 		}
+
+		//鼠标所在那块屏幕的可用区域（rcWork，已经扣掉任务栏）。
+		//多显示器下不能用 GetSystemMetrics(SM_CXSCREEN/SM_CYSCREEN)：那只是主屏尺寸，
+		//鼠标在副屏（可能是负坐标）时会把窗口算到屏幕外，或者被夹回主屏。
+		RECT CursorMonitorWorkRect() {
+			RECT Work = { 0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) };
+			POINT Cursor = { 0, 0 };
+			GetCursorPos(&Cursor);
+			HMONITOR Monitor = MonitorFromPoint(Cursor, MONITOR_DEFAULTTONEAREST);
+			MONITORINFO Info = {};
+			Info.cbSize = sizeof(MONITORINFO);
+			if ((Monitor != nullptr) && GetMonitorInfo(Monitor, &Info)) {
+				Work = Info.rcWork;
+			}
+			return Work;
+		}
 	}
 
 	void ImGuiInterFace::InputTextMultilineText() {
@@ -137,7 +153,11 @@ namespace GAME {
 			}
 			else
 			{
-				SetInterFace(TranslateEnum);
+				//注意这里是 ShowTranslateWindow() 而不是 SetInterFace()：截图翻译的 OCR 跑完会
+				//从这里接着发起翻译，用户要是识别期间已经点了「X」，不能再把窗口弹回来。
+				//用户自己发起的新翻译不靠这里显示（调用方随后会 SetInterFace(TranslateEnum)），
+				//所以那条路不受影响。
+				ShowTranslateWindow();
 			}
 
 			//引擎和语言在这一刻定死再交给线程（Ctrl+Alt+R 会临时改 mTo，调用方随后就还原了）
@@ -176,7 +196,10 @@ namespace GAME {
 		}
 		else
 		{
-			SetInterFace(TranslateEnum);
+			//同上面普通翻译源那条路：截图 OCR 跑完会从这里接着发起翻译，
+			//用户识别期间点过「X」的话不能再把窗口弹回来（用户自己发起的新翻译由调用方
+			//SetInterFace(TranslateEnum) 显示，不受影响）。
+			ShowTranslateWindow();
 		}
 
 		mTranslate->AiBeginTranslation(English, AiTargetLangCode());
@@ -279,7 +302,7 @@ namespace GAME {
 			}
 			else
 			{
-				SetInterFace(TranslateEnum);
+				ShowTranslateWindow();//用户点过「X」就不再弹（见 TranslateWindowClosed）
 			}
 			return;
 		}
@@ -347,7 +370,7 @@ namespace GAME {
 		}
 		else
 		{
-			SetInterFace(TranslateEnum);
+			ShowTranslateWindow();//用户点过「X」就不再弹（见 TranslateWindowClosed）
 		}
 	}
 
@@ -357,15 +380,37 @@ namespace GAME {
 		static float TranslateWinWidth = 380.0f;//窗口宽度（拖动后被记住）
 		static float TranslateWinHeight = 320.0f;//窗口高度（每帧按内容重算，不用手拖）
 		static float TrChromeLast = 0.0f;//上一帧实测的「非文本框部分」高度（顶上那几行 + 内外边距），用来算窗口还放不放得下
+		//鼠标所在屏幕的可用区域：窗口弹出的位置和尺寸都要夹在它里面，
+		//否则鼠标贴着屏幕右边/下边时，窗口会有一半露在屏幕外（用户报的「显示不全」）。
+		const RECT TrWork = CursorMonitorWorkRect();
+		const float TrWorkLeft = (float)TrWork.left;
+		const float TrWorkTop = (float)TrWork.top;
+		const float TrWorkRight = (float)TrWork.right;
+		const float TrWorkBottom = (float)TrWork.bottom;
+		const float TrWorkWidth = std::max(1.0f, TrWorkRight - TrWorkLeft);
+		const float TrWorkHeight = std::max(1.0f, TrWorkBottom - TrWorkTop);
+		//窗口比屏幕还宽时按屏幕宽收（窄屏/缩放 200% 的笔记本上真会发生）
+		TranslateWinWidth = std::min(TranslateWinWidth, TrWorkWidth);
+
 		if (TranslateBool) {
 			TranslateBool = false;
 			POINT MousePos = { 0,0 };
 			GetCursorPos(&MousePos);//获取鼠标位置
-			ImGui::SetNextWindowPos({ float(MousePos.x), float(MousePos.y) });//设置窗口生成位置
+			//以鼠标为左上角弹出；右边/下边放不下就往左/上挪，保证整个窗口都在屏幕里。
+			//（ImGui 自己的 ClampWindowPos 只在「位置不是 API 设的」时才跑，这里每帧都用
+			// SetWindowPos 定位，所以必须自己夹。）
+			float PosX = float(MousePos.x);
+			float PosY = float(MousePos.y);
+			if (PosX + TranslateWinWidth > TrWorkRight) { PosX = TrWorkRight - TranslateWinWidth; }
+			if (PosY + TranslateWinHeight > TrWorkBottom) { PosY = TrWorkBottom - TranslateWinHeight; }
+			PosX = std::max(TrWorkLeft, PosX);
+			PosY = std::max(TrWorkTop, PosY);
+			ImGui::SetNextWindowPos(ImVec2(PosX, PosY));//设置窗口生成位置
 			Variable::WrapSize = kuangshu / int(std::max(1.0f, Variable::FontSize));
 		}
 		ImGui::SetNextWindowSize(ImVec2(TranslateWinWidth, TranslateWinHeight));
-		ImGui::SetNextWindowSizeConstraints(ImVec2(300.0f, 160.0f), ImVec2(FLT_MAX, FLT_MAX));
+		//最小尺寸也要跟着屏幕收：屏幕比 300x160 还小时，写死的下限会让窗口反而超出屏幕
+		ImGui::SetNextWindowSizeConstraints(ImVec2(std::min(300.0f, TrWorkWidth), std::min(160.0f, TrWorkHeight)), ImVec2(FLT_MAX, FLT_MAX));
 		ImGui::Begin(u8"TranslateUI", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//创建窗口
 
 		//下拉框展开时鼠标落在弹出窗口上，主窗口的命中测试会失败——用 KeepAliveBool 把滞留计时续上
@@ -380,7 +425,33 @@ namespace GAME {
 		const char* FromName = (LangCount > 0) ? Variable::BaiduitemsName[mTranslate->mFrom].c_str() : "";
 		const char* ToName = (LangCount > 0) ? Variable::BaiduitemsName[mTranslate->mTo].c_str() : "";
 
-		//顶行：源语言 / 互换 / 目标语言 …… 右边是翻译源（点一下换下一个）
+		//第一行：左边是翻译源（点一下循环切换），右边是「X」关闭键。
+		//翻译源放最上面：它的宽度随引擎名变化，放在语言下拉那一行会挤到换行（原来就是这样），
+		//单独占一行就不用再算「放不放得下」。
+		const std::string EngineLabel = Language::Engine + ": " + mTranslate->TranslateName[mTranslate->mTranslate];
+		if (ImGui::Button(EngineLabel.c_str())) {
+			mTranslate->mTranslate++;
+			if (mTranslate->mTranslate > Translate::AiTranslate) { mTranslate->mTranslate = 0; }
+			//翻译源是模式开关：点一下立刻写回 Data.ini，不然重启后又变回百度
+			Variable::Translate = mTranslate->mTranslate;
+			Variable::SaveFile();
+		}
+
+		//「X」固定在右上角
+		ImGui::SameLine(0);
+		if (ImGui::Button("X")) {
+			//关掉窗口，并且**记住是用户关的**：后台翻译/识别的结果回来时不能再把窗口弹出来，
+			//否则刚点完「X」结果一到窗口又冒出来，等于关不掉。
+			EndDisplayBool = true;
+			InterFaceBool = false;
+			ChildWindowBool = false;
+			TranslateWindowClosed = true;
+		}
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip("%s", Language::Close.c_str());
+		}
+
+		//第二行：源语言 / 互换 / 目标语言
 		ImGui::SetNextItemWidth(140.0f);
 		if (ImGui::BeginCombo("##from", FromName)) {
 			for (int n = 0; n < LangCount; ++n) {
@@ -412,21 +483,6 @@ namespace GAME {
 			}
 			ImGui::EndCombo();
 		}
-		//翻译源：点一下循环切换（百度 / 爬虫 / 有道 / AI模型）
-		const std::string EngineLabel = Language::Engine + ": " + mTranslate->TranslateName[mTranslate->mTranslate];
-		const float EngineWidth = ImGui::CalcTextSize(EngineLabel.c_str()).x + ImGui::GetStyle().FramePadding.x * 2.0f;
-		//自适应：右边放得下就靠右同行，放不下就换到下一行，免得和语言下拉挤在一起
-		const float EngineRightX = ImGui::GetWindowWidth() - EngineWidth - ImGui::GetStyle().WindowPadding.x;
-		if (EngineRightX > ImGui::GetItemRectMax().x + ImGui::GetStyle().ItemSpacing.x) {
-			ImGui::SameLine(EngineRightX);
-		}
-		if (ImGui::Button(EngineLabel.c_str())) {
-			mTranslate->mTranslate++;
-			if (mTranslate->mTranslate > Translate::AiTranslate) { mTranslate->mTranslate = 0; }
-			//翻译源是模式开关：点一下立刻写回 Data.ini，不然重启后又变回百度
-			Variable::Translate = mTranslate->mTranslate;
-			Variable::SaveFile();
-		}
 
 		//文本框宽度（顺便算自动换行宽度，AngelScript 的 Autowrap 用）
 		kuangshu = (int)ImGui::GetContentRegionAvail().x;
@@ -437,7 +493,14 @@ namespace GAME {
 		const float LineHeight = ImGui::GetTextLineHeight();
 		const float TextWrapWidth = std::max(40.0f, ImGui::GetContentRegionAvail().x - UiStyle.FramePadding.x * 2.0f);
 		const float MinBoxHeight = LineHeight * 3.0f + UiStyle.FramePadding.y * 2.0f;
-		const float TrScreenBottom = (float)GetSystemMetrics(SM_CYSCREEN) - 8.0f; const float TrChrome = (TrChromeLast > 1.0f) ? TrChromeLast : (LineHeight * 6.0f + UiStyle.ItemSpacing.y * 6.0f + UiStyle.WindowPadding.y * 2.0f); const float TrRoomForBoxes = TrScreenBottom - ImGui::GetWindowPos().y - TrChrome; float MaxBoxHeight = float(Variable::windows_Heigth) * 0.4f; if (TrRoomForBoxes > MinBoxHeight * 2.0f) { MaxBoxHeight = std::min(MaxBoxHeight, TrRoomForBoxes * 0.5f); } MaxBoxHeight = std::max(MinBoxHeight, MaxBoxHeight);//文本框高度上限：正常按窗口高度的 40%；窗口贴着屏幕底部弹出时再按「顶到屏幕底还剩多少」收一次，保证按钮和文本框都在屏幕里（ImGui 的 DisplaySize / GetMainViewport 在多视口下是 1x1，只能用系统屏幕尺寸）
+		//文本框高度上限：正常按屏幕可用高度的 40%；窗口贴着屏幕底部弹出时再按「顶到屏幕底还剩多少」收一次，
+		//保证按钮和文本框都在屏幕里。这里用鼠标所在显示器的可用高度（rcWork），
+		//不再用 GetSystemMetrics(SM_CYSCREEN)/windows_Heigth：那只是主屏，副屏或任务栏都会算错。
+		const float TrChrome = (TrChromeLast > 1.0f) ? TrChromeLast : (LineHeight * 6.0f + UiStyle.ItemSpacing.y * 6.0f + UiStyle.WindowPadding.y * 2.0f);
+		const float TrRoomForBoxes = TrWorkBottom - ImGui::GetWindowPos().y - TrChrome;
+		float MaxBoxHeight = TrWorkHeight * 0.4f;
+		if (TrRoomForBoxes > MinBoxHeight * 2.0f) { MaxBoxHeight = std::min(MaxBoxHeight, TrRoomForBoxes * 0.5f); }
+		MaxBoxHeight = std::max(MinBoxHeight, MaxBoxHeight);
 		auto AdaptiveBoxHeight = [&](const char* Text) -> float {
 			float Height = MinBoxHeight;
 			if (Text[0] != '\0') {
@@ -451,6 +514,11 @@ namespace GAME {
 		//原文
 		if (InputCursorBool) {
 			ImGui::SetKeyboardFocusHere();//窗口打开时把焦点放到原文框上
+		}
+		if (TranslateFocusInput) {
+			//快捷键唤出的空白窗口：把光标放进原文框，直接就能打字/粘贴
+			TranslateFocusInput = false;
+			ImGui::SetKeyboardFocusHere();
 		}
 		TranslateInputBool = true;
 		InputTextMultilineString("##eng", eng, ImVec2(-FLT_MIN, EngBoxHeight), flags, MyText);
@@ -481,17 +549,24 @@ namespace GAME {
 		//译文
 		InputTextMultilineString("##zhong", zhong, ImVec2(-FLT_MIN, ZhongBoxHeight), flags, MyText);
 
-		//自适应尺寸：宽度只在拖动时记（默认 380，最小 300），高度永远等于内容实际需要的高度
+		//自适应尺寸：宽度只在拖动时记（默认 380，最小 300——但屏幕比 300 还窄时以屏幕为准），
+		//高度永远等于内容实际需要的高度
 		if (GetKeyState(VK_LBUTTON) < 0) {
 			const float WinW = ImGui::GetWindowWidth();
 			if (WinW > 1.0f) { TranslateWinWidth = WinW; }
 		}
-		if (TranslateWinWidth < 300.0f) { TranslateWinWidth = 300.0f; }
+		const float TrMinWidth = std::min(300.0f, TrWorkWidth);
+		if (TranslateWinWidth < TrMinWidth) { TranslateWinWidth = TrMinWidth; }
 		TranslateWinHeight = ImGui::GetCursorPosY() + UiStyle.WindowPadding.y;
 		TrChromeLast = TranslateWinHeight - (EngBoxHeight + ZhongBoxHeight);//量一下这一帧「非文本框部分」到底有多高，下一帧用它算上限（第一帧先用估算值）
 		ImGui::SetWindowSize(ImVec2(TranslateWinWidth, TranslateWinHeight));
 		BeginWindowPosX = (int)ImGui::GetWindowPos().x;
 		BeginWindowPosY = (int)ImGui::GetWindowPos().y;
+		//窗口的实际宽高也必须记下来：DoYouWantToUpdateTheScreen() 用这四个值拼出「鼠标是不是停在窗口上」
+		//的矩形。以前这里只记了位置，尺寸一直是最初的默认值 280x148（甚至会被一言面板改成 -1），
+		//于是鼠标停在窗口的下半部分/右侧时命中测试失败 → 滞留计时不刷新 → 鼠标还在界面上窗口就被关掉了。
+		BeginWindowSizeX = (int)ImGui::GetWindowWidth();
+		BeginWindowSizeY = (int)ImGui::GetWindowHeight();
 		//置顶用的窗口句柄必须在 End() 之前取（以前是 End() 之后 FindWindow(NULL, "TranslateUI")：
 		//多视口下这个系统窗口是 ImGui 自己建的，按标题找可能找错实例，找不到时也就不置顶了）
 		HWND hwnd = WindowTopMostHandle();

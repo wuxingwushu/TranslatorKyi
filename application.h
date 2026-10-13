@@ -65,6 +65,9 @@ namespace GAME {
 	private:
 		void KeyBoardEvents();
 		bool mButton;
+		//「唤出空白翻译窗口」那个快捷键的按下状态：和 mButton 一样用来做边沿检测，
+		//否则按住不放时 GetKeyState 一直是负的，每帧都会重设一次界面（窗口会不停跳回鼠标位置）。
+		bool mTranslateButton = false;
 
 	private:
 		int mCurrentFrame{ 0 };//当前是渲染哪一张GPU画布

@@ -21,6 +21,9 @@
 #include <sys/types.h>
 #include <filesystem>
 
+#include "LzmaEnc.h"
+#include "Alloc.h"
+
 #ifdef _WIN32
     #define NOMINMAX
     #include <windows.h>
@@ -45,6 +48,7 @@ std::string input_filepath = "";
 std::string output_dir = "/tmp";
 std::string target_hpp = "";
 std::string target_cpp = "";
+std::string pack_cpp = "";
 
 const std::vector<std::string> type_names = {
     "f32",
@@ -1239,11 +1243,147 @@ void process_shaders() {
     }
 }
 
+// Packs every generated .spv into a single raw LZMA1 stream and emits one translation unit that
+// holds the compressed blob plus a zero-initialized (.bss) arena. Each shader keeps its own
+// <name>_data symbol, but as a constant pointer into the arena instead of a 40 MB byte array, so
+// the executable only carries the compressed stream. The arena is filled once at runtime by
+// ggml_vk_shaders_load(), which the Vulkan backend calls before creating its first shader module.
+void write_packed_shaders(const std::string &pack_path) {
+    std::vector<std::pair<std::string, std::string>> spv_files;
+    for (const auto &entry : std::filesystem::directory_iterator(output_dir)) {
+        if (!entry.is_regular_file()) {
+            continue;
+        }
+        const std::string ext = entry.path().extension().string();
+        if (ext != ".spv") {
+            continue;
+        }
+        spv_files.emplace_back(entry.path().stem().string(), entry.path().string());
+    }
+    std::sort(spv_files.begin(), spv_files.end());
+    if (spv_files.empty()) {
+        throw std::runtime_error("no .spv files found in " + output_dir);
+    }
+
+    std::string arena;
+    std::vector<std::pair<std::string, uint64_t>> offsets;
+    for (const auto &pair : spv_files) {
+        std::string data = read_binary_file(pair.second);
+        if (data.empty()) {
+            continue;
+        }
+        // SPIR-V is a stream of 32 bit words; keep every shader 4 byte aligned so the backend can
+        // reinterpret the arena as uint32_t without an unaligned access.
+        while (data.size() % 4 != 0) {
+            data.push_back('\0');
+        }
+        offsets.emplace_back(pair.first, static_cast<uint64_t>(arena.size()));
+        arena += data;
+    }
+    if (arena.empty()) {
+        throw std::runtime_error("all .spv files in " + output_dir + " were empty");
+    }
+
+    const size_t bound = arena.size() + arena.size() / 3 + 4096;
+    std::vector<Byte> compressed(bound);
+    std::vector<Byte> props(LZMA_PROPS_SIZE);
+    SizeT compressed_size = bound;
+    SizeT props_size = props.size();
+
+    CLzmaEncProps enc_props;
+    LzmaEncProps_Init(&enc_props);
+    enc_props.level         = 9;
+    enc_props.dictSize      = 1u << 24;
+    enc_props.lc            = 0;
+    enc_props.lp            = 0;
+    enc_props.pb            = 2;
+    enc_props.algo          = 1;
+    enc_props.fb            = 273;
+    enc_props.btMode        = 1;
+    enc_props.numHashBytes  = 4;
+    enc_props.mc            = 32;
+    enc_props.writeEndMark  = 0;
+    enc_props.numThreads    = 1;
+    LzmaEncProps_Normalize(&enc_props);
+
+    const SRes enc_res = LzmaEncode(compressed.data(), &compressed_size,
+                                    reinterpret_cast<const Byte *>(arena.data()), arena.size(),
+                                    &enc_props, props.data(), &props_size, 0,
+                                    nullptr, &g_Alloc, &g_Alloc);
+    if (enc_res != SZ_OK || props_size != LZMA_PROPS_SIZE) {
+        throw std::runtime_error("LZMA compression of the shader blob failed");
+    }
+    compressed.resize(compressed_size);
+
+    std::cout << "Packed " << offsets.size() << " shaders: " << arena.size() << " -> "
+              << compressed_size << " bytes ("
+              << (static_cast<double>(arena.size()) / static_cast<double>(compressed_size))
+              << "x)" << std::endl;
+
+    std::stringstream src = make_generic_stringstream();
+    src << "#include \"" << basename(target_hpp) << "\"\n\n";
+    src << "#include <cstdint>\n";
+    src << "#include <cstdio>\n";
+    src << "#include <cstdlib>\n\n";
+    src << "#include \"LzmaDec.h\"\n\n";
+
+    src << "// Filled once at startup by ggml_vk_shaders_load(); zero initialized so it lives in .bss\n";
+    src << "// and costs no space in the executable file.\n";
+    src << "alignas(16) unsigned char g_shader_arena[" << arena.size() << "];\n\n";
+
+    src << "const unsigned char g_shader_props[" << props.size() << "] = {";
+    for (size_t i = 0; i < props.size(); ++i) {
+        src << (i ? ", " : "") << "0x" << std::hex << static_cast<int>(props[i]) << std::dec;
+    }
+    src << "};\n\n";
+
+    src << "static const unsigned char g_shader_blob[" << compressed.size() << "] = {\n" << std::hex;
+    for (size_t i = 0; i < compressed.size(); ++i) {
+        src << "0x" << static_cast<int>(compressed[i]) << ",";
+        if ((i + 1) % 16 == 0) src << "\n";
+    }
+    src << std::dec << "\n};\n\n";
+
+    src << "static void * tk_shader_alloc(ISzAllocPtr, size_t size) { return malloc(size); }\n";
+    src << "static void tk_shader_free(ISzAllocPtr, void * address) { free(address); }\n";
+    src << "static const ISzAlloc g_shader_alloc = { tk_shader_alloc, tk_shader_free };\n\n";
+
+    for (const auto &pair : offsets) {
+        src << "const unsigned char * const " << pair.first << "_data = g_shader_arena + " << pair.second << ";\n";
+    }
+    src << "\n";
+
+    src << "void ggml_vk_shaders_load(void) {\n";
+    src << "    static bool loaded = false;\n";
+    src << "    if (loaded) {\n";
+    src << "        return;\n";
+    src << "    }\n";
+    src << "    SizeT dest_len = sizeof(g_shader_arena);\n";
+    src << "    SizeT src_len  = sizeof(g_shader_blob);\n";
+    src << "    ELzmaStatus status = LZMA_STATUS_NOT_SPECIFIED;\n";
+    src << "    const SRes res = LzmaDecode(g_shader_arena, &dest_len, g_shader_blob, &src_len,\n";
+    src << "                                g_shader_props, sizeof(g_shader_props),\n";
+    src << "                                LZMA_FINISH_END, &status, &g_shader_alloc);\n";
+    src << "    if (res != SZ_OK || dest_len != sizeof(g_shader_arena)) {\n";
+    src << "        std::fprintf(stderr, \"ggml_vulkan: shader blob decompression failed (res=%d, %llu/%llu bytes)\\n\",\n";
+    src << "                     static_cast<int>(res), static_cast<unsigned long long>(dest_len),\n";
+    src << "                     static_cast<unsigned long long>(sizeof(g_shader_arena)));\n";
+    src << "        std::abort();\n";
+    src << "    }\n";
+    src << "    loaded = true;\n";
+    src << "}\n";
+
+    write_file_if_changed(pack_path, src.str());
+}
+
 void write_output_files() {
     std::stringstream hdr = make_generic_stringstream();
     std::stringstream src = make_generic_stringstream();
 
     hdr << "#include <cstdint>\n\n";
+    hdr << "// Decompresses the packed shader blob into the per-shader arena. Idempotent; must be\n";
+    hdr << "// called before any <name>_data pointer is dereferenced.\n";
+    hdr << "void ggml_vk_shaders_load(void);\n\n";
     src << "#include \"" << basename(target_hpp) << "\"\n\n";
 
     std::sort(shader_fnames.begin(), shader_fnames.end());
@@ -1257,7 +1397,7 @@ void write_output_files() {
         #endif
 
         hdr << "extern const uint64_t " << name << "_len;\n";
-        hdr << "extern const unsigned char " << name << "_data[];\n\n";
+        hdr << "extern const unsigned char * const " << name << "_data;\n\n";
 
         if (input_filepath != "") {
             std::string data = read_binary_file(path);
@@ -1266,13 +1406,6 @@ void write_output_files() {
             }
 
             src << "const uint64_t " << name << "_len = " << data.size() << ";\n";
-            src << "const unsigned char " << name << "_data[" << data.size() << "] = {\n" << std::hex;
-            auto bytes = reinterpret_cast<const uint8_t*>(data.data());
-            for (size_t i = 0; i < data.size(); ++i) {
-                src << "0x" << static_cast<int>(bytes[i]) << ",";
-                if ((i + 1) % 12 == 0) src << "\n";
-            }
-            src << std::dec << "\n};\n\n";
         }
     }
 
@@ -1417,12 +1550,29 @@ int main(int argc, char** argv) {
     if (args.find("--target-cpp") != args.end()) {
         target_cpp = args["--target-cpp"]; // Path to generated cpp file
     }
+    if (args.find("--pack") != args.end()) {
+        pack_cpp = args["--pack"]; // Path to the translation unit holding the packed shader blob
+    }
 
     if (!directory_exists(output_dir)) {
         if (!create_directory(output_dir)) {
             std::cerr << "Error creating output directory: " << output_dir << "\n";
             return EXIT_FAILURE;
         }
+    }
+
+    if (pack_cpp != "") {
+        if (target_hpp == "") {
+            std::cerr << "vulkan-shaders-gen: --pack requires --target-hpp\n";
+            return EXIT_FAILURE;
+        }
+        try {
+            write_packed_shaders(pack_cpp);
+        } catch (const std::exception &e) {
+            std::cerr << "vulkan-shaders-gen: " << e.what() << "\n";
+            return EXIT_FAILURE;
+        }
+        return EXIT_SUCCESS;
     }
 
     process_shaders();

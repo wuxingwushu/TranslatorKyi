@@ -27,6 +27,13 @@ endif()
 
 set(TK_ENV "${CMAKE_CURRENT_SOURCE_DIR}/Environment")
 
+# LZMA SDK（公有领域）源码，仅用于把 Vulkan 着色器压缩进 exe：
+# 构建期用 LzmaEnc 压成单条流，运行期用 LzmaDec 解压到 .bss arena。
+set(TK_LZMA_SDK_DIR "${TK_ENV}/lzma-sdk")
+if(NOT EXISTS "${TK_LZMA_SDK_DIR}/LzmaDec.c")
+	set(TK_LZMA_SDK_DIR "")
+endif()
+
 # 所有第三方库统一按静态库编译（工程最终产物是单个 exe）
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
@@ -420,3 +427,32 @@ set_target_properties(TranslatorKyi PROPERTIES
 	LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup"
 	LINK_FLAGS_MINSIZEREL     "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup"
 )
+
+# ==============================================================================
+#  SwiftShader（CPU 软件渲染）运行库：编译后复制到 exe 同级目录
+#
+#  机器上没装显卡 Vulkan 驱动时，Vulkan/instance.cpp 的 ensureVulkanIcdAvailable()
+#  会在 exe 同级目录找 vk_swiftshader_icd.json，找到就把它的路径写进 VK_DRIVER_FILES /
+#  VK_ICD_FILENAMES 交给 loader，从而以 CPU 软件渲染启动（见 Vulkan/instance.cpp:427-437）。
+#
+#  ⚠ 两个文件必须放在同一个目录：icd json 里的 library_path 是相对路径
+#     ".\\vk_swiftshader.dll"，只有 dll 与 json 同级时 loader 才找得到它。
+#  ⚠ 用 POST_BUILD，不要用上面那种 configure 期的 execute_process：那样只在 configure
+#     时跑一次，clean 或重建构建树之后 exe 目录里就没有这两个文件了。
+# ==============================================================================
+set(TK_SWIFTSHADER_DIR "${PROJECT_SOURCE_DIR}/SwiftShader")
+if(EXISTS "${TK_SWIFTSHADER_DIR}/vk_swiftshader_icd.json" AND EXISTS "${TK_SWIFTSHADER_DIR}/vk_swiftshader.dll")
+	add_custom_command(TARGET TranslatorKyi POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+			"${TK_SWIFTSHADER_DIR}/vk_swiftshader_icd.json"
+			"${TK_SWIFTSHADER_DIR}/vk_swiftshader.dll"
+			"$<TARGET_FILE_DIR:TranslatorKyi>"
+		COMMENT "复制 SwiftShader（CPU 软件渲染）到 exe 目录"
+		VERBATIM
+	)
+	message(STATUS "SwiftShader: 已配置 POST_BUILD 复制（源: ${TK_SWIFTSHADER_DIR}）")
+else()
+	message(WARNING
+		"SwiftShader: 缺少 ${TK_SWIFTSHADER_DIR} 下的 vk_swiftshader_icd.json / vk_swiftshader.dll，"
+		"不会复制到 exe 目录；没有显卡 Vulkan 驱动的机器将无法自动降级到 CPU 软件渲染。")
+endif()

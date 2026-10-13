@@ -37,7 +37,18 @@ if (GGML_VULKAN_SHADER_DEBUG_INFO)
 endif()
 
 set(TARGET vulkan-shaders-gen)
-add_executable(${TARGET} vulkan-shaders-gen.cpp)
+add_executable(${TARGET}
+    vulkan-shaders-gen.cpp
+    ${TK_LZMA_SDK_DIR}/LzmaEnc.c
+    ${TK_LZMA_SDK_DIR}/LzFind.c
+    ${TK_LZMA_SDK_DIR}/LzFindOpt.c
+    ${TK_LZMA_SDK_DIR}/Alloc.c
+    ${TK_LZMA_SDK_DIR}/CpuArch.c
+)
 install(TARGETS ${TARGET} RUNTIME)
 target_compile_features(${TARGET} PRIVATE cxx_std_17)
+target_include_directories(${TARGET} PRIVATE ${TK_LZMA_SDK_DIR})
+# Single threaded LZMA encoder: the generator runs once per build and does not need the
+# multithreaded matcher (which would pull in Threads/LzFindMt and add startup cost).
+target_compile_definitions(${TARGET} PRIVATE Z7_ST)
 target_link_libraries(vulkan-shaders-gen PUBLIC Threads::Threads)

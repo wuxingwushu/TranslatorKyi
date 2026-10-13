@@ -33,12 +33,28 @@ int main() {
 	SetConsoleOutputCP(CP_UTF8);
 	SetConsoleCP(CP_UTF8);
 
-	//防止软件多开
-	if (FindWindow(NULL, "TranslatorKyi"))
+	//防止软件多开：用命名互斥量判定，不能用 FindWindow(NULL, "TranslatorKyi")。
+	//原因（实测踩过）：FindWindow 只按窗口标题匹配，会命中标题恰好也叫 "TranslatorKyi" 的
+	//资源管理器文件夹窗口（class=CabinetWClass）——于是明明没有任何本程序实例在跑，
+	//程序也会弹 "Software Started" 然后直接退出；而且这一步在 SpdLogInit() 之前，
+	//连日志都不会留下，现场表现为"启动约 3 秒后静默退出、logs/Error.txt 一字节不增"。
+	//互斥量的语义正好是这里要的：
+	//  1) 只认本程序创建的命名内核对象，任何同名窗口（Explorer、记事本……）都干扰不了；
+	//  2) 进程无论正常退出还是崩溃，句柄都由内核回收，不会像锁文件那样留下"僵尸锁"。
+	//不用"按窗口类名 FindWindow"是因为那要依赖 GLFW 的内部类名（"GLFW30" 之类），
+	//属于实现细节，GLFW 升级就可能变；互斥量没有这个耦合。
+	//句柄故意不关闭：要一直持有到进程结束，提前 CloseHandle 等于提前放行第二个实例。
+	static HANDLE SingleInstanceMutex = CreateMutexW(NULL, TRUE, L"TranslatorKyi.SingleInstance");
+	if (SingleInstanceMutex != NULL && GetLastError() == ERROR_ALREADY_EXISTS)
 	{
+		//已有实例持有同名互斥量。注意 CreateMutex 在"已存在"时并不会把所有权给我们，
+		//所以这里只能关句柄，不能 ReleaseMutex。
+		CloseHandle(SingleInstanceMutex);
 		ShowUtf8MessageBox("Software Started", "Error");
 		return FALSE;
 	}
+	//CreateMutex 失败（极罕见，比如内核对象耗尽）时不拦启动：宁可多开一个，
+	//也不要让用户完全打不开程序。
 
 	Variable::ReadFile(iniData);
 	Language::ReadFile(Variable::Language);

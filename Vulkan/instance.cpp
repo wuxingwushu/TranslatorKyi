@@ -406,10 +406,16 @@ namespace VulKan {
 	//只写一个的话，另一代的 loader 就看不见这份 ICD。
 	static bool enableSwiftShaderIcd(const std::filesystem::path& manifestPath) {
 		if (!icdManifestLooksUsable(manifestPath)) return false;
-		const std::string text = manifestPath.string();
-		::SetEnvironmentVariableA("VK_DRIVER_FILES", text.c_str());
-		::SetEnvironmentVariableA("VK_ICD_FILENAMES", text.c_str());
-		VulkanDiag("[Vulkan] 已自动启用 SwiftShader（CPU 软件渲染）：%s\n", text.c_str());
+		//环境变量必须用宽字符版设置：manifestPath.string() 要把路径转成系统 ANSI 代码页，
+		//路径里只要有该代码页表示不了的字符（比如用户名是中文的 %LOCALAPPDATA%）就会抛
+		//"No mapping for the Unicode character exists in the target multi-byte code page."
+		//而 wstring() 是纯宽字符，任何路径都不会失败。SetEnvironmentVariableW 同时会通知
+		//UCRT 更新它的窄环境副本，所以 loader 里的 getenv 照样读得到。
+		const std::wstring wideText = manifestPath.wstring();
+		::SetEnvironmentVariableW(L"VK_DRIVER_FILES", wideText.c_str());
+		::SetEnvironmentVariableW(L"VK_ICD_FILENAMES", wideText.c_str());
+		//日志走 UTF-8（日志系统与界面都按 UTF-8 认），u8string() 同样不会失败。
+		VulkanDiag("[Vulkan] 已自动启用 SwiftShader（CPU 软件渲染）：%s\n", manifestPath.u8string().c_str());
 		return true;
 	}
 

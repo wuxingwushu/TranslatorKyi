@@ -355,6 +355,15 @@ namespace GAME {
 				}
 			}
 			mButton = (GetKeyState(Variable::Screenshotkey[0]) < 0);
+
+			//唤出空白翻译窗口（组合键 + Translatekey，默认 Alt+T）。
+			//和上面几个一样做边沿检测：按住不放时 GetKeyState 一直是负的，
+			//不判边沿的话每帧都会 SetInterFace() 一次，窗口会被反复挪回鼠标位置、根本没法用。
+			const bool TranslateKeyDown = (GetKeyState(Variable::Translatekey[0]) < 0);
+			if (TranslateKeyDown && (TranslateKeyDown != mTranslateButton)) {
+				InterFace->ShowBlankTranslateWindow();
+			}
+			mTranslateButton = TranslateKeyDown;
 		}
 	}
 

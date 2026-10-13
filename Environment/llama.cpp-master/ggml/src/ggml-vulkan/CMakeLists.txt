@@ -190,6 +190,7 @@ if (Vulkan_FOUND)
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/$<CONFIG>
                    -DCMAKE_INSTALL_BINDIR=.
                    -DCMAKE_BUILD_TYPE=$<CONFIG>
+                   -DTK_LZMA_SDK_DIR=${TK_LZMA_SDK_DIR}
                    ${VULKAN_SHADER_GEN_CMAKE_ARGS}
 
         BUILD_COMMAND ${CMAKE_COMMAND} --build . --config $<CONFIG>
@@ -256,6 +257,29 @@ if (Vulkan_FOUND)
         target_sources(ggml-vulkan PRIVATE ${_ggml_vk_target_cpp})
         list(APPEND _ggml_vk_generated_shader_files ${_ggml_vk_target_cpp})
     endforeach()
+
+    # All .spv files are also packed into a single LZMA compressed blob held in one translation
+    # unit. The per-shader <name>_data symbols become constant pointers into a .bss arena that the
+    # blob is decompressed into at startup, which keeps ~40 MB of SPIR-V out of the executable.
+    if (TK_LZMA_SDK_DIR)
+        set (_ggml_vk_packed_cpp "${CMAKE_CURRENT_BINARY_DIR}/ggml-vulkan-shaders-packed.cpp")
+        add_custom_command(
+            OUTPUT  ${_ggml_vk_packed_cpp}
+            COMMAND ${_ggml_vk_genshaders_cmd}
+                --pack       ${_ggml_vk_packed_cpp}
+                --output-dir ${_ggml_vk_output_dir}
+                --target-hpp ${_ggml_vk_header}
+            DEPENDS ${_ggml_vk_generated_shader_files}
+                    ${_ggml_vk_shaders_gen_sources}
+                    vulkan-shaders-gen
+            COMMENT "Pack vulkan shaders into a compressed blob"
+        )
+        target_sources(ggml-vulkan PRIVATE ${_ggml_vk_packed_cpp})
+        list(APPEND _ggml_vk_generated_shader_files ${_ggml_vk_packed_cpp})
+
+        target_sources(ggml-vulkan PRIVATE ${TK_LZMA_SDK_DIR}/LzmaDec.c)
+        target_include_directories(ggml-vulkan PRIVATE ${TK_LZMA_SDK_DIR})
+    endif()
 
     source_group("Vulkan shaders" FILES ${_ggml_vk_shader_files})
     source_group("Generated Vulkan shaders" FILES ${_ggml_vk_generated_shader_files})

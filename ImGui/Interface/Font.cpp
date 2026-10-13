@@ -23,7 +23,12 @@ namespace GAME {
 			return false;
 		}
 		std::error_code ec;
-		return std::filesystem::is_regular_file(FilePath, ec) && !ec;
+		//必须用 u8path()：FilePath 是 UTF-8 的 std::string，而 std::filesystem 的窄字符
+		//构造函数按系统 ANSI 代码页解释它，非 ASCII 名字会转换失败并抛
+		//"No mapping for the Unicode character exists in the target multi-byte code page."
+		//注意这个异常是在"把 std::string 隐式构造成 path"时抛的，发生在进入函数体之前，
+		//所以这里的 ec 重载挡不住它 —— 只有 u8path() 能避免。
+		return std::filesystem::is_regular_file(std::filesystem::u8path(FilePath), ec) && !ec;
 	}
 
 	//./TTF 目录里按文件名排序的第一个 ttf（用户换字体文件后不用改代码）
@@ -39,12 +44,13 @@ namespace GAME {
 			if (!Entry.is_regular_file(EntryEc)) {
 				continue;
 			}
-			std::string Extension = Entry.path().extension().string();
+			//同样用 u8string()：目录里可能有 ANSI 表示不了的文件名，string() 会直接抛异常
+			std::string Extension = Entry.path().extension().u8string();
 			for (size_t i = 0; i < Extension.size(); i++) {
 				Extension[i] = (char)std::tolower((unsigned char)Extension[i]);
 			}
 			if (Extension == ".ttf") {
-				Files.push_back(Entry.path().string());
+				Files.push_back(Entry.path().u8string());
 			}
 		}
 		if (Files.empty()) {
