@@ -437,8 +437,13 @@ namespace GAME {
 			Variable::SaveFile();
 		}
 
-		//「X」固定在右上角
+		//「X」固定在右上角：按内容区右边缘反推出按钮左边缘应该在的 X，再让光标跳过去。
+		//引擎名很长时（比如本地 AI 模型的名字）算出来的位置会落到按钮左边，
+		//那种情况下保持紧跟其后，避免两个按钮叠在一起。
+		const float CloseBtnWidth = ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+		const float CloseOffsetX = ImGui::GetWindowContentRegionMax().x - CloseBtnWidth;
 		ImGui::SameLine(0);
+		if (CloseOffsetX > ImGui::GetCursorPosX()) { ImGui::SetCursorPosX(CloseOffsetX); }
 		if (ImGui::Button("X")) {
 			//关掉窗口，并且**记住是用户关的**：后台翻译/识别的结果回来时不能再把窗口弹出来，
 			//否则刚点完「X」结果一到窗口又冒出来，等于关不掉。
