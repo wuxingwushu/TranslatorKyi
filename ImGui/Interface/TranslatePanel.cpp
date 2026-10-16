@@ -2,6 +2,7 @@
 #include "InterfaceInternal.h"
 #include "../../AngelScript/AngelScriptCode.h"
 #include "../../Function/tesseract.h"
+#include <cstdio>//翻译记录落盘用的 fgetc/fwrite/fclose
 
 // =====================================================================================
 // 翻译内容显示界面（TranslateInterface）+ 翻译任务编排
@@ -99,6 +100,149 @@ namespace GAME {
 			}
 			return Work;
 		}
+	}
+
+	// =====================================================================================
+	// 翻译记录（只留最近 20 条）
+	// -------------------------------------------------------------------------------------
+	//  存放位置：与 Data.ini 同目录的 TranslateHistory.dat。
+	//  格式：长度前缀的纯文本 —— 每条记录先写「字节数 + 换行」，再写原始字节 + 换行，
+	//        原文/译文各一段。译文里本来就有换行和空格（自动换行/多段），
+	//        按行读会被拆散，所以不能一行一条。
+	// =====================================================================================
+	namespace {
+		constexpr int TranslateHistoryMax = 20;//只保留最近 20 次翻译
+		const char* TranslateHistoryPath = "./TranslateHistory.dat";
+	}
+
+	//把多行文本压成一行：列表里每条记录只占一行，换行/制表符都换成空格
+	//（声明在 InterfaceInternal.h，设置页的「翻译记录」也用同一个）
+	std::string HistoryOneLine(const std::string& Text) {
+		std::string Out = Text;
+		for (char& Ch : Out) {
+			if ((Ch == '\r') || (Ch == '\n') || (Ch == '\t')) { Ch = ' '; }
+		}
+		return Out;
+	}
+
+	void ImGuiInterFace::TranslateHistoryLoad()
+	{
+		TranslateHistoryLoaded = true;
+		TranslateHistoryList.clear();
+
+		FILE* File = TOOL::OpenUtf8File(TranslateHistoryPath, L"rb");
+		if (File == nullptr) { return; }//第一次运行：还没有这个文件，正常
+
+		//长度前缀读取：先读字节数，再按字节数读原文（内容里的换行不影响解析）
+		auto ReadField = [&](std::string& Out) -> bool {
+			int Length = -1;
+			if (fscanf(File, "%d", &Length) != 1) { return false; }
+			if (fgetc(File) == EOF) { return false; }//吃掉长度行末尾的换行
+			if (Length < 0) { return false; }
+			Out.assign((size_t)Length, '\0');
+			if ((Length > 0) && (fread(&Out[0], 1, (size_t)Length, File) != (size_t)Length)) { return false; }
+			fgetc(File);//吃掉内容末尾的换行
+			return true;
+		};
+
+		while ((int)TranslateHistoryList.size() < TranslateHistoryMax) {
+			TranslateHistoryItem Item;
+			if (!ReadField(Item.Source)) { break; }//文件读完/写坏：保留已经读到的部分
+			if (!ReadField(Item.Target)) { break; }
+			TranslateHistoryList.push_back(Item);
+		}
+		fclose(File);
+	}
+
+	void ImGuiInterFace::TranslateHistorySave()
+	{
+		FILE* File = TOOL::OpenUtf8File(TranslateHistoryPath, L"wb");
+		if (File == nullptr) {
+			TOOL::logger->warn("translate history: cannot write {}", TranslateHistoryPath);
+			return;
+		}
+		for (const TranslateHistoryItem& Item : TranslateHistoryList) {
+			fprintf(File, "%d\n", (int)Item.Source.size());
+			if (!Item.Source.empty()) { fwrite(Item.Source.data(), 1, Item.Source.size(), File); }
+			fputc('\n', File);
+			fprintf(File, "%d\n", (int)Item.Target.size());
+			if (!Item.Target.empty()) { fwrite(Item.Target.data(), 1, Item.Target.size(), File); }
+			fputc('\n', File);
+		}
+		fclose(File);
+	}
+
+	void ImGuiInterFace::TranslateHistoryAdd(const std::string& Source, const std::string& Target)
+	{
+		if (Source.empty()) { return; }//没有原文（比如翻译失败）就不记
+		if (!TranslateHistoryLoaded) { TranslateHistoryLoad(); }
+
+		//同一句原文重复翻译时只留最新那条：否则连点几次「翻译」列表就被同一句刷满了
+		for (size_t i = 0; i < TranslateHistoryList.size(); ++i) {
+			if (TranslateHistoryList[i].Source == Source) {
+				TranslateHistoryList.erase(TranslateHistoryList.begin() + i);
+				break;
+			}
+		}
+		TranslateHistoryItem Item;
+		Item.Source = Source;
+		Item.Target = Target;
+		TranslateHistoryList.insert(TranslateHistoryList.begin(), Item);//新的排最前面
+		if ((int)TranslateHistoryList.size() > TranslateHistoryMax) {
+			TranslateHistoryList.resize(TranslateHistoryMax);//超出的旧记录直接丢掉
+		}
+		TranslateHistorySave();
+	}
+
+	//「记录」按钮展开的列表：点一条把原文/译文填回窗口（不重新翻译）
+	void ImGuiInterFace::TranslateHistoryPopup()
+	{
+		if (!TranslateHistoryOpen) { return; }
+
+		const int Count = (int)TranslateHistoryList.size();
+		const float LineHeight = ImGui::GetTextLineHeight();
+		const float PadY = ImGui::GetStyle().FramePadding.y;
+		//列表高度：按条数长，但最少 4 行、最多 10 行（再多就滚动）
+		const float ListHeight = std::min(
+			std::max(LineHeight * 4.0f, LineHeight * (float)std::min(Count, 8) + PadY * 2.0f),
+			LineHeight * 10.0f);
+
+		ImGui::Separator();
+		if (ImGui::Button(Language::HistoryClear.c_str())) {
+			TranslateHistoryList.clear();
+			TranslateHistorySave();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button(Language::Close.c_str())) { TranslateHistoryOpen = false; }
+
+		if (Count == 0) {
+			ImGui::TextDisabled("%s", Language::HistoryEmpty.c_str());
+			return;
+		}
+
+		ImGui::BeginChild("##history", ImVec2(-FLT_MIN, ListHeight), true);
+		for (int i = 0; i < Count; ++i) {
+			const TranslateHistoryItem& Item = TranslateHistoryList[i];
+			//每条只画一行：多行文本压成一行，完整内容挂在 tooltip 上。
+			//用 PushID 而不是在标签后面拼 "##n"：原文里本来就可能出现 "##"，
+			//拼进去会被 ImGui 当成「显示文本/ID」的分隔符，把显示内容截断。
+			ImGui::PushID(i);
+			const std::string Label = HistoryOneLine(Item.Source);
+			if (ImGui::Selectable(Label.c_str())) {
+				//填回窗口：只改显示内容，不再发一次翻译请求
+				eng = Item.Source;
+				zhong = Item.Target;
+				Variable::eng = eng;
+				Variable::zhong = zhong;
+				TranslateHistoryOpen = false;
+				TranslateTime = clock();//窗口刚变矮，别让鼠标落到矩形外被立刻关掉
+			}
+			if (ImGui::IsItemHovered()) {
+				ImGui::SetTooltip("%s\n\n%s", Item.Source.c_str(), Item.Target.c_str());
+			}
+			ImGui::PopID();
+		}
+		ImGui::EndChild();
 	}
 
 	void ImGuiInterFace::InputTextMultilineText() {
@@ -206,6 +350,64 @@ namespace GAME {
 		return false;
 	}
 
+	//把一次「选择翻译」真正发出去（原文已经在界面上摆好了）。
+	//调用方保证此刻没有脚本在后台跑（脚本共用一个 asIScriptContext，不能并发）。
+	void ImGuiInterFace::StartSelectionTask(const std::string& English)
+	{
+		AngelScriptOpcode::AngelScriptCode* Script = AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode();
+
+		if (Script->GetOpenBool() && Variable::ScriptBool)
+		{
+			//脚本模式：整个脚本丢到后台线程里跑（脚本里的 TranslateAPI() 是同步的，不能让主循环等它），
+			//原文通过信箱交给脚本（见 AngelScriptCode::SetScriptInput），跑完由 UpdateTranslateTask() 取回。
+			Script->SetScriptInput(English);
+			ScriptRunning = Script->BeginRun(Script->ChoiceFunction);
+			if (ScriptRunning) { return; }
+
+			//脚本没起来（函数句柄为空等）：退回去走普通翻译流程，别让界面一直停在「翻译中…」
+			TOOL::logger->warn("selection translate: script did not start, falling back to translate");
+		}
+
+		//非脚本模式：交给统一入口（普通源起 HTTP 线程、本地 AI 起模型线程），
+		//它同样会摆好「翻译中…」并保证窗口显示出来
+		RequestTranslate(English);
+	}
+
+	//「选择翻译」（Alt+Q / Ctrl+Q）：和截图翻译一样，窗口必须**一按就出来**。
+	//以前脚本模式是在主循环里同步 RunFunction(ChoiceFunction) 的：脚本里的 TranslateAPI() 是同步接口，
+	//要等翻译回来才返回，于是调用方那句 SetInterFace(TranslateEnum) 得到译文算完才执行 ——
+	//用户看到的就是「按下快捷键后卡一下，窗口才出来」。现在顺序倒过来：
+	//先把原文 +「翻译中…」摆上并显示窗口，脚本 / HTTP / AI 全在它背后跑，
+	//结果由 UpdateTranslateTask() 每帧填回界面（和截图翻译完全同一条路）。
+	void ImGuiInterFace::BeginSelectionTranslate(const std::string& English)
+	{
+		AngelScriptOpcode::AngelScriptCode* Script = AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode();
+
+		//先把界面摆上：原文 +「翻译中…」。这是用户自己发起的新一轮翻译，用 SetInterFace()
+		//（它会顺带清掉 TranslateWindowClosed，所以之前用「X」关过窗口现在也能重新弹出来）。
+		Variable::eng = English;
+		Variable::zhong = Language::Translating;
+		eng = Variable::eng;
+		zhong = Variable::zhong;
+		SetInterFace(TranslateEnum);
+
+		//脚本模式、且上一次脚本还在后台跑（AI 源可能几十秒）：
+		//**排队**等它跑完，绝不能在这里等 —— 那是主线程上的 join，界面会整个卡死（用户报的卡死就是这个）。
+		//连按多次时只保留最后一次要翻的文本。
+		if ((Script->GetOpenBool() && Variable::ScriptBool) && Script->IsRunning())
+		{
+			SelectionPending = true;
+			PendingSelectionText = English;
+			return;
+		}
+
+		//上一次脚本刚好跑完、而主循环还没来得及收走（ScriptRunning 还挂着）：
+		//先在这里结算掉，免得 UpdateTranslateTask() 把这次残留当成「本次脚本刚结束」而提前 return。
+		if (ScriptRunning && !Script->IsRunning()) { ScriptRunning = false; }
+
+		StartSelectionTask(English);
+	}
+
 	//主循环每帧一次：刷新进度文案 + 取回结果
 	void ImGuiInterFace::UpdateTranslateTask()
 	{
@@ -218,13 +420,33 @@ namespace GAME {
 		{
 			//跑完之前把滞留计时续上，别让窗口被 DoYouWantToUpdateTheScreen() 提前关掉
 			if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum)) { TranslateTime = clock(); }
-			if (AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->IsRunning()) { return; }//还没跑完
+			AngelScriptOpcode::AngelScriptCode* Script = AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode();
+			if (Script->IsRunning()) { return; }//还没跑完
 
-			//跑完了：脚本里的 SetInput()/SetOutput() 已经把原文/译文写好，同步到界面并开始计时
 			ScriptRunning = false;
-			eng = Variable::eng;
-			zhong = Variable::zhong;
+
+			//排队中的新一轮「选择翻译」：用户已经按过了，界面上摆的是新原文 +「翻译中…」。
+			//这一轮的旧结果直接丢掉（不然会把用户眼前的新一轮覆盖成上一句的译文），接着发新的。
+			if (SelectionPending)
+			{
+				StartPendingSelection();
+				return;
+			}
+
+			//跑完了：脚本通过信箱写回的原文/译文同步到界面并开始计时
+			eng = Script->ScriptInput();
+			zhong = Script->ScriptOutput();
+			Variable::eng = eng;
+			Variable::zhong = zhong;
+			TranslateHistoryAdd(eng, zhong);//记一笔（选择翻译/截图脚本走的都是这条路）
 			if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum)) { TranslateTime = clock(); }
+			return;
+		}
+
+		//没有脚本在跑：把排队中的「选择翻译」发出去（上一次脚本已经结束、排队的那次终于轮到）
+		if (SelectionPending)
+		{
+			StartPendingSelection();
 			return;
 		}
 
@@ -234,6 +456,7 @@ namespace GAME {
 		{
 			ScriptPending = false;
 			ScriptRunning = true;
+			AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->SetScriptInput(Variable::eng);
 			AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->BeginRun(
 				AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->ScreenshotFunction
 			);
@@ -295,6 +518,7 @@ namespace GAME {
 			Variable::zhong = Result;
 			eng = Variable::eng;
 			zhong = Variable::zhong;
+			TranslateHistoryAdd(Source, Result);//原文用 Source：eng 可能已经被用户改过
 			//译文已经写进界面了：显示时长（Variable::DisplayTime）从这一刻才开始算。
 			if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum))
 			{
@@ -362,7 +586,7 @@ namespace GAME {
 		Variable::eng = AiTaskSourceText;
 		eng = Variable::eng;
 		zhong = Variable::zhong;
-
+		TranslateHistoryAdd(AiTaskSourceText, zhong);//原文用 AiTaskSourceText：eng 可能已经被用户改过
 		if (GetInterFaceBool() && (GetInterFaceEnum() == TranslateEnum))
 		{
 			//窗口已经开着：只续时间，别再 SetInterFace()（那会把窗口重新挪到鼠标位置）
@@ -413,8 +637,10 @@ namespace GAME {
 		ImGui::SetNextWindowSizeConstraints(ImVec2(std::min(300.0f, TrWorkWidth), std::min(160.0f, TrWorkHeight)), ImVec2(FLT_MAX, FLT_MAX));
 		ImGui::Begin(u8"TranslateUI", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);//创建窗口
 
-		//下拉框展开时鼠标落在弹出窗口上，主窗口的命中测试会失败——用 KeepAliveBool 把滞留计时续上
-		KeepAliveBool = ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) || ImGui::IsWindowHovered();
+		//下拉框展开时鼠标落在弹出窗口上，主窗口的命中测试会失败——用 KeepAliveBool 把滞留计时续上。
+		//ChildWindows 标志不能少：翻译记录列表是子窗口，鼠标停在子窗口上时父窗口的
+		//IsWindowHovered() 默认返回 false，不加这个标志的话用户正在翻记录、窗口却被自动关掉。
+		KeepAliveBool = ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) || ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
 
 		//Data.ini 里的语言列表可能被改短，下标兜个底
 		const int LangCount = (int)Variable::Baiduitems.size();
@@ -550,9 +776,19 @@ namespace GAME {
 			TOOL::CopyToClipboard(TOOL::Utf8ToUnicode(zhong.c_str()));
 		}
 		ImGui::EndDisabled();
+		ImGui::SameLine();
+		//「记录」：展开/收起翻译记录列表（点一条把原文/译文填回窗口，不重新翻译）
+		if (ImGui::Button(Language::History.c_str(), ImVec2(80.0f, 0.0f))) {
+			TranslateHistoryOpen = !TranslateHistoryOpen;
+			if (TranslateHistoryOpen && !TranslateHistoryLoaded) { TranslateHistoryLoad(); }
+		}
 
 		//译文
 		InputTextMultilineString("##zhong", zhong, ImVec2(-FLT_MIN, ZhongBoxHeight), flags, MyText);
+
+		//记录列表画在译文框下面：它在主窗口内部展开，窗口高度按内容自适应，
+		//所以不需要动 BeginWindowSizeX_2 / ChildWindowBool 那套右侧子窗口机制。
+		TranslateHistoryPopup();
 
 		//自适应尺寸：宽度只在拖动时记（默认 380，最小 300——但屏幕比 300 还窄时以屏幕为准），
 		//高度永远等于内容实际需要的高度

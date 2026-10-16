@@ -9,7 +9,7 @@
 // =====================================================================================
 // 设置界面（SetUpInterface）
 // -------------------------------------------------------------------------------------
-// 原先 Interface.cpp 里 1186 行的单个巨型函数，现按左侧 8 个分类拆开：
+// 原先 Interface.cpp 里 1186 行的单个巨型函数，现按左侧 9 个分类拆开：
 //   InitSettingsState()          —— 打开设置界面时把当前配置读进「待编辑」状态
 //   DrawSettingsNav()            —— 左侧分类导航
 //   DrawSettingsTranslate()      —— 页0 翻译服务
@@ -19,7 +19,8 @@
 //   DrawSettingsInterface()      —— 页4 界面（再分 字体 / 渲染设备 / 其它 三个子段）
 //   DrawSettingsHitokoto()       —— 页5 一言
 //   DrawSettingsBackup()         —— 页6 备份（坚果云 WebDav）+ 备份恢复
-//   DrawSettingsAbout()          —— 页7 关于
+//   DrawSettingsHistory()        —— 页7 翻译记录（与翻译窗口「记录」按钮共用数据）
+//   DrawSettingsAbout()          —— 页8 关于
 //   SaveSettings()               —— 保存动作（底部按钮 / Ctrl+S 共用）
 // 各段共享的「待编辑」状态集中在文件内的 SettingsState（等价于原来的函数内 static）。
 // =====================================================================================
@@ -476,20 +477,20 @@ namespace GAME {
 		S.SavedTime = clock();
 	}
 
-	//左侧分类导航（8 个分类）
+	//左侧分类导航（9 个分类）
 	void ImGuiInterFace::DrawSettingsNav()
 	{
 		const ImVec4 AccentColor(0.282f, 0.780f, 0.486f, 1.0f);
 		const ImU32 AccentU32 = ImGui::GetColorU32(AccentColor);
 		const float FooterH = ImGui::GetFrameHeightWithSpacing() + 8.0f;
-		const char* NavItems[8] = {
+		const char* NavItems[9] = {
 			Language::NavTranslate.c_str(), Language::NavAI.c_str(), Language::NavHotkey.c_str(), Language::NavGeneral.c_str(),
-			Language::NavInterface.c_str(), Language::NavHitokoto.c_str(), Language::NavBackup.c_str(), Language::NavAbout.c_str()
+			Language::NavInterface.c_str(), Language::NavHitokoto.c_str(), Language::NavBackup.c_str(), Language::NavHistory.c_str(), Language::NavAbout.c_str()
 		};
 
 		ImGui::BeginChild("##nav", ImVec2(132.0f, -FooterH), true);
 		{
-			for (int i = 0; i < 8; i++)
+			for (int i = 0; i < 9; i++)
 			{
 				ImGui::PushID(i);
 				const bool Selected = (S.SetPage == i);
@@ -1315,6 +1316,49 @@ namespace GAME {
 	}
 
 	//页7 关于
+	//页7 翻译记录：查看/管理翻译窗口记下的最近 20 条（数据与「记录」按钮共用，见 TranslatePanel.cpp）
+	//  点一条 = 把它的译文复制到剪贴板；清空 = 删掉全部记录并落盘。
+	void ImGuiInterFace::DrawSettingsHistory()
+	{
+		if (!TranslateHistoryLoaded) { TranslateHistoryLoad(); }
+
+		ImGui::Spacing();
+		if (ImGui::Button(Language::HistoryClear.c_str())) {
+			TranslateHistoryList.clear();
+			TranslateHistorySave();
+		}
+		ImGui::SameLine();
+		ImGui::TextDisabled("%s", Language::HistoryCopyHint.c_str());
+
+		const int Count = (int)TranslateHistoryList.size();
+		if (Count == 0) {
+			ImGui::Spacing();
+			ImGui::TextDisabled("%s", Language::HistoryEmpty.c_str());
+			return;
+		}
+
+		ImGui::Spacing();
+		ImGui::BeginChild("##settings_history", ImVec2(-FLT_MIN, 0.0f), true);
+		for (int i = 0; i < Count; ++i) {
+			const TranslateHistoryItem& Item = TranslateHistoryList[i];
+			//一条记录一行：「原文 → 译文」压成一行，Selectable 自动裁掉画不下的部分，
+			//完整内容挂 tooltip。点一行 = 把这条的译文复制到剪贴板（和翻译窗口里点记录填回窗口不同，
+			//设置页不在翻译流程里，复制是最直接的用途）。
+			ImGui::PushID(i);
+			const std::string Label = HistoryOneLine(Item.Source) + " → " + HistoryOneLine(Item.Target);
+			if (ImGui::Selectable(Label.c_str())) {
+				//记录里存的是 UTF-8，按剪贴板工具的约定转成系统编码再写入（和翻译窗「复制译文」一致）
+				TOOL::CopyToClipboard(TOOL::Utf8ToUnicode(Item.Target));
+			}
+			if (ImGui::IsItemHovered()) {
+				ImGui::SetTooltip("%s\n\n%s", Item.Source.c_str(), Item.Target.c_str());
+			}
+			ImGui::PopID();
+		}
+		ImGui::EndChild();
+	}
+
+	//页8 关于
 	void ImGuiInterFace::DrawSettingsAbout()
 	{
 		ImGui::TextUnformatted(Language::AboutText.c_str());
@@ -1337,9 +1381,9 @@ namespace GAME {
 		const ImVec4 AccentColor(0.282f, 0.780f, 0.486f, 1.0f);
 		const ImU32 AccentU32 = ImGui::GetColorU32(AccentColor);
 		//每页第一行的小标题：AI/快捷键沿用原来的段标题，其余用导航名
-		const char* PageTitles[8] = {
+		const char* PageTitles[9] = {
 			Language::NavTranslate.c_str(), Language::AIModel.c_str(), Language::ShortcutKeys.c_str(), Language::NavGeneral.c_str(),
-			Language::NavInterface.c_str(), Language::NavHitokoto.c_str(), Language::NavBackup.c_str(), Language::NavAbout.c_str()
+			Language::NavInterface.c_str(), Language::NavHitokoto.c_str(), Language::NavBackup.c_str(), Language::NavHistory.c_str(), Language::NavAbout.c_str()
 		};
 
 		ImGui::SetNextWindowSize(ImVec2(760.0f, 640.0f), ImGuiCond_FirstUseEver);//第一次显示时的默认大小
@@ -1383,7 +1427,8 @@ namespace GAME {
 			case 4: DrawSettingsInterface(); break;//界面
 			case 5: DrawSettingsHitokoto(); break;//一言
 			case 6: DrawSettingsBackup(); break;//备份（坚果云 WebDav）
-			case 7: DrawSettingsAbout(); break;//关于
+			case 7: DrawSettingsHistory(); break;//翻译记录
+			case 8: DrawSettingsAbout(); break;//关于
 			default: S.SetPage = 0; break;
 			}
 

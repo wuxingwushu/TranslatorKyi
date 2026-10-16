@@ -3,6 +3,8 @@
 #include <thread>
 #include <atomic>
 #include <memory>
+#include <mutex>
+#include <string>
 #include "scriptbuilder.h"      //拓展 #include
 #include "../Function/Translate.h"
 
@@ -37,6 +39,16 @@ namespace AngelScriptOpcode {
 			return mOpen;
 		}
 
+		// —— 脚本信箱：脚本与外界交换原文/译文的地方（内部加锁，脚本线程和主线程都会碰）——
+		//以前脚本里的 GetInput()/SetInput()/SetOutput() 直接读写全局的 Variable::eng / Variable::zhong。
+		//脚本跑在后台线程，主线程这时要是也去写那两个全局（又按一次快捷键、唤出空白窗口），
+		//std::string 的赋值不是原子的：轻则读到撕裂的文本，重则释放掉对方正在用的缓冲区 —— 卡死或崩溃。
+		//现在脚本只碰自己的信箱：主线程在 BeginRun 之前 SetScriptInput()，跑完再取 ScriptInput()/ScriptOutput()。
+		void SetScriptInput(const std::string& Text);
+		void SetScriptOutput(const std::string& Text);
+		std::string ScriptInput() const;
+		std::string ScriptOutput() const;
+
 
 		// 获取脚本函数句柄
 		//替换
@@ -64,6 +76,11 @@ namespace AngelScriptOpcode {
 		//后台脚本线程
 		std::thread mScriptThread;
 		std::atomic<bool> mScriptRunning{ false };
+
+		//脚本信箱的内容（脚本线程写 mScriptOutput，主线程读写；一律走 mMailboxMutex）
+		mutable std::mutex mMailboxMutex;
+		std::string mScriptInput;
+		std::string mScriptOutput;
 
 		// AngelScript引擎
 		asIScriptEngine* engine = nullptr;

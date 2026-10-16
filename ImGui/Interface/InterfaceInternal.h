@@ -22,4 +22,7 @@ namespace GAME {
 	int FindAiModelIndex(const std::vector<std::string>& List, const std::string& CurrentPath);
 	std::string CurrentAiModelName(const std::vector<std::string>& List, int Index, const std::string& CurrentPath);
 
+	// 翻译记录：把多行文本压成一行（翻译窗口的「记录」列表和设置页的「翻译记录」共用）
+	std::string HistoryOneLine(const std::string& Text);
+
 }

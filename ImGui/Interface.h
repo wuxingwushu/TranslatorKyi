@@ -8,6 +8,7 @@
 #include "../Function/tesseract.h"
 #include "../Function/Translate.h"
 #include <filesystem>
+#include <vector>
 #include "../Function/Hitokoto.h"
 
 namespace GAME {
@@ -132,6 +133,14 @@ namespace GAME {
 		//只有 ReplaceClipboard = true（Ctrl+Alt+R）是同步的：返回 true 时 Variable::zhong 里就是译文，
 		//由调用方粘贴，并把 ClipboardBackup 还原回剪贴板。
 		bool RequestTranslate(const std::string& English, bool ReplaceClipboard = false, const std::string& ClipboardBackup = std::string());
+
+		//「选择翻译」（Alt/Ctrl+Q）的入口：和截图翻译一样，窗口必须**一按就出来**。
+		//以前脚本模式是在主循环里同步 RunFunction(ChoiceFunction)：脚本里的 TranslateAPI() 是同步接口，
+		//要等翻译回来才返回，于是 SetInterFace(TranslateEnum) 得等译文算完才执行 —— 用户看到的就是
+		//「按下快捷键后卡一下，窗口才出来」。现在把顺序倒过来：先填原文 + 「翻译中…」并显示窗口，
+		//脚本 / HTTP / AI 翻译都在它背后跑，结果由 UpdateTranslateTask() 每帧填回界面。
+		void BeginSelectionTranslate(const std::string& English);
+
 		//主循环每帧调用一次（KeyBoardEvents() 之后）：刷新「翻译中」提示、取回后台 AI 翻译结果
 		void UpdateTranslateTask();
 		//是否正在等一次「替换」的 AI 翻译（这次粘贴由 UpdateTranslateTask() 做，调用方不要再贴一遍）
@@ -268,6 +277,21 @@ namespace GAME {
 		//快捷键唤出空白窗口时，下一帧把键盘焦点放进原文框（见 TranslateInterface）。
 		bool TranslateFocusInput = false;
 
+		//翻译记录（上限 20 条，新的在最前面）。实现见 Interface/TranslatePanel.cpp。
+		//存放在 Data.ini 同目录的 TranslateHistory.dat：用独立文件而不是塞进 Data.ini，
+		//因为 ini 的 vector 值是空格分隔的，长文本/带空格的译文存进去会被拆成好几段。
+		struct TranslateHistoryItem {
+			std::string Source;//原文
+			std::string Target;//译文
+		};
+		std::vector<TranslateHistoryItem> TranslateHistoryList;
+		bool TranslateHistoryLoaded = false;//惰性加载：第一次需要记录时才读文件（翻译窗口的「记录」或设置页的「翻译记录」）
+		bool TranslateHistoryOpen = false;//记录列表是否展开
+		void TranslateHistoryLoad();
+		void TranslateHistorySave();
+		void TranslateHistoryAdd(const std::string& Source, const std::string& Target);
+		void TranslateHistoryPopup();//「记录」按钮弹出的列表
+
 		//本地 AI 模型翻译的后台任务状态（见 RequestTranslate/UpdateTranslateTask）
 		bool AiTaskRunning = false;			//有后台 AI 翻译在跑
 		bool AiTaskReplace = false;			//完成后是「替换」而不是「显示」（Ctrl+Alt+R）
@@ -281,6 +305,22 @@ namespace GAME {
 		bool ScriptAfterOcr = false;		//本次截图识别完后要跑用户的截图脚本（脚本模式）
 		bool ScriptPending = false;			//脚本等这一帧把识别出的原文画出来之后，下一帧再跑（脚本是同步接口）
 		bool ScriptRunning = false;			//脚本已经交给后台线程在跑，跑完由 UpdateTranslateTask() 把结果同步上界面
+		//「选择翻译」排队：脚本共用一个 asIScriptContext，一次只能跑一个。上一次还在后台跑时，
+		//既不能并发再起一个（BeginRun 会拒绝），也**不能等它跑完**——那是主线程上的 join，
+		//AI 源一次要几十秒，界面就卡死了。所以把这次要翻的文本先存下来，
+		//等 UpdateTranslateTask() 看到脚本跑完再发出去（用户连按多次时只保留最后一次）。
+		bool SelectionPending = false;
+		std::string PendingSelectionText;
+		//把一次「选择翻译」真正发出去（原文已经摆好，且此刻没有脚本在跑）。见 BeginSelectionTranslate。
+		void StartSelectionTask(const std::string& English);
+		//把排队中的那次「选择翻译」发出去（上一次脚本已经结束、轮到它了）。
+		void StartPendingSelection() {
+			SelectionPending = false;
+			const std::string Text = PendingSelectionText;
+			PendingSelectionText.clear();
+			//界面上已经摆着新原文 +「翻译中…」（用户按下快捷键时写的），这里只负责把它跑起来
+			StartSelectionTask(Text);
+		}
 		std::string AiTargetLangCode() const;//当前要翻译成哪种语言（Data.ini 里的代码）
 		bool ChildWindowBool = false;//右侧窗口是否显示
 		bool WhoBool;//右侧窗口显示 From 还是 To
@@ -305,7 +345,7 @@ namespace GAME {
 
 		void SetUpInterface();//设置界面（窗口骨架 + 按页分发；实现见 Interface/SettingsPanel.cpp）
 		bool SetBool = true;//界面是否是刚显示
-		//设置界面按左侧 8 个分类拆分绘制
+		//设置界面按左侧 9 个分类拆分绘制
 		void InitSettingsState();//打开设置界面时把当前配置读进「待编辑」状态
 		void DrawSettingsNav();//左侧分类导航
 		void DrawSettingsTranslate();//页0 翻译服务
@@ -319,7 +359,8 @@ namespace GAME {
 		void DrawSettingsHitokoto();//页5 一言
 		void DrawSettingsBackup();//页6 备份（坚果云 WebDav）
 		void DrawSettingsRecovery();//页6 子段：备份恢复
-		void DrawSettingsAbout();//页7 关于
+		void DrawSettingsHistory();//页7 翻译记录
+		void DrawSettingsAbout();//页8 关于
 		void SaveSettings();//保存动作（底部按钮 / Ctrl+S 共用）
 
 		void MenuInterface();//菜单界面

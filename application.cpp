@@ -271,8 +271,10 @@ namespace GAME {
 					mWindow->pollEvents();
 					Sleep(20);
 				}
-				//上一次的脚本（截图脚本）可能还在后台翻译：先等它跑完，别跟它抢 Variable::eng/zhong
-				AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->WaitRunning();
+				//上一次的脚本（截图/选择脚本）可能还在后台跑：**不要在这里等它**
+				//（WaitRunning() 是主线程上的 join，AI 源一次几十秒，界面会整个卡死）。
+				//现在原文走脚本自己的信箱、译文也是跑完才取，两边不再共享 Variable::eng/zhong；
+				//真还有脚本在跑时由 BeginSelectionTranslate() 排队，等它结束再发这次翻译。
 				std::string strS = TOOL::ClipboardTochar();//读取当前剪切板的内容，保存起来
 
 				//获取当前选择的内容 ctrl + c
@@ -280,22 +282,11 @@ namespace GAME {
 				Sleep(5);//等待上面的内容复制到剪切板上
 				
 				Variable::eng = TOOL::UnicodeToUtf8(TOOL::ClipboardTochar());//获取选中的文本
-				if (AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->GetOpenBool() && Variable::ScriptBool) {
-					//执行脚本
-					AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->RunFunction(
-						AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->ChoiceFunction
-					);
-				}
-				else
-				{
-					//普通翻译源（百度/爬虫/有道）这里同步出结果；
-					//本地 AI 模型是后台算的，结果由 UpdateTranslateTask() 显示出来
-					InterFace->RequestTranslate(Variable::eng);
-				}
-				
-				InterFace->eng = Variable::eng;
-				InterFace->zhong = Variable::zhong;
-				InterFace->SetInterFace(TranslateEnum);//设置显示类
+				//「选择翻译」界面必须一按就出来：原文本贴进界面、译文框先显示「翻译中…」并立刻显示窗口，
+				//脚本（后台线程）/ HTTP / 本地 AI 都在它背后跑，结果由 UpdateTranslateTask() 每帧填回来。
+				//以前这里脚本模式是同步 RunFunction(ChoiceFunction)：要等翻译回来才返回，
+				//下面那句 SetInterFace(TranslateEnum) 于是也得等译文算完 —— 窗口要卡一下才出现。
+				InterFace->BeginSelectionTranslate(Variable::eng);
 
 				TOOL::CopyToClipboard(strS);//还原原来剪切板的内容
 				return;
@@ -322,9 +313,12 @@ namespace GAME {
 				if (AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->GetOpenBool() && Variable::ScriptBool) {
 					//替换模式必须同步拿到译文才能立即粘贴：RunFunction 是同步入口
 					//（要是还有后台脚本在跑，它会先等那个跑完）
-					AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->RunFunction(
-						AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->ReplaceFunction
-					);
+					AngelScriptOpcode::AngelScriptCode* Script = AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode();
+					Script->SetScriptInput(Variable::eng);//脚本从信箱读原文（GetInput），不再读全局 Variable::eng
+					Script->RunFunction(Script->ReplaceFunction);
+					//脚本通过信箱写回译文（SetOutput）——下面的粘贴读的是 Variable::zhong，
+					//这里必须把它取回来，否则贴出去的是上一次的旧译文。
+					Variable::zhong = Script->ScriptOutput();
 				}
 				else
 				{

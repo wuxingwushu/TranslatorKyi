@@ -12,16 +12,20 @@ void print(std::string str) {
     std::cout << str << std::endl;
 }
 
+//脚本里读写原文/译文的地方。以前直接读写全局的 Variable::eng / Variable::zhong：
+//脚本跑在后台线程，主线程这时要是也去写那两个全局（又按了一次快捷键、唤出空白窗口），
+//std::string 的赋值不是原子的 —— 轻则读到撕裂的文本，重则释放掉对方正在用的缓冲区（卡死/崩溃）。
+//现在统一走 AngelScriptCode 内部的信箱（自带锁），脚本和主线程不再直接共享那两个全局字符串。
 std::string GetInput() {
-    return Variable::eng;
+    return AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->ScriptInput();
 }
 
 void SetInput(std::string str) {
-    Variable::eng = str;
+    AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->SetScriptInput(str);
 }
 
 void SetOutput(std::string str) {
-    Variable::zhong = str;
+    AngelScriptOpcode::AngelScriptCode::GetAngelScriptCode()->SetScriptOutput(str);
 }
 
 Translate* AngelScriptTranslate = nullptr;
@@ -151,6 +155,31 @@ namespace AngelScriptOpcode {
         }
     }
 
+    // —— 脚本信箱（实现见头文件里的说明）：脚本线程和主线程都通过它交换原文/译文 ——
+    void AngelScriptCode::SetScriptInput(const std::string& Text)
+    {
+        std::lock_guard<std::mutex> Lock(mMailboxMutex);
+        mScriptInput = Text;
+    }
+
+    void AngelScriptCode::SetScriptOutput(const std::string& Text)
+    {
+        std::lock_guard<std::mutex> Lock(mMailboxMutex);
+        mScriptOutput = Text;
+    }
+
+    std::string AngelScriptCode::ScriptInput() const
+    {
+        std::lock_guard<std::mutex> Lock(mMailboxMutex);
+        return mScriptInput;
+    }
+
+    std::string AngelScriptCode::ScriptOutput() const
+    {
+        std::lock_guard<std::mutex> Lock(mMailboxMutex);
+        return mScriptOutput;
+    }
+
     void AngelScriptCode::RunFunction(asIScriptFunction* Function) {
         //同步入口（替换模式）：要是后台脚本还在跑，先等它跑完，免得两个线程同时用一个 context
         WaitRunning();
@@ -161,6 +190,12 @@ namespace AngelScriptOpcode {
         if (Function == nullptr || context == nullptr) { return false; }
         if (mScriptRunning.load()) { return false; }//上一次还在跑（AI 翻译很慢），别用同一个 context 再开一个
         if (mScriptThread.joinable()) { mScriptThread.join(); }
+
+        //清掉上一次的译文：脚本万一中途失败没走到 SetOutput，主线程读到的不能是上一轮的旧译文
+        {
+            std::lock_guard<std::mutex> Lock(mMailboxMutex);
+            mScriptOutput.clear();
+        }
 
         mScriptRunning = true;
         mScriptThread = std::thread([this, Function]() {

@@ -208,10 +208,15 @@ namespace Language {
 	X(Set, NavInterface)					/*导航-界面*/ \
 	X(Set, NavHitokoto)						/*导航-一言*/ \
 	X(Set, NavBackup)						/*导航-备份*/ \
+	X(Set, NavHistory)						/*导航-翻译记录*/ \
 	X(Set, NavAbout)						/*导航-关于*/ \
 	X(Set, Saved)							/*提示-已保存*/ \
 	X(Set, Clear)							/*翻译窗-清空*/ \
 	X(Set, CopyResult)						/*翻译窗-复制译文*/ \
+	X(Set, History)							/*翻译窗-翻译记录*/ \
+	X(Set, HistoryEmpty)					/*翻译窗-还没有记录*/ \
+	X(Set, HistoryClear)					/*翻译窗-清空记录*/ \
+	X(Set, HistoryCopyHint)					/*设置页-点击记录复制译文的提示*/ \
 	X(Set, SwapLanguage)					/*翻译窗-互换源/目标语言*/ \
 	X(Set, Engine)							/*翻译窗-翻译源*/ \
 	X(Set, EngineHint) \
